@@ -17,19 +17,16 @@ def _extmap(*exts):
 
 class _Project:
     _NATIVE_BUILD = False
+    options = {}
 
     def __init__(self, target_name, *members, root=None, **kwargs):
         self.target_name = target_name
         self.root = Path(root or ".")
-        self.kwargs = kwargs
+        self.options = {**self.options, **kwargs}
         self._project_file = None
         self._explicit_project = False
         self._dependencies = []
         self._members = members
-        self._metadata = {}
-
-    def _get_metadata(self):
-        return self._metadata
 
     def _get_sources(self, root, globber):
         root = PurePath(root) / self.root
@@ -40,8 +37,6 @@ class _Project:
                         yield i, src, self.target_name + "\\" + dst
                     else:
                         yield i, src, dst
-            elif isinstance(m, Metadata):
-                pass
             else:
                 raise ValueError("Unsupported type '{}' in '{}'".format(
                     type(m).__name__, type(self).__name__
@@ -49,22 +44,17 @@ class _Project:
 
 
 class Package(_Project):
-    def build(self):
+    def build(self, distinfo):
         import pymsbuild
         for m in self._members:
-            if isinstance(m, Metadata):
-                self._metadata.update(m.data)
-            elif not isinstance(m, Package) and isinstance(m, _Project):
-                m.build()
-        pymsbuild._build(self)
+            if not isinstance(m, Package) and isinstance(m, _Project):
+                m.build(None)
+        pymsbuild._build((self, distinfo.data))
 
 
 class PydFile(_Project):
     _NATIVE_BUILD = True
-
-    def _get_metadata(self):
-        return {"__target_ext": ".pyd", **self._metadata}
-
+    options = {"TargetExt": ".pyd"}
 
 class Metadata:
     def __init__(self, **kwargs):

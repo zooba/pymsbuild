@@ -1,5 +1,7 @@
 import os
+from os.path import relpath
 import pymsbuild
+import shutil
 import subprocess
 import sys
 
@@ -10,51 +12,50 @@ import pymsbuild.template as template
 
 
 class BuildState:
-    def __init__(self, project, sources, build_dir, temp_dir, dist_dir):
+    def __init__(self, distinfo, project, sources, temp_dir):
+        self.distinfo = distinfo
         self.project = project
         self.sources = list(sources or [])
-        self.build_dir = build_dir
         self.temp_dir = temp_dir
-        self.dist_dir = dist_dir
 
-    def _generate_pyd(self, f):
+    def _generate_pyd(self, f, sources):
         print(template.PROLOGUE, file=f)
         print(template.VCPLATFORMS, file=f)
-        print(template.get_PROPERTIES(self.project, self.build_dir, self.temp_dir), file=f)
-        print(template.get_VCPROPERTIES(self.project), file=f)
+        print(template.get_PROPERTIES(self), file=f)
+        print(template.get_VCPROPERTIES(self), file=f)
 
         print(template.ITEMS_START, file=f)
-        for kind, src, dst in self.sources:
+        for kind, src, dst in sources:
             print(template.get_ITEM(kind, src, dst), file=f)
 
         print(template.ITEMS_END, file=f)
         print(template.VCTARGETS, file=f)
         print(template.EPILOGUE, file=f)
 
-    def _generate_lib(self, f):
+    def _generate_lib(self, f, sources):
         print(template.PROLOGUE, file=f)
-        print(template.get_PROPERTIES(self.project, self.build_dir, self.temp_dir), file=f)
+        print(template.get_PROPERTIES(self), file=f)
 
         print(template.ITEMS_START, file=f)
-        for kind, src, dst in self.sources:
+        for kind, src, dst in sources:
             print(template.get_ITEM(kind, src, dst), file=f)
 
         print(template.ITEMS_END, file=f)
         print(template.TARGETS, file=f)
         print(template.EPILOGUE, file=f)
 
-    def generate_project(self):
+    def generate(self, out_dir, sources):
         if self.project._explicit_project:
             return self.project._project_file
 
-        out = (self.temp_dir / self.project.target_name).with_suffix(".proj")
+        out = (out_dir / self.project.target_name).with_suffix(".proj")
         out.parent.mkdir(parents=True, exist_ok=True)
 
         with out.open("w", encoding="utf-8") as f:
             if self.project._NATIVE_BUILD:
-                self._generate_pyd(f)
+                self._generate_pyd(f, sources)
             else:
-                self._generate_lib(f)
+                self._generate_lib(f, sources)
         return out
 
     def generate_metadata(self, metadata_dir=None):
@@ -62,12 +63,37 @@ class BuildState:
         outdir = metadata_dir / (self.project.target_name + ".dist-info")
 
     def build(self, msbuild_exe):
-        proj_file = self.generate_project()
-        #print(msbuild_exe, proj_file)
+        proj_file = self.generate(self.temp_dir, self.sources)
+        print(msbuild_exe, proj_file)
         subprocess.check_output([
             msbuild_exe,
             proj_file,
         ])
+
+    def _layout_sdist(self, config_dir, temp_dir):
+        yield config_dir / "_msbuild.py", "_msbuild.py"
+        yield config_dir / "pyproject.toml", "pyproject.toml"
+        sources = []
+        for kind, src, name in self.sources:
+            rel = Path(src).relative_to(config_dir)
+            sources.append((kind, rel, name))
+            yield Path(src), rel
+        proj = self.generate(temp_dir, sources)
+        yield Path(proj), proj.name
+
+    def layout_sdist(self, config_dir, dest_dir):
+        config_dir = Path(config_dir)
+        dest_dir = Path(dest_dir)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        for src, dest_rel in self._layout_sdist(config_dir, dest_dir):
+            dest = dest_dir / dest_rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dest, follow_symlinks=False)
+
+    def build_sdist(self, config_dir, temp_dir, sdist):
+        config_dir = Path(config_dir)
+        for src, dest_rel in self._layout_sdist(config_dir, temp_dir):
+            sdist.add(src, dest_rel)
 
 
 def locate():

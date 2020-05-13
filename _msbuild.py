@@ -5,11 +5,11 @@ metadata = Metadata(
     version="0.0.1",
     author="Steve Dower",
     author_email="steve.dower@python.org",
+    home_page="https://github.com/zooba/pymsbuild",
 )
 
 Package(
     "pymsbuild",
-    metadata,
     PyFile.collect("pymsbuild\\*.py"),
     Package(
         "template",
@@ -17,4 +17,4 @@ Package(
         File.collect("pymsbuild\\template\\*.txt"),
         File.collect("pymsbuild\\template\\*.txt.in"),
     )
-).build()
+).build(metadata)

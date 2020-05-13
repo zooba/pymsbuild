@@ -19,21 +19,19 @@ def _guid(project):
     return uuid.uuid3(_GENERATED_NAMESPACE, project.target_name)
 
 
-def get_PROPERTIES(project, outdir, intdir):
+def get_PROPERTIES(build_state):
     return _PROPERTIES.format(
-        project=project,
-        guid=_guid(project),
-        outdir=outdir,
-        intdir=intdir,
-        **project._get_metadata(),
+        project=build_state.project,
+        guid=_guid(build_state.project),
+        distinfo=build_state.distinfo,
     )
 
 
-def get_VCPROPERTIES(project):
+def get_VCPROPERTIES(build_state):
     return _VCPROPERTIES.format(
-        project=project,
-        guid=_guid(project),
-        **project._get_metadata(),
+        project=build_state.project,
+        guid=_guid(build_state.project),
+        distinfo=build_state.distinfo,
     )
 
 

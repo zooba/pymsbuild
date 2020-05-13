@@ -2,7 +2,9 @@
     <ProjectGuid>{{{guid!s}}}</ProjectGuid>
     <RootNamespace>{project.target_name}</RootNamespace>
     <TargetName>{project.target_name}</TargetName>
-    <VersionString>{version}</VersionString>
-    <OutDir>{outdir}</OutDir>
-    <IntDir>{intdir}</IntDir>
+    <VersionString>{distinfo[version]}</VersionString>
   </PropertyGroup>
+  <Target Name="_VerifyProperties" BeforeTargets="Build">
+    <Error Text="OutDir property is required" Condition="$(OutDir) == ''" />
+    <Error Text="IntDir property is required" Condition="$(IntDir) == ''" />
+  </Target>
