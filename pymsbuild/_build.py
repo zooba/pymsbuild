@@ -90,10 +90,10 @@ class BuildState:
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src, dest, follow_symlinks=False)
 
-    def build_sdist(self, config_dir, temp_dir, sdist):
+    def build_sdist(self, config_dir, temp_dir, copy_file):
         config_dir = Path(config_dir)
         for src, dest_rel in self._layout_sdist(config_dir, temp_dir):
-            sdist.add(src, dest_rel)
+            copy_file(src, dest_rel)
 
 
 def locate():

@@ -95,23 +95,28 @@ def list_output(source_dir, output=..., globber=...):
 # PEP 517 hooks
 
 def build_sdist(sdist_directory, config_settings=None):
-    from pymsbuild._build import locate, BuildState
-    import tarfile
-    sdist_directory = Path(sdist_directory)
-    sdist_directory.mkdir(parents=True, exist_ok=True)
-    tmp_dir = _TEMP_DIR_CV.get(Path.cwd()) / "build"
+    from pymsbuild._build import BuildState
+    import gzip, io, tarfile
     for target, distinfo in get_projects():
+        tmp_dir = _TEMP_DIR_CV.get(Path.cwd()) / "build"
         name = f"{distinfo['name']}-{distinfo['version']}.tar.gz"
-        sdist = sdist_directory / name
         bs = BuildState(
             distinfo,
             target,
             target._get_sources(Path.cwd(), _path_globber),
             tmp_dir / "temp",
         )
-        #bs.layout_sdist(Path.cwd(), sdist_layout)
-        with tarfile.TarFile.open(sdist, "w", format=tarfile.PAX_FORMAT) as f:
-            bs.build_sdist(Path.cwd(), tmp_dir, f)
+        sdist_directory = Path(sdist_directory)
+        sdist_directory.mkdir(parents=True, exist_ok=True)
+        sdist = sdist_directory / name
+        with gzip.open(sdist, "w") as f_gz:
+            with tarfile.TarFile.open(
+                sdist.with_suffix(".tar"),
+                "w",
+                fileobj=f_gz,
+                format=tarfile.PAX_FORMAT
+            ) as f:
+                bs.build_sdist(Path.cwd(), tmp_dir, f.add)
         return name
 
 
