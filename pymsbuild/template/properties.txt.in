@@ -1,0 +1,8 @@
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{{{guid!s}}}</ProjectGuid>
+    <RootNamespace>{project.target_name}</RootNamespace>
+    <TargetName>{project.target_name}</TargetName>
+    <VersionString>{version}</VersionString>
+    <OutDir>{outdir}</OutDir>
+    <IntDir>{intdir}</IntDir>
+  </PropertyGroup>

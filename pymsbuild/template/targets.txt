@@ -1,0 +1,3 @@
+  <Target Name="Build" />
+  <Target Name="Clean" />
+  <Target Name="Rebuild" DependsOnTargets="Clean;Build" />

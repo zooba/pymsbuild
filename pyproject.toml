@@ -1,0 +1,10 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "pymsbuild"
+author = "Steve Dower"
+author-email = "steve.dower@python.org"
+classifiers = ["License :: OSI Approved :: MIT License"]
+
