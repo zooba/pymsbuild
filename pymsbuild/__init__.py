@@ -48,11 +48,9 @@ def build_in_place(source_dir, temp_dir):
             distinfo,
             target,
             target._get_sources(source_dir, _path_globber),
-            source_dir / target.root,
             temp_dir,
-            None,
         )
-        bs.build(msbuild_exe)
+        bs.build(source_dir / target.root, msbuild_exe)
 
 
 def build_to_dir(source_dir, temp_dir, build_dir):
@@ -63,11 +61,9 @@ def build_to_dir(source_dir, temp_dir, build_dir):
             distinfo,
             target,
             target._get_sources(source_dir, _path_globber),
-            build_dir,
             temp_dir,
-            None,
         )
-        bs.build(msbuild_exe)
+        bs.build(build_dir, msbuild_exe)
 
 
 def list_output(source_dir, output=..., globber=...):

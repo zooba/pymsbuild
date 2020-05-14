@@ -48,13 +48,21 @@ class Package(_Project):
         import pymsbuild
         for m in self._members:
             if not isinstance(m, Package) and isinstance(m, _Project):
-                m.build(None)
+                m.build(distinfo)
         pymsbuild._build((self, distinfo.data))
 
 
 class PydFile(_Project):
     _NATIVE_BUILD = True
     options = {"TargetExt": ".pyd"}
+
+    def build(self, distinfo):
+        import pymsbuild
+        for m in self._members:
+            if not isinstance(m, Package) and isinstance(m, _Project):
+                m.build(distinfo)
+        pymsbuild._build((self, distinfo.data))
+
 
 class Metadata:
     def __init__(self, **kwargs):

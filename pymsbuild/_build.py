@@ -62,13 +62,24 @@ class BuildState:
         metadata_dir = metadata_dir or self.build_dir
         outdir = metadata_dir / (self.project.target_name + ".dist-info")
 
-    def build(self, msbuild_exe):
+    def build(self, target_dir, msbuild_exe):
         proj_file = self.generate(self.temp_dir, self.sources)
-        print(msbuild_exe, proj_file)
-        subprocess.check_output([
-            msbuild_exe,
-            proj_file,
-        ])
+        print("Compiling", self.project.target_name)
+        try:
+            p = subprocess.check_output([
+                msbuild_exe,
+                proj_file,
+                "/nologo",
+                "/v:m",
+                "/p:OutDir={}\\".format(self.temp_dir),
+                "/p:IntDir={}\\".format(self.temp_dir),
+                "/p:FinalOutputDir={}\\".format(target_dir),
+            ], stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as ex:
+            print(ex.stdout.decode("mbcs", "replace"))
+            sys.exit(1)
+        else:
+            print(p.decode("mbcs", "replace"))
 
     def _layout_sdist(self, config_dir, temp_dir):
         yield config_dir / "_msbuild.py", "_msbuild.py"

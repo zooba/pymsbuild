@@ -1,4 +1,6 @@
   <PropertyGroup Label="Globals">
+    <Configuration Condition="$(Configuration) == ''">Release</Configuration>
+    <Platform Condition="$(Platform) == ''">x64</Platform>
     <ProjectGuid>{{{guid!s}}}</ProjectGuid>
     <RootNamespace>{project.target_name}</RootNamespace>
     <TargetName>{project.target_name}</TargetName>

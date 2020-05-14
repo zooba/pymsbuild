@@ -24,6 +24,7 @@ def get_PROPERTIES(build_state):
         project=build_state.project,
         guid=_guid(build_state.project),
         distinfo=build_state.distinfo,
+        **build_state.project.options,
     )
 
 
@@ -32,6 +33,7 @@ def get_VCPROPERTIES(build_state):
         project=build_state.project,
         guid=_guid(build_state.project),
         distinfo=build_state.distinfo,
+        **build_state.project.options,
     )
 
 
