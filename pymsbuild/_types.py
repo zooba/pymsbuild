@@ -1,11 +1,11 @@
 from pathlib import Path, PurePath
 
 __all__ = [
-    "Metadata",
     "Package",
     "Project",
     "PydFile",
     "PyFile",
+    "SourceFile",
     "CSourceFile",
     "IncludeFile",
     "File",
@@ -23,15 +23,17 @@ class _Project:
         self.target_name = target_name
         self.root = Path(root or ".")
         self.options = {**self.options, **kwargs}
-        self._project_file = None
-        self._explicit_project = False
         self._dependencies = []
         self._members = members
+        import pymsbuild
+        pymsbuild._PROJECTS.get().append(self)
 
     def _get_sources(self, root, globber):
         root = PurePath(root) / self.root
         for m in self._members:
-            if hasattr(m, "_get_sources"):
+            if isinstance(m, _Project):
+                yield "Project", root / (m.target_name + ".proj"), m.target_name + "\\"
+            elif hasattr(m, "_get_sources"):
                 for i, src, dst in m._get_sources(root, lambda s: globber(root / s)):
                     if dst:
                         yield i, src, self.target_name + "\\" + dst
@@ -42,31 +44,19 @@ class _Project:
                     type(m).__name__, type(self).__name__
                 ))
 
+    def build(self, **distinfo):
+        import pymsbuild
+        pymsbuild._DISTINFO.get().update(distinfo)
+        pymsbuild._BUILD_PROJECT.set(self)
+
 
 class Package(_Project):
-    def build(self, distinfo):
-        import pymsbuild
-        for m in self._members:
-            if not isinstance(m, Package) and isinstance(m, _Project):
-                m.build(distinfo)
-        pymsbuild._build((self, distinfo.data))
+    pass
 
 
 class PydFile(_Project):
     _NATIVE_BUILD = True
     options = {"TargetExt": ".pyd"}
-
-    def build(self, distinfo):
-        import pymsbuild
-        for m in self._members:
-            if not isinstance(m, Package) and isinstance(m, _Project):
-                m.build(distinfo)
-        pymsbuild._build((self, distinfo.data))
-
-
-class Metadata:
-    def __init__(self, **kwargs):
-        self.data = kwargs
 
 
 class File:
@@ -88,7 +78,7 @@ class File:
     def _get_sources(self, root, globber):
         if not self.is_pattern:
             return [(self._ITEMNAME, root / self.source, self.name)]
-        return [(self._ITEMNAME, f, f.name) for f in globber(self.source)]
+        return [(self._ITEMNAME, f, f.name) for f in globber(root / self.source)]
 
 
 class PyFile(File):
@@ -96,7 +86,13 @@ class PyFile(File):
 
 
 class Project(File):
+    _ITEMNAME = "Project"
     _EXTENSIONS = _extmap(".proj", ".vcxproj")
+
+
+class SourceFile(File):
+    _ITEMNAME = "Content"
+    options = {"IncludeInWheel": False}
 
 
 class CSourceFile(File):

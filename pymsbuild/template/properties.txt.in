@@ -5,8 +5,11 @@
     <RootNamespace>{project.target_name}</RootNamespace>
     <TargetName>{project.target_name}</TargetName>
     <VersionString>{distinfo[version]}</VersionString>
+    <DistInfoName>{distinfo[name]}-{distinfo[version]}.dist_info</DistInfoName>
+    <SourceRoot Condition="$(SourceRoot) == ''">$(MSBuildThisFileDirectory)</SourceRoot>
+    <OutDirRoot Condition="$(OutDirRoot) == ''">$(MSBuildThisFileDirectory)</OutDirRoot>
+    <IntDirRoot Condition="$(IntDirRoot) == ''">$(MSBuildThisFileDirectory)\build\temp</IntDirRoot>
+    <SourceDir>$([msbuild]::EnsureTrailingSlash($(SourceRoot)))$([msbuild]::EnsureTrailingSlash(`{project.root}`))</SourceDir>
+    <OutDir>$([msbuild]::EnsureTrailingSlash($(OutDirRoot)))</OutDir>
+    <IntDir>$([msbuild]::EnsureTrailingSlash($(IntDirRoot))){project.target_name}\</IntDir>
   </PropertyGroup>
-  <Target Name="_VerifyProperties" BeforeTargets="Build">
-    <Error Text="OutDir property is required" Condition="$(OutDir) == ''" />
-    <Error Text="IntDir property is required" Condition="$(IntDir) == ''" />
-  </Target>

@@ -1,4 +1,5 @@
 from importlib.resources import read_text
+from pathlib import PurePath
 import uuid
 
 _GENERATED_NAMESPACE = uuid.UUID('db509c23-800c-41d5-9d00-359fc120e87a')
@@ -19,35 +20,46 @@ def _guid(project):
     return uuid.uuid3(_GENERATED_NAMESPACE, project.target_name)
 
 
-def get_PROPERTIES(build_state):
+def get_PROPERTIES(build_state, project):
     return _PROPERTIES.format(
-        project=build_state.project,
-        guid=_guid(build_state.project),
+        project=project,
+        guid=_guid(project),
         distinfo=build_state.distinfo,
-        **build_state.project.options,
+        **project.options,
     )
 
 
-def get_VCPROPERTIES(build_state):
+def get_VCPROPERTIES(build_state, project):
     return _VCPROPERTIES.format(
-        project=build_state.project,
-        guid=_guid(build_state.project),
+        project=project,
+        guid=_guid(project),
         distinfo=build_state.distinfo,
-        **build_state.project.options,
+        **project.options,
     )
 
 
 def get_ITEM(kind, source, fullname):
     if kind == "Content":
-        return r"""    <Content Include="{source}">
+        return r"""    <{kind} Include="$(SourceDir){source}">
         <Name>{name}</Name>
-        <Destination>$(OutDir)\{relpath}</Destination>
-    </Content>""".format(
+        <Destination>$(OutDir){relpath}</Destination>
+    </{kind}>""".format(
+            kind=kind,
             source=source,
-            name=fullname.replace("\\", "."),
+            name=fullname.replace("\\", ".").strip("."),
             relpath=fullname,
         )
-    return r"""    <{kind} Include="{source}" />""".format(
+    elif kind == "Project":
+        return r"""    <{kind} Include="{source}">
+        <Name>{name}</Name>
+        <Destination>$(OutDir){relpath}</Destination>
+    </{kind}>""".format(
+            kind=kind,
+            source=source,
+            name=fullname.replace("\\", ".").strip("."),
+            relpath=fullname,
+        )
+    return r"""    <{kind} Include="$(SourceDir){source}" />""".format(
         kind=kind,
         source=source,
         name=fullname,

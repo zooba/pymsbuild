@@ -23,5 +23,5 @@ config = read_config(Path.cwd())
 if sdist_dir:
     build_sdist(config.parent / "sdist")
 else:
-    build_in_place(config.parent, config.parent / "build")
+    build_in_place(config.parent)
 
