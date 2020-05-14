@@ -30,13 +30,14 @@ class _Project:
 
     def _get_sources(self, root, globber):
         root = PurePath(root) / self.root
+        dest = PurePath(self.target_name)
         for m in self._members:
             if isinstance(m, _Project):
-                yield "Project", root / (m.target_name + ".proj"), m.target_name + "\\"
+                yield "Project", root / (m.target_name + ".proj"), dest
             elif hasattr(m, "_get_sources"):
                 for i, src, dst in m._get_sources(root, lambda s: globber(root / s)):
                     if dst:
-                        yield i, src, self.target_name + "\\" + dst
+                        yield i, src, dest / dst
                     else:
                         yield i, src, dst
             else:
@@ -77,8 +78,8 @@ class File:
 
     def _get_sources(self, root, globber):
         if not self.is_pattern:
-            return [(self._ITEMNAME, root / self.source, self.name)]
-        return [(self._ITEMNAME, f, f.name) for f in globber(root / self.source)]
+            return [(self._ITEMNAME, root / self.source, PurePath(self.name))]
+        return [(self._ITEMNAME, f, PurePath(f.name)) for f in globber(root / self.source)]
 
 
 class PyFile(File):

@@ -2,26 +2,40 @@
     <MSBuild
         Projects="@(Project)"
         Targets="Build"
-        Properties="OutDirRoot=%(Destination)">
+        Properties="OutDir=$(OutDir)%(Destination)\;IntDir=$(IntDir)..\%(Name)\">
       <Output TaskParameter="TargetOutputs" ItemName="_Outputs" />
     </MSBuild>
   </Target>
 
-  <Target Name="CopyContent" Inputs="@(Content)" Outputs="%(Content.Destination)">
-    <Message Text="%(Content.FullPath) --> %(Content.Destination)\%(Content.FileName)%(Content.Extension)" Importance="high" />
+  <Target Name="CleanDependencies">
+    <MSBuild
+        Projects="@(Project)"
+        Targets="Clean"
+        Properties="OutDir=$(OutDir)%(Destination)\;IntDir=$(IntDir)..\%(Name)\" />
+  </Target>
+
+  <Target Name="AssignDestinationPath">
+    <ItemGroup>
+      <Content>
+        <DestinationPath>$(OutDir)%(Destination)\%(Filename)%(Extension)</DestinationPath>
+      </Content>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="CopyContent" Inputs="@(Content)" Outputs="%(Content.DestinationPath)">
+    <Message Text="%(Content.FullPath) --> %(Content.DestinationPath)" Importance="high"
+             Condition="%(Content.FullPath) != %(Content.DestinationPath)" />
   </Target>
 
   <Target Name="GetTargetPath" Outputs="@(Content)" />
 
-  <Target Name="Build" DependsOnTargets="BuildDependencies;CopyContent">
+  <Target Name="Build" DependsOnTargets="BuildDependencies;AssignDestinationPath;CopyContent">
   </Target>
 
-  <Target Name="BuildSdist" DependsOnTargets="">
-  </Target>
-
-  <Target Name="Clean">
-    <MSBuild Projects="@(Project)"
-             Targets="Clean" />
+  <Target Name="Clean" DependsOnTargets="CleanDependencies;AssignDestinationPath">
+    <MSBuild Projects="@(Project)" Targets="Clean" />
+    <Message Text="Delete %(Content.DestinationPath)" Importance="high"
+             Condition="%(Content.FullPath) != %(Content.DestinationPath)" />
   </Target>
 
   <Target Name="Rebuild" DependsOnTargets="Clean;Build" />

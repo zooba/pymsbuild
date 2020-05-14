@@ -17,11 +17,13 @@ try:
 except (IndexError, ValueError):
     wheel_dir = None
 
-from pymsbuild import read_config, build_in_place, build_sdist, build_wheel
+from pymsbuild import read_config, build_in_place, clean_in_place, build_sdist, build_wheel
 config = read_config(Path.cwd())
 
 if sdist_dir:
     build_sdist(config.parent / "sdist")
+elif "clean" in sys.argv[1:]:
+    clean_in_place()
 else:
-    build_in_place(config.parent)
+    build_in_place()
 

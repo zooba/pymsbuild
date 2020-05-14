@@ -40,26 +40,24 @@ def get_VCPROPERTIES(build_state, project):
 
 def get_ITEM(kind, source, fullname):
     if kind == "Content":
-        return r"""    <{kind} Include="$(SourceDir){source}">
-        <Name>{name}</Name>
-        <Destination>$(OutDir){relpath}</Destination>
+        return r"""    <{kind} Include="$(SourceDir)$(ProjectRoot){source}">
+        <Destination>{relpath}</Destination>
     </{kind}>""".format(
             kind=kind,
             source=source,
-            name=fullname.replace("\\", ".").strip("."),
             relpath=fullname,
         )
     elif kind == "Project":
         return r"""    <{kind} Include="{source}">
         <Name>{name}</Name>
-        <Destination>$(OutDir){relpath}</Destination>
+        <Destination>{relpath}</Destination>
     </{kind}>""".format(
             kind=kind,
             source=source,
-            name=fullname.replace("\\", ".").strip("."),
+            name=source.name,
             relpath=fullname,
         )
-    return r"""    <{kind} Include="$(SourceDir){source}" />""".format(
+    return r"""    <{kind} Include="$(SourceDir)$(ProjectRoot){source}" />""".format(
         kind=kind,
         source=source,
         name=fullname,

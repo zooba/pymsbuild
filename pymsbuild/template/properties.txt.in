@@ -6,10 +6,8 @@
     <TargetName>{project.target_name}</TargetName>
     <VersionString>{distinfo[version]}</VersionString>
     <DistInfoName>{distinfo[name]}-{distinfo[version]}.dist_info</DistInfoName>
-    <SourceRoot Condition="$(SourceRoot) == ''">$(MSBuildThisFileDirectory)</SourceRoot>
-    <OutDirRoot Condition="$(OutDirRoot) == ''">$(MSBuildThisFileDirectory)</OutDirRoot>
-    <IntDirRoot Condition="$(IntDirRoot) == ''">$(MSBuildThisFileDirectory)\build\temp</IntDirRoot>
-    <SourceDir>$([msbuild]::EnsureTrailingSlash($(SourceRoot)))$([msbuild]::EnsureTrailingSlash(`{project.root}`))</SourceDir>
-    <OutDir>$([msbuild]::EnsureTrailingSlash($(OutDirRoot)))</OutDir>
-    <IntDir>$([msbuild]::EnsureTrailingSlash($(IntDirRoot))){project.target_name}\</IntDir>
+    <ProjectRoot>$([msbuild]::EnsureTrailingSlash(`{project.root}`))</ProjectRoot>
+    <SourceDir>$(MSBuildThisFileDirectory)</SourceDir>
+    <OutDir>$(MSBuildThisFileDirectory)</OutDir>
+    <IntDir>$(MSBuildThisFileDirectory){project.target_name}\</IntDir>
   </PropertyGroup>

@@ -1,7 +1,1 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <!--Target Name="_CopyToOutput" AfterTargets="Build" Condition="$(FinalOutputDir)!=''">
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(FinalOutputDir)">
-      <Output TaskParameter="CopiedFiles" ItemName="_Copied" />
-    </Copy>
-    <Message Text="Copied %(_Copied.FullPath)" Importance="high" />
-  </Target-->

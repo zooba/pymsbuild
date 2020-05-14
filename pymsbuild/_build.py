@@ -26,7 +26,6 @@ class BuildState:
         self.config_dir = config_dir
         self.build_dir = build_dir
         self.temp_dir = temp_dir
-        self.install_dir = install_dir
         self.msbuild_exe = msbuild_exe
         self.globber = globber
         self._built = {}
@@ -89,7 +88,7 @@ class BuildState:
         outdir = metadata_dir / (self.distinfo["name"] + ".dist-info")
         outdir.mkdir(parents=True, exist_ok=True)
 
-    def build(self, project, quiet=False):
+    def build(self, project, quiet=False, target="Build"):
         proj_file = self.generate(project)
         if quiet:
             run = subprocess.check_output
@@ -97,16 +96,16 @@ class BuildState:
             run = subprocess.run
         print("Compiling", project.target_name, "with", self.msbuild_exe)
         try:
-            run([
-                self.msbuild_exe,
-                proj_file,
+            run(" ".join([
+                '"{}"'.format(self.msbuild_exe),
+                '"{}"'.format(proj_file),
                 "/nologo",
+                "/t:{}".format(target),
                 "/v:m",
-                "/p:OutDirRoot={}".format(self.build_dir),
-                "/p:IntDirRoot={}".format(self.temp_dir),
-                "/p:FinalOutputDir={}".format(self.install_dir),
-                "/p:SourceRoot={}".format(self.config_dir),
-            ], stderr=subprocess.STDOUT)
+                r'/p:OutDir="{}\\"'.format(self.build_dir),
+                r'/p:IntDir="{}\{}\\"'.format(self.temp_dir, project.target_name),
+                r'/p:SourceDir="{}\\"'.format(self.config_dir),
+            ]), stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as ex:
             if quiet:
                 print(ex.stdout.decode("mbcs", "replace"))

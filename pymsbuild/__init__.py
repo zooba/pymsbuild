@@ -34,7 +34,7 @@ def _path_globber(p):
     return p.parent.glob(p.name)
 
 
-def _get_build_state(*, install_dir=None, msbuild_exe=..., globber=...):
+def _get_build_state(*, build_dir=None, msbuild_exe=..., globber=...):
     from pymsbuild._build import BuildState, locate
     if msbuild_exe is ...:
         msbuild_exe = locate()
@@ -45,17 +45,17 @@ def _get_build_state(*, install_dir=None, msbuild_exe=..., globber=...):
     return BuildState(
         _DISTINFO.get(),
         src_dir,
-        tmp_dir / "lib",
+        build_dir or (tmp_dir / "lib"),
         tmp_dir / "temp",
-        install_dir,
+        None,
         msbuild_exe,
         globber,
     )
 
 
-def build_in_place(install_dir, msbuild_exe=..., globber=...):
+def build_in_place(*, msbuild_exe=..., globber=...):
     bs = _get_build_state(
-        install_dir=install_dir,
+        build_dir=_CONFIG_DIR.get(Path.cwd()),
         msbuild_exe=msbuild_exe,
         globber=globber,
     )
@@ -63,6 +63,22 @@ def build_in_place(install_dir, msbuild_exe=..., globber=...):
         bs.generate(project)
     project = _BUILD_PROJECT.get()
     bs.build(project)
+
+
+def clean_in_place(*, msbuild_exe=..., globber=...):
+    bs = _get_build_state(
+        build_dir=_CONFIG_DIR.get(Path.cwd()),
+        msbuild_exe=msbuild_exe,
+        globber=globber,
+    )
+    to_delete = []
+    for project in _PROJECTS.get():
+        to_delete.append(bs.generate(project))
+    project = _BUILD_PROJECT.get()
+    bs.build(project, target="Clean")
+    for p in to_delete:
+        p.unlink()
+
 
 
 # PEP 517 hooks
