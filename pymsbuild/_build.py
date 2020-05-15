@@ -26,8 +26,10 @@ class BuildState:
         self.config_dir = config_dir
         self.build_dir = build_dir
         self.temp_dir = temp_dir
+        self.install_dir = install_dir
         self.msbuild_exe = msbuild_exe
         self.globber = globber
+        self.layout_file = None
         self._built = {}
 
     def _generate_pyd(self, f, project, sources):
@@ -88,7 +90,7 @@ class BuildState:
         outdir = metadata_dir / (self.distinfo["name"] + ".dist-info")
         outdir.mkdir(parents=True, exist_ok=True)
 
-    def build(self, project, quiet=False, target="Build"):
+    def build(self, project, *, quiet=False, debug=True, target="Build"):
         proj_file = self.generate(project)
         if quiet:
             run = subprocess.check_output
@@ -101,10 +103,15 @@ class BuildState:
                 '"{}"'.format(proj_file),
                 "/nologo",
                 "/t:{}".format(target),
-                "/v:m",
+                "/p:Configuration={}".format("Debug" if debug else "Release"),
+                "/v:n",
+                r'/p:OutDirRoot="{}\\"'.format(self.build_dir),
                 r'/p:OutDir="{}\\"'.format(self.build_dir),
-                r'/p:IntDir="{}\{}\\"'.format(self.temp_dir, project.target_name),
-                r'/p:SourceDir="{}\\"'.format(self.config_dir),
+                r'/p:IntDirRoot="{}\{}\\"'.format(self.temp_dir, project.target_name),
+                r'/p:SourceDirRoot="{}\\"'.format(self.config_dir),
+                r'/p:InstallDirRoot="{}\\"'.format(self.install_dir) if self.install_dir else '',
+                r'/p:InstallDir="{}\\"'.format(self.install_dir) if self.install_dir else '',
+                r'/p:LayoutFile="{}"'.format(self.layout_file) if self.layout_file else '',
             ]), stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as ex:
             if quiet:
@@ -122,6 +129,9 @@ class BuildState:
             print("Package('{}', ProjectFile=r'{}').build(".format(
                 project.target_name, proj.relative_to(self.build_dir)
             ), file=f)
+            for k, v in self.distinfo.items():
+                print("    {!s}={!r},".format(k, v), file=f)
+            print(")", file=f)
         with open(self.temp_dir / "pyproject.toml", "w", encoding="utf-8") as f:
             print("[build-system]", file=f)
             print('requires = ["pymsbuild"]', file=f)
@@ -138,7 +148,6 @@ class BuildState:
             elif isinstance(m, _types.File):
                 yield self.config_dir / root / m.source, str(PurePath(root) / m.source)
 
-
     def layout_sdist(self, config_dir, dest_dir):
         config_dir = Path(config_dir)
         dest_dir = Path(dest_dir)
@@ -150,10 +159,11 @@ class BuildState:
 
     def build_sdist(self, project, copy_file):
         seen = set()
+        tar_gz_root = PurePath("{0[name]}-{0[version]}".format(self.distinfo))
         for src, dest_rel in self._layout_sdist(project):
             if src not in seen:
                 seen.add(src)
-                copy_file(src, dest_rel)
+                copy_file(src, tar_gz_root / dest_rel)
 
 
 def locate():

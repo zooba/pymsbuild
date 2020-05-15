@@ -1,1 +1,10 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="GetOutputs" Returns="@(_Outputs)">
+    <ItemGroup>
+      <_Outputs Include="$(TargetPath)" />
+      <_Outputs Include="$([System.IO.Path]::ChangeExtension($(TargetPath), `.pdb`))" />
+      <_Outputs>
+        <Destination>$(InstallDir)%(Filename)%(Extension)</Destination>
+      </_Outputs>
+    </ItemGroup>
+  </Target>

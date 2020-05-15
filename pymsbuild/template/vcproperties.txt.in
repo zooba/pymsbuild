@@ -1,13 +1,22 @@
+  <PropertyGroup>
+    <OutDir>$([msbuild]::EnsureTrailingSlash($(OutDirRoot)))</OutDir>
+    <InstallDir>$([msbuild]::EnsureTrailingSlash($(InstallDirRoot)))</InstallDir>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <PropertyGroup>
     <TargetExt>{TargetExt}</TargetExt>
     <TargetName>{project.target_name}</TargetName>
-    <TargetName Condition="$(Configuration)=='Debug'">$(TargetName)_d</TargetName>
-    <TargetPath>$(OutDir)..\$(TargetName)$(TargetExt)</TargetPath>
+    <PackageDir>$(PackageName.Replace(`.`, `\`))</PackageDir>
   </PropertyGroup>
+  <ItemDefinitionGroup>
+    <Link>
+      <GenerateDebugInformation>True</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
