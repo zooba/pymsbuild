@@ -31,7 +31,9 @@ p = Package(
     PydFile(
         "_accelerator",
         # Use a preconfigured project
-        Project(r"win32\accelerator.vcxproj"),
+        ProjectFile=r"win32\accelerator.vcxproj",
+        # Include required files
+        SourceFile=SourceFile.collect(r"win32\*"),
     ),
     # Subpackages nest inside other packages
     Package(

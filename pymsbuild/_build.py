@@ -5,81 +5,148 @@ import shutil
 import subprocess
 import sys
 
-from pathlib import Path
+from pathlib import PurePath, Path
 
 import pymsbuild._types as _types
 import pymsbuild.template as template
 
 
 class BuildState:
-    def __init__(self, distinfo, project, sources, temp_dir):
+    def __init__(
+        self,
+        distinfo,
+        config_dir,
+        build_dir,
+        temp_dir,
+        install_dir,
+        msbuild_exe,
+        globber,
+    ):
         self.distinfo = distinfo
-        self.project = project
-        self.sources = list(sources or [])
+        self.config_dir = config_dir
+        self.build_dir = build_dir
         self.temp_dir = temp_dir
+        self.install_dir = install_dir
+        self.msbuild_exe = msbuild_exe
+        self.globber = globber
+        self.layout_file = None
+        self._built = {}
 
-    def _generate_pyd(self, f, sources):
+    def _generate_pyd(self, f, project, sources):
         print(template.PROLOGUE, file=f)
         print(template.VCPLATFORMS, file=f)
-        print(template.get_PROPERTIES(self), file=f)
-        print(template.get_VCPROPERTIES(self), file=f)
+        print(template.get_PROPERTIES(self, project), file=f)
+        print(template.get_VCPROPERTIES(self, project), file=f)
 
         print(template.ITEMS_START, file=f)
         for kind, src, dst in sources:
             print(template.get_ITEM(kind, src, dst), file=f)
-
         print(template.ITEMS_END, file=f)
+
         print(template.VCTARGETS, file=f)
         print(template.EPILOGUE, file=f)
 
-    def _generate_lib(self, f, sources):
+    def _generate_lib(self, f, project, sources):
         print(template.PROLOGUE, file=f)
-        print(template.get_PROPERTIES(self), file=f)
+        print(template.get_PROPERTIES(self, project), file=f)
 
         print(template.ITEMS_START, file=f)
         for kind, src, dst in sources:
             print(template.get_ITEM(kind, src, dst), file=f)
-
         print(template.ITEMS_END, file=f)
+
         print(template.TARGETS, file=f)
         print(template.EPILOGUE, file=f)
 
-    def generate(self, out_dir, sources):
-        if self.project._explicit_project:
-            return self.project._project_file
+    def generate(self, project):
+        if project in self._built:
+            return self._built[project]
+        if "ProjectFile" in project.options:
+            self._built[project] = out = project.options["ProjectFile"]
+            return out
 
-        out = (out_dir / self.project.target_name).with_suffix(".proj")
+        print("Generating", project.target_name)
+        out = (self.build_dir / project.target_name).with_suffix(".proj")
         out.parent.mkdir(parents=True, exist_ok=True)
 
+        root = self.config_dir
+        sources = [
+            (kind, PurePath(source).relative_to(root), name)
+            for kind, source, name in
+            project._get_sources(root / project.root, self.globber)
+        ]
+
         with out.open("w", encoding="utf-8") as f:
-            if self.project._NATIVE_BUILD:
-                self._generate_pyd(f, sources)
+            if project._NATIVE_BUILD:
+                self._generate_pyd(f, project, sources)
             else:
-                self._generate_lib(f, sources)
+                self._generate_lib(f, project, sources)
+
+        self._built[project] = out
         return out
 
     def generate_metadata(self, metadata_dir=None):
         metadata_dir = metadata_dir or self.build_dir
-        outdir = metadata_dir / (self.project.target_name + ".dist-info")
+        outdir = metadata_dir / (self.distinfo["name"] + ".dist-info")
+        outdir.mkdir(parents=True, exist_ok=True)
 
-    def build(self, msbuild_exe):
-        proj_file = self.generate(self.temp_dir, self.sources)
-        print(msbuild_exe, proj_file)
-        subprocess.check_output([
-            msbuild_exe,
-            proj_file,
-        ])
+    def build(self, project, *, quiet=False, debug=True, target="Build"):
+        proj_file = self.generate(project)
+        if quiet:
+            run = subprocess.check_output
+        else:
+            run = subprocess.run
+        print("Compiling", project.target_name, "with", self.msbuild_exe)
+        try:
+            run(" ".join([
+                '"{}"'.format(self.msbuild_exe),
+                '"{}"'.format(proj_file),
+                "/nologo",
+                "/t:{}".format(target),
+                "/p:Configuration={}".format("Debug" if debug else "Release"),
+                "/v:n",
+                r'/p:OutDirRoot="{}\\"'.format(self.build_dir),
+                r'/p:OutDir="{}\\"'.format(self.build_dir),
+                r'/p:IntDirRoot="{}\{}\\"'.format(self.temp_dir, project.target_name),
+                r'/p:SourceDirRoot="{}\\"'.format(self.config_dir),
+                r'/p:InstallDirRoot="{}\\"'.format(self.install_dir) if self.install_dir else '',
+                r'/p:InstallDir="{}\\"'.format(self.install_dir) if self.install_dir else '',
+                r'/p:LayoutFile="{}"'.format(self.layout_file) if self.layout_file else '',
+            ]), stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as ex:
+            if quiet:
+                print(ex.stdout.decode("mbcs", "replace"))
+            sys.exit(1)
+        else:
+            pass
 
-    def _layout_sdist(self, config_dir, temp_dir):
-        yield config_dir / "_msbuild.py", "_msbuild.py"
-        yield config_dir / "pyproject.toml", "pyproject.toml"
-        sources = []
-        for kind, src, name in self.sources:
-            rel = Path(src).relative_to(config_dir)
-            sources.append((kind, rel, name))
-            yield Path(src), rel
-        proj = self.generate(temp_dir, sources)
-        yield Path(proj), proj.name
+    def _layout_sdist(self, project):
+        self.temp_dir.mkdir(parents=True, exist_ok=True)
+        proj = self.generate(project)
+        yield proj, proj.relative_to(self.build_dir)
+        with open(self.temp_dir / "_msbuild.py", "w", encoding="utf-8") as f:
+            print("from pymsbuild import *", file=f)
+            print("Package('{}', ProjectFile=r'{}').build(".format(
+                project.target_name, proj.relative_to(self.build_dir)
+            ), file=f)
+            for k, v in self.distinfo.items():
+                print("    {!s}={!r},".format(k, v), file=f)
+            print(")", file=f)
+        with open(self.temp_dir / "pyproject.toml", "w", encoding="utf-8") as f:
+            print("[build-system]", file=f)
+            print('requires = ["pymsbuild"]', file=f)
+            print('build-backend = "pymsbuild"', file=f)
+        yield self.temp_dir / "_msbuild.py", "_msbuild.py"
+        yield self.temp_dir / "pyproject.toml", "pyproject.toml"
+        q = list((project.root, m) for m in project._members)
+        while q:
+            root, m = q.pop(0)
+            if isinstance(m, _types._Project):
+                p = self.generate(m)
+                yield p, p.relative_to(self.build_dir)
+                q.extend((m.root, i) for i in m._members)
+            elif isinstance(m, _types.File):
+                yield self.config_dir / root / m.source, str(PurePath(root) / m.source)
 
     def layout_sdist(self, config_dir, dest_dir):
         config_dir = Path(config_dir)
@@ -90,10 +157,13 @@ class BuildState:
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src, dest, follow_symlinks=False)
 
-    def build_sdist(self, config_dir, temp_dir, copy_file):
-        config_dir = Path(config_dir)
-        for src, dest_rel in self._layout_sdist(config_dir, temp_dir):
-            copy_file(src, dest_rel)
+    def build_sdist(self, project, copy_file):
+        seen = set()
+        tar_gz_root = PurePath("{0[name]}-{0[version]}".format(self.distinfo))
+        for src, dest_rel in self._layout_sdist(project):
+            if src not in seen:
+                seen.add(src)
+                copy_file(src, tar_gz_root / dest_rel)
 
 
 def locate():

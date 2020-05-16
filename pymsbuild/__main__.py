@@ -7,21 +7,20 @@ if "init" in sys.argv[1:]:
     print("TODO: Generate workflow")
     sys.exit(2)
 
-try:
-    sdist_dir = Path(sys.argv[sys.argv.index("sdist") + 1])
-except (IndexError, ValueError):
-    sdist_dir = None
-
-try:
-    wheel_dir = Path(sys.argv[sys.argv.index("wheel") + 1])
-except (IndexError, ValueError):
-    wheel_dir = None
-
-from pymsbuild import read_config, build_in_place, build_sdist, build_wheel
+from pymsbuild import read_config, generate
 config = read_config(Path.cwd())
 
-if sdist_dir:
-    build_sdist(config.parent / "sdist")
-else:
-    build_in_place(config.parent, config.parent / "build")
+if "generate" in sys.argv[1:]:
+    generate(config)
 
+"""
+if "sdist" in sys.argv[1:]:
+    build_sdist(config.parent / "dist")
+elif "prepare" in sys.argv[1:]:
+    prepare_metadata_for_build_wheel(config.parent)
+elif "clean" in sys.argv[1:]:
+    build_in_place(target="Clean")
+else:
+    build_in_place(target="Install")
+
+"""
