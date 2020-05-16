@@ -27,9 +27,17 @@ def read_config(root):
     )
     mod = importlib.util.module_from_spec(spec)
     mod.__loader__.exec_module(mod)
-    return root / "_msbuild.py"
+    return mod
 
 
+def generate(config):
+    from ._generate import generate as G
+    source_dir = Path(config.__file__).parent
+    build_dir = source_dir / "build"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    G(config.PACKAGE, build_dir, source_dir)
+
+"""
 def _path_globber(p):
     p = Path(p)
     return p.parent.glob(p.name)
@@ -133,3 +141,4 @@ def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None):
                 print(dst, file=record)
 
     return outdir.name
+"""

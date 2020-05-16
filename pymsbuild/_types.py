@@ -1,4 +1,5 @@
-from pathlib import Path, PurePath
+from os import name
+from pathlib import WindowsPath as Path, PureWindowsPath as PurePath
 
 __all__ = [
     "Package",
@@ -11,44 +12,20 @@ __all__ = [
     "File",
 ]
 
+
 def _extmap(*exts):
     return frozenset(map(str.casefold, exts))
 
 
 class _Project:
-    _NATIVE_BUILD = False
+    _ACTIONS = ()
     options = {}
 
-    def __init__(self, target_name, *members, root=None, **kwargs):
-        self.target_name = target_name
-        self.root = Path(root or ".")
+    def __init__(self, name, *members, project_file=None, **kwargs):
+        self.name = name
         self.options = {**self.options, **kwargs}
-        self._dependencies = []
+        self.project_file = project_file
         self._members = members
-        import pymsbuild
-        pymsbuild._PROJECTS.get().append(self)
-
-    def _get_sources(self, root, globber):
-        root = PurePath(root) / self.root
-        dest = PurePath(self.target_name)
-        for m in self._members:
-            if isinstance(m, _Project):
-                yield "Project", root / (m.target_name + ".proj"), dest
-            elif hasattr(m, "_get_sources"):
-                for i, src, dst in m._get_sources(root, lambda s: globber(root / s)):
-                    if dst:
-                        yield i, src, dest / dst
-                    else:
-                        yield i, src, dst
-            else:
-                raise ValueError("Unsupported type '{}' in '{}'".format(
-                    type(m).__name__, type(self).__name__
-                ))
-
-    def build(self, **distinfo):
-        import pymsbuild
-        pymsbuild._DISTINFO.get().update(distinfo)
-        pymsbuild._BUILD_PROJECT.set(self)
 
 
 class Package(_Project):
@@ -67,19 +44,10 @@ class File:
     def __init_subclass__(cls):
         File._SUBCLASSES.append(cls)
 
-    def __init__(self, source, name=None, is_pattern=False):
+    def __init__(self, source, name=None):
         self.source = PurePath(source)
         self.name = name or self.source.name
-        self.is_pattern = is_pattern
-
-    @classmethod
-    def collect(cls, pattern):
-        return cls(Path(pattern), is_pattern=True)
-
-    def _get_sources(self, root, globber):
-        if not self.is_pattern:
-            return [(self._ITEMNAME, root / self.source, PurePath(self.name))]
-        return [(self._ITEMNAME, f, PurePath(f.name)) for f in globber(root / self.source)]
+        self._members = []
 
 
 class PyFile(File):
@@ -104,4 +72,3 @@ class CSourceFile(File):
 class IncludeFile(File):
     _ITEMNAME = "ClInclude"
     _EXTENSIONS = _extmap(".h", ".hpp", ".hxx")
-

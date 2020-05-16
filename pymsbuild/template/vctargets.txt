@@ -1,10 +1,32 @@
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <Target Name="GetOutputs" Returns="@(_Outputs)">
-    <ItemGroup>
-      <_Outputs Include="$(TargetPath)" />
-      <_Outputs Include="$([System.IO.Path]::ChangeExtension($(TargetPath), `.pdb`))" />
-      <_Outputs>
-        <Destination>$(InstallDir)%(Filename)%(Extension)</Destination>
-      </_Outputs>
-    </ItemGroup>
-  </Target>
+<ItemGroup>
+  <Source Include="@(ClCompile);@(ClInclude);@(Content)">
+    <TargetDir>%(TargetDir)</TargetDir>
+    <TargetName>%(TargetName)</TargetName>
+    <TargetExt>%(TargetDir)</TargetExt>
+    <RelativeSource>%(RelativeSource)</RelativeSource>
+  </Source>
+</ItemGroup>
+
+<Target Name="_AssignSourceProperties">
+  <ItemGroup>
+    <Source>
+      <_CopyDestination Condition="$(_ProjectBuildTarget) == 'Build'">$(OutDir)%(TargetDir)\%(TargetName)%(TargetExt)</_CopyDestination>
+      <_CopyDestination Condition="$(_ProjectBuildTarget) == 'BuildSdist'">$(OutDir)%(RelativeSource)</_CopyDestination>
+    </Source>
+  </ItemGroup>
+</Target>
+
+<Target Name="_EnsureSourceDirectories">
+  <ItemGroup>
+    <_Outputs Include="%(Source._CopyDestination)" />
+  </ItemGroup>
+  <Message Text="Creating directory: %(_Outputs.RootDir)%(_Outputs.Directory)" />
+  <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
+</Target>
+
+<Target Name="_CopySourceFiles" Inputs="@(Source)" Outputs="%(Source._CopyDestination)">
+  <Copy SourceFiles="%(Source.FullPath)" DestinationFiles="%(Source._CopyDestination)" />
+</Target>
+
+<Target Name="BuildSdist" DependsOnTargets="_AssignSourceProperties;_EnsureSourceDirectories;_CopySourceFiles">
+</Target>

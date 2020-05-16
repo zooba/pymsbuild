@@ -7,9 +7,13 @@ if "init" in sys.argv[1:]:
     print("TODO: Generate workflow")
     sys.exit(2)
 
-from pymsbuild import read_config, build_in_place, build_sdist, build_wheel, prepare_metadata_for_build_wheel
+from pymsbuild import read_config, generate
 config = read_config(Path.cwd())
 
+if "generate" in sys.argv[1:]:
+    generate(config)
+
+"""
 if "sdist" in sys.argv[1:]:
     build_sdist(config.parent / "dist")
 elif "prepare" in sys.argv[1:]:
@@ -19,3 +23,4 @@ elif "clean" in sys.argv[1:]:
 else:
     build_in_place(target="Install")
 
+"""

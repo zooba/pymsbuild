@@ -1,65 +1,49 @@
-  <Target Name="BuildDependencies">
-    <MSBuild
-        Projects="@(Project)"
-        Targets="Build;GetOutputs"
-        Properties="OutDirRoot=$(OutDir);IntDirRoot=$(IntDirRoot);SourceDirRoot=$(SourceDirRoot);InstallDirRoot=$(InstallDir)"
-        RemoveProperties="OutDir;IntDir;SourceDir;InstallDir">
-      <Output TaskParameter="TargetOutputs" ItemName="_ProjectOutputs" />
-    </MSBuild>
-    <ItemGroup>
-      <_Outputs Include="@(_ProjectOutputs)">
-        <Destination>%(Destination)</Destination>
-      </_Outputs>
-    </ItemGroup>
-  </Target>
+<Target Name="_AssignProjectProperties">
+  <ItemGroup>
+    <Project>
+      <Properties Condition="$(_ProjectBuildTarget) == 'Build'">OutDir=$(OutDir)\%(TargetDir)\;IntDir=$(IntDir)\%(Name)\;TargetName=%(TargetName);TargetExt=%(TargetExt)</Properties>
+      <Properties Condition="$(_ProjectBuildTarget) == 'BuildSdist'">OutDir=$(OutDir);IntDir=$(IntDir)\%(Name)\;TargetName=%(TargetName);TargetExt=%(TargetExt)</Properties>
+    </Project>
+  </ItemGroup>
+</Target>
 
-  <Target Name="CleanDependencies">
-    <MSBuild
-        Projects="@(_Project)"
-        Targets="Clean"
-        Properties="OutDirRoot=$(OutDir);IntDirRoot=$(IntDirRoot);SourceDirRoot=$(SourceDirRoot);InstallDirRoot=$(InstallDir)"
-        RemoveProperties="OutDir;IntDir;SourceDir;InstallDir" />
-  </Target>
+<Target Name="_AssignContentProperties">
+  <ItemGroup>
+    <Content>
+      <_CopyDestination Condition="$(_ProjectBuildTarget) == 'Build'">$(OutDir)%(TargetDir)\%(TargetName)%(TargetExt)</_CopyDestination>
+      <_CopyDestination Condition="$(_ProjectBuildTarget) == 'BuildSdist'">$(OutDir)%(RelativeSource)</_CopyDestination>
+    </Content>
+  </ItemGroup>
+</Target>
 
-  <Target Name="GetOutputs" Returns="@(_Outputs)">
-    <ItemGroup>
-      <_Outputs Include="@(Content)">
-        <Name Condition="%(Name) == ''">%(Filename)%(Extension)</Name>
-        <Destination>$(InstallDir)%(Name)</Destination>
-      </_Outputs>
-    </ItemGroup>
-  </Target>
+<Target Name="_EnsureContentDirectories">
+  <ItemGroup>
+    <_Outputs Include="%(Content._CopyDestination)" />
+  </ItemGroup>
+  <Message Text="Creating directory: %(_Outputs.RootDir)%(_Outputs.Directory)" />
+  <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
+</Target>
 
-  <Target Name="WriteLayout" Condition="$(LayoutFile) != ''" DependsOnTargets="BuildDependencies;GetOutputs">
-    <WriteLinesToFile Lines="" File="$(LayoutFile)" Overwrite="true" />
-    <ItemGroup>
-      <_Records Include="@(_Outputs)">
-        <Destination>$([msbuild]::MakeRelative($(InstallDir), %(Destination)))</Destination>
-      </_Records>
-    </ItemGroup>
-    <MakeDir Directories="$(LayoutFile)\.." />
-    <WriteLinesToFile Lines="%(_Records.FullPath)%3b%(_Records.Destination)" File="$(LayoutFile)" />
-  </Target>
+<Target Name="BuildDependencies" DependsOnTargets="_AssignProjectProperties">
+  <MSBuild Projects="@(Project)" Targets="$(_ProjectBuildTarget)" Properties="%(Project.Properties)" />
+</Target>
 
-  <Target Name="Build" DependsOnTargets="BuildDependencies">
-  </Target>
+<Target Name="BuildContent" DependsOnTargets="_AssignContentProperties;_EnsureContentDirectories">
+  <Copy SourceFiles="%(Content.FullPath)" DestinationFiles="%(Content._CopyDestination)" />
+</Target>
 
-  <Target Name="Install" DependsOnTargets="Build;GetOutputs">
-    <Message Text="%(_Outputs.FullPath) --> %(_Outputs.Destination)" Importance="high" />
-    <Copy SourceFiles="%(_Outputs.FullPath)"
-          DestinationFiles="%(_Outputs.Destination)"
-          Condition="%(_Outputs.Destination) != '' and %(_Outputs.Destination) != %(_Outputs.FullPath)">
-        <Output TaskParameter="CopiedFiles" ItemName="_Copied" />
-    </Copy>
-    <WriteLinesToFile Lines="@(_Copied)" File="$(_RecordFile)" Overwrite="true" />
-  </Target>
+<Target Name="CleanDependencies" DependsOnTargets="_AssignProjectProperties">
+  <MSBuild Projects="@(Project)" Targets="Clean" Properties="%(Project.Properties)" />
+</Target>
 
-  <Target Name="Clean" DependsOnTargets="CleanDependencies;GetOutputs">
-    <ReadLinesFromFile File="$(_RecordFile)"
-                       Condition="Exists($(_RecordFile))">
-      <Output TaskParameter="Lines" ItemName="_Copied" />
-    </ReadLinesFromFile>
-    <Delete Files="@(_Copied)" />
-  </Target>
+<Target Name="Build" DependsOnTargets="BuildDependencies;BuildContent">
+</Target>
 
-  <Target Name="Rebuild" DependsOnTargets="Clean;Build" />
+<Target Name="Clean" DependsOnTargets="CleanDependencies">
+</Target>
+
+<Target Name="Rebuild" DependsOnTargets="Clean;Build" />
+
+<Target Name="BuildSdist" DependsOnTargets="BuildDependencies;_AssignContentProperties">
+  <Copy SourceFiles="%(Content.FullPath)" DestinationFiles="%(Content._CopyDestination)" />
+</Target>
