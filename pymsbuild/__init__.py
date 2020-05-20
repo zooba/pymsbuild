@@ -3,19 +3,12 @@
 
 __version__ = "0.0.1"
 
-import contextvars
+import os
 import sys
 from pathlib import Path
 
 from pymsbuild import _build
 from pymsbuild._types import *
-
-_CONFIG_DIR = contextvars.ContextVar("CONFIG_DIR")
-_TEMP_DIR = contextvars.ContextVar("BUILD_DIR")
-_DISTINFO = contextvars.ContextVar("DISTINFO", default={})
-_PROJECTS = contextvars.ContextVar("PROJECTS", default=[])
-_RECORD = contextvars.ContextVar("RECORD")
-_BUILD_PROJECT = contextvars.ContextVar("BUILD_PROJECT")
 
 
 def read_config(root):
@@ -30,12 +23,62 @@ def read_config(root):
     return mod
 
 
-def generate(config):
+def generate(output_dir, source_dir, build_dir, force, config=None):
+    if config is None:
+        config = read_config(source_dir)
     from ._generate import generate as G
-    source_dir = Path(config.__file__).parent
-    build_dir = source_dir / "build"
     build_dir.mkdir(parents=True, exist_ok=True)
-    G(config.PACKAGE, build_dir, source_dir)
+    return G(config.PACKAGE, build_dir, source_dir)
+
+
+def build(project, *, quiet=False, target="Build", msbuild_exe=None, **properties):
+    import subprocess
+    project = Path(project)
+    msbuild_exe = msbuild_exe or _build.locate()
+    print("Compiling", project, "with", msbuild_exe)
+    properties.setdefault("Configuration", "Release")
+    properties.setdefault("HostPython", sys.executable)
+    rsp = Path(f"{project}.{os.getpid()}.rsp")
+    with rsp.open("w", encoding="utf-8-sig") as f:
+        print(project, file=f)
+        print("/nologo", file=f)
+        print("/v:n", file=f)
+        print("/t:", target, sep="", file=f)
+        for k, v in properties.items():
+            print("/p:", k, "=", v, sep="", file=f)
+    _run = subprocess.check_output if quiet else subprocess.check_call
+    try:
+        _run([msbuild_exe, "/noAutoResponse", f"@{rsp}"],
+             stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as ex:
+        if quiet:
+            print(ex.stdout.decode("mbcs", "replace"))
+        sys.exit(1)
+    else:
+        rsp.unlink()
+
+
+def build_in_place(output_dir, source_dir, build_dir, force, config=None):
+    config = config or read_config(source_dir)
+    p = generate(output_dir, source_dir, build_dir, force, config)
+    build(p, target="BuildInPlace")
+
+
+def clean(output_dir, source_dir, build_dir, force, config=None):
+    config = config or read_config(source_dir)
+    p = build_dir / (config.PACKAGE.name + ".proj")
+    if p.is_file():
+        build(p, target="Clean")
+
+
+def build_sdist(sdist_directory, config_settings=None, *, source_dir=None, build_dir=None, force=False, config=None):
+    config = config or read_config(source_dir or Path.cwd())
+    p = generate(sdist_directory, source_dir, build_dir, force, config)
+    sdist_directory = Path(sdist_directory)
+    sdist_directory.mkdir(parents=True, exist_ok=True)
+    target = "RebuildSdist" if force else "BuildSdist"
+    build(p, target=target, OutDir=sdist_directory)
+
 
 """
 def _path_globber(p):

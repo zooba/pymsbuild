@@ -5,6 +5,10 @@ __all__ = [
     "Package",
     "Project",
     "PydFile",
+    "LiteralXML",
+    "ConditionalValue",
+    "Property",
+    "ItemDefinition",
     "PyFile",
     "SourceFile",
     "CSourceFile",
@@ -37,17 +41,58 @@ class PydFile(_Project):
     options = {"TargetExt": ".pyd"}
 
 
+class LiteralXML:
+    _members = ()
+
+    def __init__(self, xml_string):
+        self.name = "##xml"
+        self.xml = xml_string
+
+
+class ConditionalValue:
+    """A wrapper for any metadata or property value to add a condition"""
+    def __init__(self, value, *, condition=None, if_empty=None):
+        self.value = value
+        self.condition = condition
+        self.if_empty = if_empty
+
+    def __repr__(self):
+        return repr(self.value)
+
+    def __str__(self):
+        return str(self.value)
+
+
+class Property:
+    _members = ()
+
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+
+
+class ItemDefinition:
+    _members = ()
+
+    def __init__(self, kind, **metadata):
+        self.name = "ItemDefinition/" + kind
+        self.kind = kind
+        self.options = metadata
+
+
 class File:
     _ITEMNAME = "Content"
     _SUBCLASSES = []
+    options = {}
 
     def __init_subclass__(cls):
         File._SUBCLASSES.append(cls)
 
-    def __init__(self, source, name=None):
+    def __init__(self, source, name=None, **metadata):
         self.source = PurePath(source)
         self.name = name or self.source.name
         self._members = []
+        self.options = {**self.options, **metadata}
 
 
 class PyFile(File):

@@ -7,6 +7,9 @@ PACKAGE = Package(
         PydFile("mod2", CSourceFile("mod.c")),
         PyFile("sub_init.py", "__init__.py"),
     ),
+    LiteralXML("""<Target Name="ShowMessage" AfterTargets="Build">
+  <Message Importance="high" Text="BUILD SUCCESS" />
+</Target>"""),
 )
 
 DIST_INFO = {

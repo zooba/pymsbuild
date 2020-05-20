@@ -8,7 +8,6 @@ import sys
 from pathlib import PurePath, Path
 
 import pymsbuild._types as _types
-import pymsbuild.template as template
 
 
 class BuildState:
@@ -31,32 +30,6 @@ class BuildState:
         self.globber = globber
         self.layout_file = None
         self._built = {}
-
-    def _generate_pyd(self, f, project, sources):
-        print(template.PROLOGUE, file=f)
-        print(template.VCPLATFORMS, file=f)
-        print(template.get_PROPERTIES(self, project), file=f)
-        print(template.get_VCPROPERTIES(self, project), file=f)
-
-        print(template.ITEMS_START, file=f)
-        for kind, src, dst in sources:
-            print(template.get_ITEM(kind, src, dst), file=f)
-        print(template.ITEMS_END, file=f)
-
-        print(template.VCTARGETS, file=f)
-        print(template.EPILOGUE, file=f)
-
-    def _generate_lib(self, f, project, sources):
-        print(template.PROLOGUE, file=f)
-        print(template.get_PROPERTIES(self, project), file=f)
-
-        print(template.ITEMS_START, file=f)
-        for kind, src, dst in sources:
-            print(template.get_ITEM(kind, src, dst), file=f)
-        print(template.ITEMS_END, file=f)
-
-        print(template.TARGETS, file=f)
-        print(template.EPILOGUE, file=f)
 
     def generate(self, project):
         if project in self._built:
@@ -105,13 +78,7 @@ class BuildState:
                 "/t:{}".format(target),
                 "/p:Configuration={}".format("Debug" if debug else "Release"),
                 "/v:n",
-                r'/p:OutDirRoot="{}\\"'.format(self.build_dir),
                 r'/p:OutDir="{}\\"'.format(self.build_dir),
-                r'/p:IntDirRoot="{}\{}\\"'.format(self.temp_dir, project.target_name),
-                r'/p:SourceDirRoot="{}\\"'.format(self.config_dir),
-                r'/p:InstallDirRoot="{}\\"'.format(self.install_dir) if self.install_dir else '',
-                r'/p:InstallDir="{}\\"'.format(self.install_dir) if self.install_dir else '',
-                r'/p:LayoutFile="{}"'.format(self.layout_file) if self.layout_file else '',
             ]), stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as ex:
             if quiet:

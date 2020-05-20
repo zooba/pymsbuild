@@ -1,18 +1,26 @@
 import contextlib
-from importlib.resources import read_text
 import uuid
+
+from pathlib import Path
 
 _GENERATED_NAMESPACE = uuid.UUID('db509c23-800c-41d5-9d00-359fc120e87a')
 
 PROLOGUE = r"""<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">"""
 
-TARGETS = read_text(__name__, "targets.txt")
-VCTARGETS = read_text(__name__, "vctargets.txt")
+
+TARGETS = Path(__file__).parent / "targets"
 
 
 def _guid(target_name):
     return uuid.uuid3(_GENERATED_NAMESPACE, target_name)
+
+
+class CV:
+    def __init__(self, value, condition=None, if_empty=False):
+        self.value = value
+        self.condition = condition
+        self.if_empty = if_empty
 
 
 class ProjectFileWriter:
@@ -22,6 +30,7 @@ class ProjectFileWriter:
         self._file = None
         self._vc_platforms = vc_platforms
         self.indent = 2
+        self.current_group = None
 
     def __enter__(self):
         self._file = open(self.filename, "w", encoding="utf-8")
@@ -31,11 +40,12 @@ class ProjectFileWriter:
         elif self._vc_platforms:
             self.add_vc_platforms(*self._vc_platforms)
         with self.group("PropertyGroup", Label="Globals"):
-            self.add_property("Configuration", "Release", if_empty=True)
-            self.add_property("Platform", "x64", if_empty=True)
+            self.add_property("Configuration", CV("Release", "$(Release) == ''"))
+            self.add_property("Platform", CV("x64", "$(Platform) == ''"))
             self.add_property("ProjectGuid", _guid(self.target_name))
             self.add_property("RootNamespace", self.target_name)
             self.add_property("TargetName", self.target_name)
+            self.add_property("_TargetsRoot", CV(TARGETS, if_empty=True))
         return self
 
     def __exit__(self, *exc_info):
@@ -54,31 +64,38 @@ class ProjectFileWriter:
         else:
             self.write("<", tag, ">")
         self.indent += 2
+        old_group, self.current_group = self.current_group, tag
         yield
+        self.current_group = old_group
         self.indent -= 2
         self.write("</", tag, ">")
 
-    def add_property(self, name, value, condition=None, *, if_empty=False):
-        if if_empty:
-            condition = "$({}) == ''{}".format(name, " and {}".format(condition) if condition else "")
-        if condition:
-            self.write("<", name, ' Condition="', condition, '">', value, "</", name, ">")
+    def _write_value(self, name, value, symbol='$'):
+        if isinstance(value, (tuple, list)):
+            for v in value:
+                self._write_value(name, v, symbol)
+            return
+        if hasattr(value, "condition"):
+            if getattr(value, "if_empty", None):
+                self.write("<", name, ' Condition="', symbol, "(", name, ") == ''\">", value.value, "</", name, ">")
+            else:
+                self.write("<", name, ' Condition="', value.condition, '">', value.value, "</", name, ">")
         else:
             self.write("<", name, ">", value, "</", name, ">")
+
+    def add_property(self, name, value):
+        self._write_value(name, value, "$")
 
     def add_item(self, kind, name, **metadata):
         if metadata:
             with self.group(kind, Include=name):
                 for k, v in metadata.items():
-                    self.write("<", k, ">", v, "</", k, ">")
+                    self._write_value(k, v, "%")
         else:
             self.write("<", kind, ' Include="', name, '" />')
 
-    def add_item_property(self, kind, name, value, condition=None):
-        if condition:
-            self.write("<", name, 'Condition="', condition, '">', value, "</", name, ">")
-        else:
-            self.write("<", name, ">", value, "</", name, ">")
+    def add_item_property(self, kind, name, value):
+        self._write_value(name, value, "%")
 
     def add_import(self, project):
         self.write('<Import Project="', project, '" />')
