@@ -27,6 +27,9 @@ METADATA = {
         "Programming Language :: Python :: 3.9",
     ],
 }
+
+# Packages may be defined anywhere, but PACKAGE is the root and must
+# include everything that will be in the distribution.
 PACKAGE = Package(
     "my_package",
     # Offset the package root from the _msbuild.py directory
