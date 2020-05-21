@@ -10,10 +10,8 @@ DIST_INFO = {
     "Summary": "The pymsbuild build backend.",
 }
 
-PACKAGES = [
-    Package(
-        "pymsbuild",
-        PyFile("pymsbuild\\*.py"),
-        File("pymsbuild\\targets\\*", name="targets\\*"),
-    ),
-]
+PACKAGE = Package(
+    "pymsbuild",
+    PyFile("pymsbuild\\*.py"),
+    File("pymsbuild\\targets\\*", name="targets\\*"),
+)
