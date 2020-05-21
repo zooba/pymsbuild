@@ -11,39 +11,45 @@ The package definition specifies all the files that end up in the released packa
 ```python
 from pymsbuild import *
 
-metadata = Metadata(
-    name="my-package",
-    version="1.0.0",
-    author="My Name",
-    author_email="my.email@example.com",
-    ...
-)
-
-p = Package(
+PACKAGE = Package(
     "my_package",
     # Offset the package root from the _msbuild.py directory
     root="src",
     # Specify Python files directly...
     PyFile(r"my_package\__init__.py"),
-    # ... or 'collect' them with a filename wildcard
-    PyFile.collect(r"my_package\*.py"),
+    # ... or with a filename wildcard
+    PyFile(r"my_package\*.py"),
     # Specify extension modules
     PydFile(
         "_accelerator",
         # Use a preconfigured project
-        ProjectFile=r"win32\accelerator.vcxproj",
+        project_file=r"win32\accelerator.vcxproj",
+    ),
+    PydFile(
+        "_accelerator2",
         # Include required files
-        SourceFile=SourceFile.collect(r"win32\*"),
+        CSourceFile(r"win32\*.c"),
+        CHeaderFile(r"win32\*.h"),
     ),
     # Subpackages nest inside other packages
     Package(
         "subpackage",
-        PyFile.collect(r"subpackage\*.py"),
+        PyFile(r"subpackage\*.py"),
     ),
 )
 
-# Build sdist/wheel from a package+metadata
-p.build(metadata)
+# Metadata is specified raw, but an adjacent PKG_INFO file is preferred
+DISTINFO = {
+    "Metadata-Version": "1.1",
+    "Name": "package",
+    "Version": "1.0.0",
+    "Author": "My Name",
+    "Author-email": "myemail@example.com",
+    "Classifier": [
+        "Classifier :: 1",
+        "Classifier :: 2",
+    ]
+}
 ```
 
 # Usage
@@ -63,11 +69,11 @@ python -m pymsbuild init
 Build the project and output an sdist
 
 ```
-python -m pymsbuild sdist [dir]
+python -m pymsbuild sdist
 ```
 
-Build the project and output both sdist and wheel
+Build the project and output a wheel
 
 ```
-python -m pymsbuild sdist [dir] wheel [dir]
+python -m pymsbuild wheel
 ```
