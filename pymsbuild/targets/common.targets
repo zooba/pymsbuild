@@ -1,0 +1,45 @@
+<Project>
+  <Target Name="_AssignProjectProperties">
+    <ItemGroup>
+      <Project>
+        <Properties>_ProjectBuildTarget=$(_ProjectBuildTarget);IntDir=$(IntDir)\%(Name)\;SourceDir=$(SourceDir);TargetName=%(TargetName);TargetExt=%(TargetExt);%(Properties)</Properties>
+      </Project>
+      <Project>
+        <Properties Condition="$(_ProjectBuildTarget) == 'Build'">OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)\%(TargetDir)`))\;%(Properties)</Properties>
+        <Properties Condition="$(_ProjectBuildTarget) == 'BuildSdist'">OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)`))\;%(Properties)</Properties>
+      </Project>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="BuildDependencies" DependsOnTargets="_AssignProjectProperties">
+    <MSBuild Projects="@(Project)" Targets="$(_ProjectBuildTarget)" Properties="%(Project.Properties)" />
+  </Target>
+
+  <Target Name="CleanDependencies" DependsOnTargets="_AssignProjectProperties">
+    <MSBuild Projects="@(Project)" Targets="Clean" Properties="%(Project.Properties)" />
+  </Target>
+
+  <PropertyGroup>
+    <BuildSdistDependsOn>$(BuildSdistDependsOn);BuildDependencies</BuildSdistDependsOn>
+  </PropertyGroup>
+
+  <!-- Clean support -->
+  <Target Name="_SaveFileWrites" AfterTargets="Build;BuildSdist;BuildInPlace">
+    <WriteLinesToFile File="$(IntDir)\$(MSBuildThisProjectName).writes.txt"
+                      Lines="@(FileWrites)"
+                      Overwrite="true" />
+    <Message Text="Files written:%0A -@(FileWrites, '%0A -')"
+             Importance="$(_Low)"
+             Condition="@(FileWrites) != ''" />
+  </Target>
+
+  <Target Name="_CleanFileWrites" BeforeTargets="Clean" DependsOnTargets="CleanDependencies">
+    <ReadLinesFromFile File="$(IntDir)\$(MSBuildThisProjectName).writes.txt">
+      <Output TaskParameter="Lines" ItemName="FileWrites" />
+    </ReadLinesFromFile>
+    <Delete Files="@(FileWrites)" />
+    <ItemGroup>
+      <FileWrites Remove="@(FileWrites)" />
+    </ItemGroup>
+  </Target>
+</Project>

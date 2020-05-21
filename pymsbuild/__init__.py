@@ -4,6 +4,7 @@
 __version__ = "0.0.1"
 
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -23,28 +24,48 @@ def read_config(root):
     return mod
 
 
-def generate(output_dir, source_dir, build_dir, force, config=None):
+def generate(output_dir, source_dir, build_dir, force, config=None, **unused):
     if config is None:
         config = read_config(source_dir)
-    from ._generate import generate as G
+    from ._generate import generate as G, generate_distinfo as GD
     build_dir.mkdir(parents=True, exist_ok=True)
-    return G(config.PACKAGE, build_dir, source_dir)
+    pkginfo = source_dir / "PKG_INFO"
+    if pkginfo.is_file():
+        print("Using", pkginfo)
+        shutil.copy(pkginfo, build_dir / "PKG_INFO")
+    elif hasattr(config, "DIST_INFO"):
+        print("Generating", build_dir / "PKG_INFO")
+        GD(config.DIST_INFO, build_dir, source_dir)
+    if hasattr(config, "PACKAGES"):
+        for p in config.PACKAGES:
+            yield G(p, build_dir, source_dir)
+    else:
+        yield G(config.PACKAGE, build_dir, source_dir)
 
 
-def build(project, *, quiet=False, target="Build", msbuild_exe=None, **properties):
+def build(project, *, quiet=False, verbose=False, target="Build", msbuild_exe=None, **properties):
     import subprocess
     project = Path(project)
     msbuild_exe = msbuild_exe or _build.locate()
     print("Compiling", project, "with", msbuild_exe)
     properties.setdefault("Configuration", "Release")
     properties.setdefault("HostPython", sys.executable)
+    properties.setdefault("PyMsbuildTargets", Path(__file__).parent / "targets")
     rsp = Path(f"{project}.{os.getpid()}.rsp")
     with rsp.open("w", encoding="utf-8-sig") as f:
         print(project, file=f)
         print("/nologo", file=f)
+        if verbose:
+            print("/p:_Low=Normal", file=f)
         print("/v:n", file=f)
         print("/t:", target, sep="", file=f)
         for k, v in properties.items():
+            if v is None:
+                continue
+            if k in {"IntDir", "OutDir", "SourceDir"}:
+                v = str(v).replace("/", "\\")
+                if not v.endswith("\\"):
+                    v += "\\"
             print("/p:", k, "=", v, sep="", file=f)
     _run = subprocess.check_output if quiet else subprocess.check_call
     try:
@@ -58,26 +79,41 @@ def build(project, *, quiet=False, target="Build", msbuild_exe=None, **propertie
         rsp.unlink()
 
 
-def build_in_place(output_dir, source_dir, build_dir, force, config=None):
-    config = config or read_config(source_dir)
-    p = generate(output_dir, source_dir, build_dir, force, config)
-    build(p, target="BuildInPlace")
+def build_in_place(output_dir, **kwargs):
+    for p in generate(output_dir, **kwargs):
+        build(
+            p,
+            target="BuildInPlace",
+            verbose=kwargs.get("verbose", False),
+            SourceDir=kwargs.get("source_dir", None),
+        )
 
 
-def clean(output_dir, source_dir, build_dir, force, config=None):
-    config = config or read_config(source_dir)
-    p = build_dir / (config.PACKAGE.name + ".proj")
-    if p.is_file():
-        build(p, target="Clean")
+def clean(output_dir, **kwargs):
+    config = kwargs.get("config") or read_config(kwargs["source_dir"])
+    for p in getattr(config, "PACKAGES", None) or [config.PACKAGE]:
+        proj = kwargs["build_dir"] / (p.name + ".proj")
+        if proj.is_file():
+            build(
+                proj,
+                target="Clean",
+                verbose=kwargs.get("verbose", False),
+                SourceDir=kwargs.get("source_dir", None),
+            )
 
 
-def build_sdist(sdist_directory, config_settings=None, *, source_dir=None, build_dir=None, force=False, config=None):
-    config = config or read_config(source_dir or Path.cwd())
-    p = generate(sdist_directory, source_dir, build_dir, force, config)
+def build_sdist(sdist_directory, config_settings=None, **kwargs):
     sdist_directory = Path(sdist_directory)
     sdist_directory.mkdir(parents=True, exist_ok=True)
-    target = "RebuildSdist" if force else "BuildSdist"
-    build(p, target=target, OutDir=sdist_directory)
+    target = "RebuildSdist" if kwargs.get("force", False) else "BuildSdist"
+    for p in generate(sdist_directory, **kwargs):
+        build(
+            p,
+            target=target,
+            verbose=kwargs.get("verbose", False),
+            SourceDir=kwargs.get("source_dir", None),
+            OutDir=sdist_directory,
+        )
 
 
 """

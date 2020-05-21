@@ -2,18 +2,14 @@
   <ItemGroup>
     <_PyxCompileWithOutput Include="@(PyxCompile)">
       <IncludeDirs>%(IncludeDirs)</IncludeDirs>
-      <RelativeSource>%(RelativeSource)</RelativeSource>
+      <RelativeSource Condition="%(RelativeSource) != ''">%(RelativeSource)</RelativeSource>
+      <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir), %(FullPath)))</RelativeSource>
       <RelativeOutput>$([System.IO.Path]::ChangeExtension(%(RelativeSource), %(TargetExt)))</RelativeOutput>
       <TargetPath>$(IntDir)%(RelativeOutput)</TargetPath>
     </_PyxCompileWithOutput>
     <ClCompile Include="@(_PyxCompileWithOutput->'%(TargetPath)')">
       <RelativeSource>%(RelativeOutput)</RelativeSource>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Source Include="@(PyxCompile)">
-      <RelativeSource>%(RelativeSource)</RelativeSource>
-    </Source>
   </ItemGroup>
 
   <Target Name="_ForceCythonize" Inputs="@(PyxCompile);@(PyxInclude)" Outputs="%(_PyxCompileWithOutput.TargetPath)">
@@ -37,13 +33,21 @@
     <Exec Command="$(_BuildCmd)" />
   </Target>
 
-  <Target Name="Cythonize"
-          DependsOnTargets="PrepareForBuild;_ForceCythonize;_CythonizeAll"
-          BeforeTargets="BuildSdist">
-    <Message Text="Source: %(Source.RelativeSource) %(Source._CopyDestination)" />
+  <Target Name="Cythonize" DependsOnTargets="PrepareForBuild;_ForceCythonize;_CythonizeAll">
+    <ItemGroup>
+      <FileWrites Include="%(_PyxCompileWithOutput.TargetPath)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_BuildCythonSdist" DependsOnTargets="Cythonize">
+    <ItemGroup>
+      <Sdist Include="@(_PyxCompileWithOutput)">
+        <RelativeSource>%(RelativeSource)</RelativeSource>
+      </Sdist>
+    </ItemGroup>
   </Target>
 
   <PropertyGroup>
-    <BuildSdistDependsOn>$(BuildSdistDependsOn);Cythonize</BuildSdistDependsOn>
+    <BuildSdistDependsOn>$(BuildSdistDependsOn);_BuildCythonSdist</BuildSdistDependsOn>
   </PropertyGroup>
 </Project>

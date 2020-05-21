@@ -46,18 +46,29 @@ class GroupSwitcher:
             return self._cm.__exit__(*exc_info)
 
 
+def _resolve_wildcards(basename, source):
+    if source.parent.name == "**":
+        for d in source.parent.parent.iterdir():
+            if d.is_dir():
+                yield from _resolve_wildcards(basename, d / source.name)
+    elif "*" in source.name or "?" in source.name:
+        name = PurePath(basename)
+        for p in source.parent.glob(source.name):
+            yield name.parent / p.name, p
+    else:
+        yield basename, source
+
 def _write_members(f, source_dir, members):
     with GroupSwitcher(f) as g:
         for n, p in members:
             if isinstance(p, File):
                 g.switch_to("ItemGroup")
-                f.add_item(
-                    p._ITEMNAME,
-                    source_dir / p.source,
-                    Name=n,
-                    RelativeSource=p.source,
-                    **p.options,
-                )
+                wrote_any = False
+                for n2, p2 in _resolve_wildcards(n, source_dir / p.source):
+                    f.add_item(p._ITEMNAME, p2, Name=n2, **p.options)
+                    wrote_any = True
+                if not wrote_any:
+                    raise ValueError("failed to find any files for " + str(p.source))
             elif isinstance(p, Property):
                 g.switch_to("PropertyGroup")
                 f.add_property(p.name, p.value)
@@ -83,6 +94,7 @@ def _generate_pyd(project, build_dir, source_dir):
             f.add_property("OutDir", "layout\\")
             f.add_property("IntDir", ConditionalValue("build\\", if_empty=True))
         f.add_import("$(VCTargetsPath)\Microsoft.Cpp.Default.props")
+        f.add_import(r"$(PyMsbuildTargets)\common.props")
         with f.group("PropertyGroup", Label="Configuration"):
             f.add_property("ConfigurationType", project.options.get("ConfigurationType", "DynamicLibrary"))
             f.add_property("PlatformToolset", "$(DefaultPlatformToolset)")
@@ -100,8 +112,10 @@ def _generate_pyd(project, build_dir, source_dir):
 
         _write_members(f, source_dir, _all_members(project, recurse_if=lambda m: m is project))
 
+        f.add_import(r"$(PyMsbuildTargets)\common.targets")
         f.add_import(r"$(VCTargetsPath)\Microsoft.Cpp.targets")
-        f.add_import(r"$(_TargetsRoot)\pyd.targets")
+        f.add_import(r"$(PyMsbuildTargets)\pyd.targets")
+        f.add_import(r"$(PyMsbuildTargets)\sdist.targets")
 
     return proj
 
@@ -116,22 +130,18 @@ def generate(project, build_dir, source_dir):
 
     with ProjectFileWriter(proj, project.name) as f:
         with f.group("PropertyGroup"):
-            f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
+            f.add_property("SourceDir", ConditionalValue(".", if_empty=True))
             f.add_property("OutDir", ConditionalValue("layout\\", if_empty=True))
             f.add_property("IntDir", ConditionalValue("build\\", if_empty=True))
-        with f.group("ItemDefinitionGroup"):
-            with f.group("Content"):
-                f.add_item_property("Content", "TargetDir", "")
-                f.add_item_property("Content", "TargetName", "")
-                f.add_item_property("Content", "TargetExt", "")
-            with f.group("Project"):
-                f.add_property("Properties", "Configuration=$(Configuration);Platform=$(Platform)")
+        f.add_import(r"$(PyMsbuildTargets)\common.props")
         with f.group("ItemGroup", Label="ProjectReferences"):
             for n, p in _all_members(project, return_if=lambda m: isinstance(m, PydFile)):
                 fn = PurePath(n)
                 pdir = _generate_pyd(p, build_dir, source_dir)
-                if proj.parent == Path(*pdir.parts[:len(proj.parent.parts)]):
+                try:
                     pdir = pdir.relative_to(proj.parent)
+                except ValueError:
+                    pass
                 f.add_item(
                     "Project",
                     pdir,
@@ -145,10 +155,33 @@ def generate(project, build_dir, source_dir):
                         **p.options,
                     }
                 )
+        with f.group("ItemGroup", Label="Sdist metadata"):
+            f.add_item("Sdist", build_dir / "PKG_INFO", RelativeSource="PKG_INFO")
+            f.add_item("Sdist", source_dir / "_msbuild.py", RelativeSource="_msbuild.py")
+            f.add_item("Sdist", source_dir / "pyproject.toml", RelativeSource="pyproject.toml")
         _write_members(f, source_dir, _all_members(
             project,
             recurse_if=lambda m: not isinstance(m, PydFile),
         ))
-        f.add_import(r"$(_TargetsRoot)\package.targets")
+        f.add_import(r"$(PyMsbuildTargets)\common.targets")
+        f.add_import(r"$(PyMsbuildTargets)\package.targets")
+        f.add_import(r"$(PyMsbuildTargets)\sdist.targets")
 
     return proj
+
+
+def _write_metadata(f, key, values, source_dir):
+    if not isinstance(values, str) and hasattr(values, "__iter__"):
+        for v in values:
+            _write_distinfo(f, key, v, source_dir)
+        return
+    if values.startswith("file:"):
+        values = (source_dir / values[5:]).read_text(encoding="utf-8")
+    print(key, values, sep=": ", file=f)
+
+
+def generate_distinfo(distinfo, build_dir, source_dir):
+    build_dir.mkdir(parents=True, exist_ok=True)
+    with (build_dir / "PKG_INFO").open("w", encoding="utf-8") as f:
+        for k, vv in distinfo.items():
+            _write_metadata(f, k, vv, source_dir)

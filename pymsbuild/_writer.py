@@ -45,7 +45,7 @@ class ProjectFileWriter:
             self.add_property("ProjectGuid", _guid(self.target_name))
             self.add_property("RootNamespace", self.target_name)
             self.add_property("TargetName", self.target_name)
-            self.add_property("_TargetsRoot", CV(TARGETS, if_empty=True))
+            self.add_property("PyMsbuildTargets", CV(TARGETS, if_empty=True))
         return self
 
     def __exit__(self, *exc_info):

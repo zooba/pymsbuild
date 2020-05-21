@@ -1,20 +1,19 @@
 from pymsbuild import *
 
-metadata = Metadata(
-    name="pymsbuild",
-    version="0.0.1",
-    author="Steve Dower",
-    author_email="steve.dower@python.org",
-    home_page="https://github.com/zooba/pymsbuild",
-)
+DIST_INFO = {
+    "Metadata-Version": "1.1",
+    "Name": "pymsbuild",
+    "Version": "0.0.1",
+    "Author": "Steve Dower",
+    "Author-email": "steve.dower@python.org",
+    "Home-page": "https://github.com/zooba/pymsbuild",
+    "Summary": "The pymsbuild build backend.",
+}
 
-Package(
-    "pymsbuild",
-    PyFile.collect("pymsbuild\\*.py"),
+PACKAGES = [
     Package(
-        "template",
-        PyFile.collect("pymsbuild\\template\\*.py"),
-        File.collect("pymsbuild\\template\\*.txt"),
-        File.collect("pymsbuild\\template\\*.txt.in"),
-    )
-).build(metadata)
+        "pymsbuild",
+        PyFile("pymsbuild\\*.py"),
+        File("pymsbuild\\targets\\*", name="targets\\*"),
+    ),
+]

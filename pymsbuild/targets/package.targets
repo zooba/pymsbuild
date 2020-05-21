@@ -1,16 +1,4 @@
 <Project>
-  <Target Name="_AssignProjectProperties">
-    <ItemGroup>
-      <Project>
-        <Properties>_ProjectBuildTarget=$(_ProjectBuildTarget);IntDir=$(IntDir)\%(Name)\;TargetName=%(TargetName);TargetExt=%(TargetExt);%(Properties)</Properties>
-      </Project>
-      <Project>
-        <Properties Condition="$(_ProjectBuildTarget) == 'Build'">OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)\%(TargetDir)`));%(Properties)</Properties>
-        <Properties Condition="$(_ProjectBuildTarget) == 'BuildSdist'">OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)`));%(Properties)</Properties>
-      </Project>
-    </ItemGroup>
-  </Target>
-
   <Target Name="_AssignContentProperties">
     <ItemGroup>
       <Content>
@@ -19,18 +7,11 @@
         <TargetExt Condition="%(TargetExt) == ''">$([System.IO.Path]::GetExtension(%(Name)))</TargetExt>
       </Content>
       <Content>
-        <Destination>$(OutDir)%(TargetDir)\%(TargetName)%(TargetExt)</Destination>
+        <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir), %(FullPath)))</RelativeSource>
+        <Destination Condition="%(IncludeInWheel)">$(OutDir)%(TargetDir)\%(TargetName)%(TargetExt)</Destination>
         <Source>$(OutDir)%(RelativeSource)</Source>
       </Content>
     </ItemGroup>
-  </Target>
-
-  <Target Name="BuildDependencies" DependsOnTargets="_AssignProjectProperties">
-    <MSBuild Projects="@(Project)" Targets="$(_ProjectBuildTarget)" Properties="%(Project.Properties)" />
-  </Target>
-
-  <Target Name="CleanDependencies" DependsOnTargets="_AssignProjectProperties">
-    <MSBuild Projects="@(Project)" Targets="Clean" Properties="%(Project.Properties)" />
   </Target>
 
   <Target Name="_MkdirContent">
@@ -41,48 +22,19 @@
   </Target>
 
   <Target Name="_CopyContent" Inputs="@(Content)" Outputs="%(Content.Destination)">
-    <Copy SourceFiles="%(Content.FullPath)" DestinationFiles="%(Content.Destination)">
-      <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
-    </Copy>
+    <Copy SourceFiles="%(Content.FullPath)" DestinationFiles="%(Content.Destination)" Condition="%(Content.Destination) != ''" />
+    <ItemGroup>
+      <FileWrites Include="%(Content.Destination)" />
+    </ItemGroup>
   </Target>
 
   <Target Name="Build" DependsOnTargets="_AssignContentProperties;BuildDependencies;_CopyContent" />
 
-  <Target Name="CalculateSdist" DependsOnTargets="_AssignContentProperties">
-    <ItemGroup>
-      <Sdist Include="@(Content)">
-        <Destination>%(Source)</Destination>
-      </Sdist>
-    </ItemGroup>
-  </Target>
-
-  <Target Name="_SetSdist">
-    <PropertyGroup>
-      <_ProjectBuildTarget>BuildSdist</_ProjectBuildTarget>
-    </PropertyGroup>
-  </Target>
-
-  <Target Name="_MkdirSdist">
-    <ItemGroup>
-      <_Outputs Include="%(Sdist.Destination)" />
-    </ItemGroup>
-    <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
-  </Target>
-
-  <Target Name="_CopySdist" Inputs="@(Sdist)" Outputs="%(Sdist.Destination)">
-    <Copy SourceFiles="%(Sdist.FullPath)" DestinationFiles="%(Sdist.Destination)">
-      <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
-    </Copy>
-  </Target>
-
-  <Target Name="BuildSdist" DependsOnTargets="_SetSdist;BuildDependencies;CalculateSdist;_MkdirSdist;_CopySdist">
-  </Target>
-
   <Target Name="CalculateInPlace">
     <ItemGroup>
-      <InPlace Include="$(OutDir)\$(RootNamespace)\**" />
+      <InPlace Include="$(OutDir)\**" />
       <InPlace>
-        <OriginalSource>$(SourceDir)\%(InPlace.RecursiveDir)%(InPlace.Filename)%(InPlace.Extension)</OriginalSource>
+        <Destination>$(SourceDir)\%(InPlace.RecursiveDir)%(InPlace.Filename)%(InPlace.Extension)</Destination>
       </InPlace>
     </ItemGroup>
   </Target>
@@ -101,29 +53,17 @@
     <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
   </Target>
 
-  <Target Name="_CopyInPlace" Inputs="@(InPlace)" Outputs="%(InPlace.OriginalSource)">
-    <Copy SourceFiles="%(InPlace.FullPath)" DestinationFiles="%(InPlace.OriginalSource)">
-      <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
-    </Copy>
+  <Target Name="_CopyInPlace" Inputs="@(InPlace)" Outputs="%(InPlace.Destination)">
+    <ItemGroup>
+      <FileWrites Include="%(InPlace.Destination)" Condition="!Exists(%(InPlace.Destination))" />
+    </ItemGroup>
+    <Copy SourceFiles="%(InPlace.FullPath)" DestinationFiles="%(InPlace.Destination)" />
   </Target>
 
   <Target Name="BuildInPlace" DependsOnTargets="Build;CalculateInPlace;_MkdirInPlace;_CopyInPlace">
   </Target>
 
-  <!-- Clean support -->
-  <Target Name="_SaveFileWrites" AfterTargets="Build;BuildSdist;BuildInPlace">
-    <WriteLinesToFile File="$(IntDir)\$(MSBuildThisProjectName).writes.txt"
-                      Lines="@(FileWrites)"
-                      Overwrite="true" />
-    <Message Text="del @(FileWrites)" />
-  </Target>
-
-  <Target Name="Clean" DependsOnTargets="CleanDependencies">
-    <ReadLinesFromFile File="$(IntDir)\$(MSBuildThisProjectName).writes.txt">
-      <Output TaskParameter="Lines" ItemName="FileWrites" />
-    </ReadLinesFromFile>
-    <Delete Files="@(FileWrites)" />
-  </Target>
+  <Target Name="Clean" />
 
   <Target Name="Rebuild" DependsOnTargets="Clean;Build" />
   <Target Name="RebuildInPlace" DependsOnTargets="Clean;BuildInPlace" />

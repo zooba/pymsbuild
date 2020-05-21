@@ -117,3 +117,4 @@ class CSourceFile(File):
 class IncludeFile(File):
     _ITEMNAME = "ClInclude"
     _EXTENSIONS = _extmap(".h", ".hpp", ".hxx")
+
