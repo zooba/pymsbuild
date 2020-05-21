@@ -33,14 +33,10 @@ def generate(output_dir, source_dir, build_dir, force, config=None, **unused):
     if pkginfo.is_file():
         print("Using", pkginfo)
         shutil.copy(pkginfo, build_dir / "PKG_INFO")
-    elif hasattr(config, "DIST_INFO"):
+    elif hasattr(config, "METADATA"):
         print("Generating", build_dir / "PKG_INFO")
-        GD(config.DIST_INFO, build_dir, source_dir)
-    if hasattr(config, "PACKAGES"):
-        for p in config.PACKAGES:
-            yield G(p, build_dir, source_dir)
-    else:
-        yield G(config.PACKAGE, build_dir, source_dir)
+        GD(config.METADATA, build_dir, source_dir)
+    return G(config.PACKAGE, build_dir, source_dir)
 
 
 def build(project, *, quiet=False, verbose=False, target="Build", msbuild_exe=None, **properties):
@@ -80,40 +76,61 @@ def build(project, *, quiet=False, verbose=False, target="Build", msbuild_exe=No
 
 
 def build_in_place(output_dir, **kwargs):
-    for p in generate(output_dir, **kwargs):
-        build(
-            p,
-            target="BuildInPlace",
-            verbose=kwargs.get("verbose", False),
-            SourceDir=kwargs.get("source_dir", None),
-        )
+    p = generate(output_dir, **kwargs)
+    build(
+        p,
+        target="BuildInPlace",
+        verbose=kwargs.get("verbose", False),
+        SourceDir=kwargs.get("source_dir", None),
+    )
 
 
 def clean(output_dir, **kwargs):
     config = kwargs.get("config") or read_config(kwargs["source_dir"])
-    for p in getattr(config, "PACKAGES", None) or [config.PACKAGE]:
-        proj = kwargs["build_dir"] / (p.name + ".proj")
-        if proj.is_file():
-            build(
-                proj,
-                target="Clean",
-                verbose=kwargs.get("verbose", False),
-                SourceDir=kwargs.get("source_dir", None),
-            )
+    proj = kwargs["build_dir"] / (config.PACKAGE.name + ".proj")
+    if proj.is_file():
+        build(
+            proj,
+            target="Clean",
+            verbose=kwargs.get("verbose", False),
+            SourceDir=kwargs.get("source_dir", None),
+        )
 
 
 def build_sdist(sdist_directory, config_settings=None, **kwargs):
     sdist_directory = Path(sdist_directory)
     sdist_directory.mkdir(parents=True, exist_ok=True)
+    config = kwargs.get("config") or read_config(kwargs["source_dir"])
     target = "RebuildSdist" if kwargs.get("force", False) else "BuildSdist"
-    for p in generate(sdist_directory, **kwargs):
-        build(
-            p,
-            target=target,
-            verbose=kwargs.get("verbose", False),
-            SourceDir=kwargs.get("source_dir", None),
-            OutDir=sdist_directory,
-        )
+    root_dir = kwargs.get("build_dir") or (Path.cwd() / "build")
+    build_dir = root_dir / "sdist"
+    temp_dir = root_dir / "temp"
+    p = generate(sdist_directory, **kwargs)
+    build(
+        p,
+        target=target,
+        verbose=kwargs.get("verbose", False),
+        SourceDir=kwargs.get("source_dir", None),
+        OutDir=build_dir,
+        IntDir=temp_dir,
+    )
+    return pack_sdist(sdist_directory, build_dir, config=config)
+
+
+def pack_sdist(output_dir, build_dir, **kwargs):
+    import gzip, tarfile
+    config = kwargs.get("config") or read_config(kwargs["source_dir"])
+    name, version = config.METADATA["Name"], config.METADATA["Version"]
+    sdist = output_dir / "{}_{}.tar.gz".format(name, version)
+    with gzip.open(sdist, "w") as f_gz:
+        with tarfile.TarFile.open(
+            sdist.with_suffix(".tar"),
+            "w",
+            fileobj=f_gz,
+            format=tarfile.PAX_FORMAT
+        ) as f:
+            f.add(build_dir, arcname="", recursive=True)
+    return sdist
 
 
 """

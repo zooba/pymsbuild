@@ -170,18 +170,37 @@ def generate(project, build_dir, source_dir):
     return proj
 
 
-def _write_metadata(f, key, values, source_dir):
-    if not isinstance(values, str) and hasattr(values, "__iter__"):
-        for v in values:
-            _write_distinfo(f, key, v, source_dir)
+def _write_metadata(f, key, value, source_dir):
+    if not isinstance(value, str) and hasattr(value, "__iter__"):
+        for v in value:
+            _write_metadata(f, key, v, source_dir)
         return
-    if values.startswith("file:"):
-        values = (source_dir / values[5:]).read_text(encoding="utf-8")
-    print(key, values, sep=": ", file=f)
+    if isinstance(value, File):
+        values = (source_dir / value.source).read_text(encoding="utf-8")
+    if "\n" in value:
+        values = value.replace("\n", "\n       |")
+    print(key, value, sep=": ", file=f)
+
+
+def _write_metadata_description(f, value, source_dir):
+    if not isinstance(value, str) and hasattr(value, "__iter__"):
+        for v in value:
+            _write_metadata_description(f, v, source_dir)
+        return
+    if isinstance(value, File):
+        value = (source_dir / value.source).read_text(encoding="utf-8")
+    print(file=f)
+    print(value, file=f)
 
 
 def generate_distinfo(distinfo, build_dir, source_dir):
     build_dir.mkdir(parents=True, exist_ok=True)
     with (build_dir / "PKG_INFO").open("w", encoding="utf-8") as f:
+        description = None
         for k, vv in distinfo.items():
+            if k.casefold() == "description".casefold():
+                description = vv
+                continue
             _write_metadata(f, k, vv, source_dir)
+        if description:
+            _write_metadata_description(f, description, source_dir)

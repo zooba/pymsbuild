@@ -11,6 +11,22 @@ The package definition specifies all the files that end up in the released packa
 ```python
 from pymsbuild import *
 
+# Metadata is specified raw, but if an adjacent PKG_INFO file exists,
+# such as in an sdist, it is preferred and this dict is ignored.
+METADATA = {
+    "Metadata-Version": "2.1",
+    "Name": "package",
+    "Version": os.getenv("BUILD_BUILDNUMBER", "1.0.0"),
+    "Author": "My Name",
+    "Author-email": "myemail@example.com",
+    "Description": File("README.md"),
+    "Description-Content-Type": "text/markdown",
+    "Classifier": [
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "Programming Language :: Python :: 3.9",
+    ],
+}
 PACKAGE = Package(
     "my_package",
     # Offset the package root from the _msbuild.py directory
@@ -37,19 +53,6 @@ PACKAGE = Package(
         PyFile(r"subpackage\*.py"),
     ),
 )
-
-# Metadata is specified raw, but an adjacent PKG_INFO file is preferred
-DISTINFO = {
-    "Metadata-Version": "1.1",
-    "Name": "package",
-    "Version": "1.0.0",
-    "Author": "My Name",
-    "Author-email": "myemail@example.com",
-    "Classifier": [
-        "Classifier :: 1",
-        "Classifier :: 2",
-    ]
-}
 ```
 
 # Usage

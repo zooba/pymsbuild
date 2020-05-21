@@ -25,7 +25,7 @@
 
   <!-- Clean support -->
   <Target Name="_SaveFileWrites" AfterTargets="Build;BuildSdist;BuildInPlace">
-    <WriteLinesToFile File="$(IntDir)\$(MSBuildThisProjectName).writes.txt"
+    <WriteLinesToFile File="$(IntDir)\$(TargetName).writes.txt"
                       Lines="@(FileWrites)"
                       Overwrite="true" />
     <Message Text="Files written:%0A -@(FileWrites, '%0A -')"
@@ -34,7 +34,7 @@
   </Target>
 
   <Target Name="_CleanFileWrites" BeforeTargets="Clean" DependsOnTargets="CleanDependencies">
-    <ReadLinesFromFile File="$(IntDir)\$(MSBuildThisProjectName).writes.txt">
+    <ReadLinesFromFile File="$(IntDir)\$(TargetName).writes.txt">
       <Output TaskParameter="Lines" ItemName="FileWrites" />
     </ReadLinesFromFile>
     <Delete Files="@(FileWrites)" />
