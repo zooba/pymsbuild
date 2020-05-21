@@ -1,0 +1,29 @@
+<Project>
+  <Target Name="_AddSourceProperties">
+    <ItemGroup>
+      <Source Include="@(ClCompile);@(ClInclude);@(Content)">
+        <RelativeSource>%(RelativeSource)</RelativeSource>
+      </Source>
+      <Source>
+        <_CopyDestination>$(OutDir)%(RelativeSource)</_CopyDestination>
+      </Source>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_EnsureSourceDirectories">
+    <ItemGroup>
+      <_Outputs Include="%(Source._CopyDestination)" />
+    </ItemGroup>
+    <Message Text="Creating directory: %(_Outputs.RootDir)%(_Outputs.Directory)" />
+    <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
+  </Target>
+
+  <Target Name="_CopySourceFiles" Inputs="@(Source)" Outputs="%(Source._CopyDestination)">
+    <Copy SourceFiles="%(Source.FullPath)" DestinationFiles="%(Source._CopyDestination)">
+      <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
+    </Copy>
+  </Target>
+
+  <Target Name="BuildSdist" DependsOnTargets="_EnsureSourceDirectories;$(BuildSdistDependsOn);_AddSourceProperties;_CopySourceFiles">
+  </Target>
+</Project>

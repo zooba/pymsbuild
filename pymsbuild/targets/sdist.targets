@@ -1,0 +1,40 @@
+<Project>
+  <Target Name="CalculateSdist" DependsOnTargets="$(CalculateSdistDependsOn)">
+    <ItemGroup>
+      <Sdist Include="@(Content);@(ClCompile);@(ClInclude)" Condition="Exists(%(FullPath))" />
+      <Sdist>
+        <RelativeSource Condition="%(Sdist.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir), %(FullPath)))</RelativeSource>
+      </Sdist>
+      <Sdist>
+        <Destination>$(OutDir)%(RelativeSource)</Destination>
+      </Sdist>
+    </ItemGroup>
+    <Message Text="Sdist contains:%0A- @(Sdist->'%(RelativeSource)','%0A- ')"
+             Importance="$(_Low)"
+             Condition="@(Sdist) != ''" />
+    <Message Text="Sdist contains no files" Importance="$(_Low)" Condition="@(Sdist) == ''" />
+  </Target>
+
+  <Target Name="_SetSdist">
+    <PropertyGroup>
+      <_ProjectBuildTarget>BuildSdist</_ProjectBuildTarget>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="_MkdirSdist">
+    <ItemGroup>
+      <_Outputs Include="%(Sdist.Destination)" />
+    </ItemGroup>
+    <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
+  </Target>
+
+  <Target Name="_CopySdist" Inputs="@(Sdist)" Outputs="%(Sdist.Destination)">
+    <Copy SourceFiles="%(Sdist.FullPath)" DestinationFiles="%(Sdist.Destination)" />
+    <ItemGroup>
+      <FileWrites Include="%(Sdist.Destination)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="BuildSdist" DependsOnTargets="_SetSdist;$(BuildSdistDependsOn);CalculateSdist;_MkdirSdist;_CopySdist">
+  </Target>
+</Project>

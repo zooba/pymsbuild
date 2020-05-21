@@ -3,19 +3,13 @@
 
 __version__ = "0.0.1"
 
-import contextvars
+import os
+import shutil
 import sys
 from pathlib import Path
 
 from pymsbuild import _build
 from pymsbuild._types import *
-
-_CONFIG_DIR = contextvars.ContextVar("CONFIG_DIR")
-_TEMP_DIR = contextvars.ContextVar("BUILD_DIR")
-_DISTINFO = contextvars.ContextVar("DISTINFO", default={})
-_PROJECTS = contextvars.ContextVar("PROJECTS", default=[])
-_RECORD = contextvars.ContextVar("RECORD")
-_BUILD_PROJECT = contextvars.ContextVar("BUILD_PROJECT")
 
 
 def read_config(root):
@@ -30,12 +24,114 @@ def read_config(root):
     return mod
 
 
-def generate(config):
-    from ._generate import generate as G
-    source_dir = Path(config.__file__).parent
-    build_dir = source_dir / "build"
+def generate(output_dir, source_dir, build_dir, force, config=None, **unused):
+    if config is None:
+        config = read_config(source_dir)
+    from ._generate import generate as G, generate_distinfo as GD
     build_dir.mkdir(parents=True, exist_ok=True)
-    G(config.PACKAGE, build_dir, source_dir)
+    pkginfo = source_dir / "PKG_INFO"
+    if pkginfo.is_file():
+        print("Using", pkginfo)
+        shutil.copy(pkginfo, build_dir / "PKG_INFO")
+    elif hasattr(config, "METADATA"):
+        print("Generating", build_dir / "PKG_INFO")
+        GD(config.METADATA, build_dir, source_dir)
+    return G(config.PACKAGE, build_dir, source_dir)
+
+
+def build(project, *, quiet=False, verbose=False, target="Build", msbuild_exe=None, **properties):
+    import subprocess
+    project = Path(project)
+    msbuild_exe = msbuild_exe or _build.locate()
+    print("Compiling", project, "with", msbuild_exe)
+    properties.setdefault("Configuration", "Release")
+    properties.setdefault("HostPython", sys.executable)
+    properties.setdefault("PyMsbuildTargets", Path(__file__).parent / "targets")
+    rsp = Path(f"{project}.{os.getpid()}.rsp")
+    with rsp.open("w", encoding="utf-8-sig") as f:
+        print(project, file=f)
+        print("/nologo", file=f)
+        if verbose:
+            print("/p:_Low=Normal", file=f)
+        print("/v:n", file=f)
+        print("/t:", target, sep="", file=f)
+        for k, v in properties.items():
+            if v is None:
+                continue
+            if k in {"IntDir", "OutDir", "SourceDir"}:
+                v = str(v).replace("/", "\\")
+                if not v.endswith("\\"):
+                    v += "\\"
+            print("/p:", k, "=", v, sep="", file=f)
+    _run = subprocess.check_output if quiet else subprocess.check_call
+    try:
+        _run([msbuild_exe, "/noAutoResponse", f"@{rsp}"],
+             stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as ex:
+        if quiet:
+            print(ex.stdout.decode("mbcs", "replace"))
+        sys.exit(1)
+    else:
+        rsp.unlink()
+
+
+def build_in_place(output_dir, **kwargs):
+    p = generate(output_dir, **kwargs)
+    build(
+        p,
+        target="BuildInPlace",
+        verbose=kwargs.get("verbose", False),
+        SourceDir=kwargs.get("source_dir", None),
+    )
+
+
+def clean(output_dir, **kwargs):
+    config = kwargs.get("config") or read_config(kwargs["source_dir"])
+    proj = kwargs["build_dir"] / (config.PACKAGE.name + ".proj")
+    if proj.is_file():
+        build(
+            proj,
+            target="Clean",
+            verbose=kwargs.get("verbose", False),
+            SourceDir=kwargs.get("source_dir", None),
+        )
+
+
+def build_sdist(sdist_directory, config_settings=None, **kwargs):
+    sdist_directory = Path(sdist_directory)
+    sdist_directory.mkdir(parents=True, exist_ok=True)
+    config = kwargs.get("config") or read_config(kwargs["source_dir"])
+    target = "RebuildSdist" if kwargs.get("force", False) else "BuildSdist"
+    root_dir = kwargs.get("build_dir") or (Path.cwd() / "build")
+    build_dir = root_dir / "sdist"
+    temp_dir = root_dir / "temp"
+    p = generate(sdist_directory, **kwargs)
+    build(
+        p,
+        target=target,
+        verbose=kwargs.get("verbose", False),
+        SourceDir=kwargs.get("source_dir", None),
+        OutDir=build_dir,
+        IntDir=temp_dir,
+    )
+    return pack_sdist(sdist_directory, build_dir, config=config)
+
+
+def pack_sdist(output_dir, build_dir, **kwargs):
+    import gzip, tarfile
+    config = kwargs.get("config") or read_config(kwargs["source_dir"])
+    name, version = config.METADATA["Name"], config.METADATA["Version"]
+    sdist = output_dir / "{}_{}.tar.gz".format(name, version)
+    with gzip.open(sdist, "w") as f_gz:
+        with tarfile.TarFile.open(
+            sdist.with_suffix(".tar"),
+            "w",
+            fileobj=f_gz,
+            format=tarfile.PAX_FORMAT
+        ) as f:
+            f.add(build_dir, arcname="", recursive=True)
+    return sdist
+
 
 """
 def _path_globber(p):

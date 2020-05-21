@@ -1,0 +1,53 @@
+<Project>
+  <ItemGroup>
+    <_PyxCompileWithOutput Include="@(PyxCompile)">
+      <IncludeDirs>%(IncludeDirs)</IncludeDirs>
+      <RelativeSource Condition="%(RelativeSource) != ''">%(RelativeSource)</RelativeSource>
+      <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir), %(FullPath)))</RelativeSource>
+      <RelativeOutput>$([System.IO.Path]::ChangeExtension(%(RelativeSource), %(TargetExt)))</RelativeOutput>
+      <TargetPath>$(IntDir)%(RelativeOutput)</TargetPath>
+    </_PyxCompileWithOutput>
+    <ClCompile Include="@(_PyxCompileWithOutput->'%(TargetPath)')">
+      <RelativeSource>%(RelativeOutput)</RelativeSource>
+    </ClCompile>
+  </ItemGroup>
+
+  <Target Name="_ForceCythonize" Inputs="@(PyxCompile);@(PyxInclude)" Outputs="%(_PyxCompileWithOutput.TargetPath)">
+    <CreateProperty Value="true">
+      <Output TaskParameter="ValueSetByTask" PropertyName="ForceCythonize" />
+    </CreateProperty>
+  </Target>
+
+  <Target Name="_CythonizeAll" Condition="$(ForceCythonize) == 'true'">
+    <ItemGroup>
+      <_IncludeDirs Include="%(_PyxCompileWithOutput.IncludeDirs)" />
+      <FileWrites Include="%(_PyxCompileWithOutput.TargetPath)" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_BuildCmd>"$(HostPython)" -m cython</_BuildCmd>
+      <_BuildCmd>$(_BuildCmd) @(_IncludeDirs->'-I %(Identity)', ' ')</_BuildCmd>
+      <_BuildCmd>$(_BuildCmd) -o %(_PyxCompileWithOutput.TargetPath)</_BuildCmd>
+      <_BuildCmd>$(_BuildCmd) -f -v</_BuildCmd>
+      <_BuildCmd>$(_BuildCmd) %(_PyxCompileWithOutput.FullPath)</_BuildCmd>
+    </PropertyGroup>
+    <Exec Command="$(_BuildCmd)" />
+  </Target>
+
+  <Target Name="Cythonize" DependsOnTargets="PrepareForBuild;_ForceCythonize;_CythonizeAll">
+    <ItemGroup>
+      <FileWrites Include="%(_PyxCompileWithOutput.TargetPath)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_BuildCythonSdist" DependsOnTargets="Cythonize">
+    <ItemGroup>
+      <Sdist Include="@(_PyxCompileWithOutput)">
+        <RelativeSource>%(RelativeSource)</RelativeSource>
+      </Sdist>
+    </ItemGroup>
+  </Target>
+
+  <PropertyGroup>
+    <BuildSdistDependsOn>$(BuildSdistDependsOn);_BuildCythonSdist</BuildSdistDependsOn>
+  </PropertyGroup>
+</Project>
