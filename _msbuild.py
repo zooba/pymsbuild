@@ -30,6 +30,7 @@ METADATA = {
     ],
     "Requires-Python": ">=3.7",
     "Requires-External": "msbuild",
+    "WheelTag": "py3-none-any",
 }
 
 PACKAGE = Package(

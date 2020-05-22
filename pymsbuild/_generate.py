@@ -130,7 +130,7 @@ def generate(project, build_dir, source_dir):
 
     with ProjectFileWriter(proj, project.name) as f:
         with f.group("PropertyGroup"):
-            f.add_property("SourceDir", ConditionalValue(".", if_empty=True))
+            f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
             f.add_property("OutDir", ConditionalValue("layout\\", if_empty=True))
             f.add_property("IntDir", ConditionalValue("build\\", if_empty=True))
         f.add_import(r"$(PyMsbuildTargets)\common.props")
@@ -156,7 +156,7 @@ def generate(project, build_dir, source_dir):
                     }
                 )
         with f.group("ItemGroup", Label="Sdist metadata"):
-            f.add_item("Sdist", build_dir / "PKG_INFO", RelativeSource="PKG_INFO")
+            f.add_item("Sdist", build_dir / "PKG-INFO", RelativeSource="PKG-INFO")
             f.add_item("Sdist", source_dir / "_msbuild.py", RelativeSource="_msbuild.py")
             f.add_item("Sdist", source_dir / "pyproject.toml", RelativeSource="pyproject.toml")
         _write_members(f, source_dir, _all_members(
@@ -195,7 +195,7 @@ def _write_metadata_description(f, value, source_dir):
 
 def generate_distinfo(distinfo, build_dir, source_dir):
     build_dir.mkdir(parents=True, exist_ok=True)
-    with (build_dir / "PKG_INFO").open("w", encoding="utf-8") as f:
+    with (build_dir / "PKG-INFO").open("w", encoding="utf-8") as f:
         description = None
         for k, vv in distinfo.items():
             if k.casefold() == "description".casefold():

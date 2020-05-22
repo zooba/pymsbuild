@@ -11,7 +11,7 @@ The package definition specifies all the files that end up in the released packa
 ```python
 from pymsbuild import *
 
-# Metadata is specified raw, but if an adjacent PKG_INFO file exists,
+# Metadata is specified raw, but if an adjacent PKG-INFO file exists,
 # such as in an sdist, it is preferred and this dict is ignored.
 METADATA = {
     "Metadata-Version": "2.1",

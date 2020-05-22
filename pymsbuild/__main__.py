@@ -21,6 +21,8 @@ def parse_args():
     p.set_defaults(cmd="build_sdist")
     p = subparser.add_parser("wheel", help="Build a wheel")
     p.set_defaults(cmd="build_wheel")
+    p = subparser.add_parser("distinfo", help="Build just the wheel metadata")
+    p.set_defaults(cmd="prepare_metadata_for_build_wheel")
     p = subparser.add_parser("clean", help="Clean any builds")
     p.set_defaults(cmd="clean")
 
