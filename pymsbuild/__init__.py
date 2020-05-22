@@ -14,7 +14,7 @@ from pathlib import Path
 from pymsbuild import _build
 from pymsbuild._types import *
 
-DEFAULT_TAG = next(iter(packaging.tags.sys_tags()), "py3-none-any")
+DEFAULT_TAG = str(next(iter(packaging.tags.sys_tags()), "py3-none-any"))
 
 _VERBOSE = contextvars.ContextVar("VERBOSE", default=True)
 
@@ -38,12 +38,13 @@ def read_config(root):
 def generate(output_dir, source_dir, build_dir, force=False, config=None, pkginfo=None, **unused):
     if config is None:
         config = read_config(source_dir)
-    from ._generate import generate as G, generate_distinfo as GD
+    from ._generate import generate as G, generate_distinfo as GD, readback_distinfo as RBD
     build_dir.mkdir(parents=True, exist_ok=True)
     pkginfo = pkginfo or (source_dir / "PKG-INFO")
     if pkginfo.is_file():
         _log("Using", pkginfo)
         shutil.copy(pkginfo, build_dir / "PKG-INFO")
+        config.METADATA = RBD(pkginfo)
     else:
         if hasattr(config, "init_METADATA"):
             _log("Dynamically initialising METADATA")
@@ -122,6 +123,8 @@ def build_sdist(sdist_directory, config_settings=None, **kwargs):
     target = "RebuildSdist" if kwargs.get("force", False) else "BuildSdist"
     root_dir = kwargs.get("build_dir") or (Path.cwd() / "build")
     build_dir = root_dir / "sdist"
+    if build_dir.is_dir():
+        shutil.rmtree(build_dir)
     temp_dir = root_dir / "temp"
     p = generate(sdist_directory, **kwargs)
     build(
@@ -160,7 +163,8 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None, 
 
     root_dir = kwargs.setdefault("build_dir", Path.cwd() / "build")
     build_dir = root_dir / "wheel"
-    shutil.rmtree(build_dir)
+    if build_dir.is_dir():
+        shutil.rmtree(build_dir)
     temp_dir = root_dir / "temp"
     if metadata_directory is None:
         metadata_directory = build_dir

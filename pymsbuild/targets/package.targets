@@ -32,9 +32,8 @@
 
   <Target Name="CalculateInPlace">
     <ItemGroup>
-      <InPlace Include="$(OutDir)\**" />
-      <InPlace>
-        <Destination>$(SourceDir)\%(InPlace.RecursiveDir)%(InPlace.Filename)%(InPlace.Extension)</Destination>
+      <InPlace Include="@(Content);@(Project)">
+        <Destination>%(SourceDir)\%(TargetName)%(TargetExt)</Destination>
       </InPlace>
     </ItemGroup>
   </Target>
