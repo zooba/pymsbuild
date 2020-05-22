@@ -22,7 +22,9 @@
     <ItemGroup>
       <_IncludeDirs Include="%(_PyxCompileWithOutput.IncludeDirs)" />
       <FileWrites Include="%(_PyxCompileWithOutput.TargetPath)" />
+      <_Outputs Include="%(_PyxCompileWithOutput.TargetPath)" />
     </ItemGroup>
+    <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
     <PropertyGroup>
       <_BuildCmd>"$(HostPython)" -m cython</_BuildCmd>
       <_BuildCmd>$(_BuildCmd) @(_IncludeDirs->'-I %(Identity)', ' ')</_BuildCmd>
