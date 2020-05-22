@@ -176,27 +176,60 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None, 
 
     tag = config.METADATA.get("WheelTag") or DEFAULT_TAG
     wheel = wheel_directory / "{}-{}-{}.whl".format(
-        re.sub("[^\w\d.]+", "_", name, re.UNICODE),
-        re.sub("[^\w\d.]+", "_", version, re.UNICODE),
-        re.sub("[^\w\d.]+", "_", tag, re.UNICODE),
+        re.sub(r"[^\w\d.]+", "_", name, re.UNICODE),
+        re.sub(r"[^\w\d.]+", "_", version, re.UNICODE),
+        tag,
     )
     pack_wheel(wheel, build_dir, metadata_directory, source_dir)
     return wheel.name
+
+
+def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
+    import base64, hashlib
+    hasher = getattr(hashlib, hashalg)() if hashalg else None
+    l = 0
+    with open(path, "rb") as f:
+        with zipfile.open(str(relpath), "w") as zf:
+            for b in iter(lambda: f.read(8192), b""):
+                if hasher:
+                    hasher.update(b)
+                l += len(b)
+                zf.write(b)
+    if hashalg:
+        return "{},{}={},{}".format(
+            relpath,
+            hashalg,
+            base64.urlsafe_b64encode(hasher.digest()).rstrip(b"=").decode(),
+            l,
+        )
+    return "{},,".format(relpath)
 
 
 def pack_wheel(wheel, build_dir, metadata_directory, source_dir, **kwargs):
     _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
     config = kwargs.get("config") or read_config(source_dir)
     name, version = config.METADATA["Name"], config.METADATA["Version"]
-    import zipfile
+    import hashlib, zipfile
     wheel = Path(wheel)
     wheel.parent.mkdir(parents=True, exist_ok=True)
+    record = []
     with zipfile.ZipFile(wheel, "w", compression=zipfile.ZIP_DEFLATED) as f:
         if metadata_directory != build_dir:
             for n in metadata_directory.rglob(r"**\*"):
-                f.write(n, n.relative_to(metadata_directory))
+                if n.is_file():
+                    record.append(_add_and_record(f, n, n.relative_to(metadata_directory)))
         for n in build_dir.rglob(r"**\*"):
-            f.write(n, n.relative_to(build_dir))
+            if n.is_file():
+                record.append(_add_and_record(f, n, n.relative_to(build_dir)))
+        record_files = []
+        for n in metadata_directory.glob("*.dist-info"):
+            if not n.is_dir():
+                continue
+            record_files.append(r"{}\RECORD".format(n.name))
+            record.append(r"{}\RECORD,,".format(n.name))
+        record_file = "\n".join(record).encode("utf-8")
+        for n in record_files:
+            f.writestr(n, record_file)
 
 
 def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None, **kwargs):

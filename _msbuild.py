@@ -30,6 +30,9 @@ METADATA = {
     ],
     "Requires-Python": ">=3.7",
     "Requires-External": "msbuild",
+    "Requires-Dist": [
+        "packaging",
+    ],
     "WheelTag": "py3-none-any",
 }
 
