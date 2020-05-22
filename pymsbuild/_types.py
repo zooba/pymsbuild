@@ -25,11 +25,12 @@ class _Project:
     _ACTIONS = ()
     options = {}
 
-    def __init__(self, name, *members, project_file=None, **kwargs):
+    def __init__(self, name, *members, project_file=None, source="", **kwargs):
         self.name = name
+        self.source = source
         self.options = {**self.options, **kwargs}
         self.project_file = project_file
-        self._members = members
+        self.members = list(members)
 
 
 class Package(_Project):
@@ -42,7 +43,7 @@ class PydFile(_Project):
 
 
 class LiteralXML:
-    _members = ()
+    members = ()
 
     def __init__(self, xml_string):
         self.name = "##xml"
@@ -51,10 +52,12 @@ class LiteralXML:
 
 class ConditionalValue:
     """A wrapper for any metadata or property value to add a condition"""
-    def __init__(self, value, *, condition=None, if_empty=None):
+    def __init__(self, value, *, condition=None, if_empty=None, prepend=False, append=False):
         self.value = value
         self.condition = condition
         self.if_empty = if_empty
+        self.prepend = prepend
+        self.append = append
 
     def __repr__(self):
         return repr(self.value)
@@ -64,7 +67,7 @@ class ConditionalValue:
 
 
 class Property:
-    _members = ()
+    members = ()
 
     def __init__(self, name, value):
         self.name = name
@@ -72,7 +75,7 @@ class Property:
 
 
 class ItemDefinition:
-    _members = ()
+    members = ()
 
     def __init__(self, kind, **metadata):
         self.name = "ItemDefinition/" + kind
@@ -91,7 +94,7 @@ class File:
     def __init__(self, source, name=None, **metadata):
         self.source = PurePath(source)
         self.name = name or self.source.name
-        self._members = []
+        self.members = []
         self.options = {**self.options, **metadata}
 
 

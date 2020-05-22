@@ -12,7 +12,7 @@ def _all_members(item, recurse_if=None, return_if=None, *, prefix=""):
     if not return_if or return_if(item):
         yield "{}{}".format(prefix, item.name), item
     if not recurse_if or recurse_if(item):
-        for m in item._members:
+        for m in item.members:
             yield from _all_members(
                 m,
                 recurse_if,
@@ -65,7 +65,7 @@ def _write_members(f, source_dir, members):
                 g.switch_to("ItemGroup")
                 wrote_any = False
                 for n2, p2 in _resolve_wildcards(n, source_dir / p.source):
-                    f.add_item(p._ITEMNAME, p2, Name=n2, **p.options)
+                    f.add_item(p._ITEMNAME, p2, Name=n2, SourceDir=source_dir, **p.options)
                     wrote_any = True
                 if not wrote_any:
                     raise ValueError("failed to find any files for " + str(p.source))
@@ -122,7 +122,8 @@ def _generate_pyd(project, build_dir, source_dir):
 
 def generate(project, build_dir, source_dir):
     build_dir = Path(build_dir)
-    source_dir = Path(source_dir)
+    root_dir = Path(source_dir)
+    source_dir = root_dir / project.source
     proj = build_dir / "{}.proj".format(project.name)
 
     if project.project_file:
@@ -130,14 +131,14 @@ def generate(project, build_dir, source_dir):
 
     with ProjectFileWriter(proj, project.name) as f:
         with f.group("PropertyGroup"):
-            f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
+            f.add_property("SourceDir", ConditionalValue(root_dir, if_empty=True))
             f.add_property("OutDir", ConditionalValue("layout\\", if_empty=True))
             f.add_property("IntDir", ConditionalValue("build\\", if_empty=True))
         f.add_import(r"$(PyMsbuildTargets)\common.props")
         with f.group("ItemGroup", Label="ProjectReferences"):
             for n, p in _all_members(project, return_if=lambda m: isinstance(m, PydFile)):
                 fn = PurePath(n)
-                pdir = _generate_pyd(p, build_dir, source_dir)
+                pdir = _generate_pyd(p, build_dir, source_dir / p.source)
                 try:
                     pdir = pdir.relative_to(proj.parent)
                 except ValueError:
@@ -151,14 +152,15 @@ def generate(project, build_dir, source_dir):
                             TargetDir=fn.parent,
                             TargetName=fn.stem,
                             TargetExt=".pyd",
+                            SourceDir=source_dir / p.source,
                         ),
                         **p.options,
                     }
                 )
         with f.group("ItemGroup", Label="Sdist metadata"):
             f.add_item("Sdist", build_dir / "PKG-INFO", RelativeSource="PKG-INFO")
-            f.add_item("Sdist", source_dir / "_msbuild.py", RelativeSource="_msbuild.py")
-            f.add_item("Sdist", source_dir / "pyproject.toml", RelativeSource="pyproject.toml")
+            f.add_item("Sdist", root_dir / "_msbuild.py", RelativeSource="_msbuild.py")
+            f.add_item("Sdist", root_dir / "pyproject.toml", RelativeSource="pyproject.toml")
         _write_members(f, source_dir, _all_members(
             project,
             recurse_if=lambda m: not isinstance(m, PydFile),
@@ -204,3 +206,21 @@ def generate_distinfo(distinfo, build_dir, source_dir):
             _write_metadata(f, k, vv, source_dir)
         if description:
             _write_metadata_description(f, description, source_dir)
+
+def readback_distinfo(pkg_config):
+    distinfo = []
+    with open(pkg_config, "r", encoding="utf-8") as f:
+        for line in r:
+            if line.startswith(("       |", "        ")):
+                distinfo[-1] = (distinfo[-1][0], distinfo[-1][1] + "\n" + line[8:])
+                continue
+            key, _, value = line.partition(":")
+            distinfo.append((key.strip(), value.lstrip()))
+    d = {}
+    for k, v in distinfo:
+        r = d.setdefault(k, v)
+        if isinstance(r, list):
+            r.append(v)
+        elif r is not v:
+            d[k] = [r, v]
+    return d

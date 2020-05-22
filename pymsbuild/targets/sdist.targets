@@ -6,7 +6,7 @@
         <RelativeSource Condition="%(Sdist.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir), %(FullPath)))</RelativeSource>
       </Sdist>
       <Sdist>
-        <Destination>$(OutDir)%(RelativeSource)</Destination>
+        <Destination>$([System.IO.Path]::Combine($(OutDir), %(RelativeSource)))</Destination>
       </Sdist>
     </ItemGroup>
     <Message Text="Sdist contains:%0A- @(Sdist->'%(RelativeSource)','%0A- ')"

@@ -5,13 +5,14 @@
         <Properties>_ProjectBuildTarget=$(_ProjectBuildTarget);IntDir=$(IntDir)\%(Name)\;SourceDir=$(SourceDir);TargetName=%(TargetName);TargetExt=%(TargetExt);%(Properties)</Properties>
       </Project>
       <Project>
-        <Properties Condition="$(_ProjectBuildTarget) == 'Build'">OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)\%(TargetDir)`))\;%(Properties)</Properties>
+        <Properties Condition="$(_ProjectBuildTarget) == '' or $(_ProjectBuildTarget) == 'Build'">OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)\%(TargetDir)`))\;%(Properties)</Properties>
         <Properties Condition="$(_ProjectBuildTarget) == 'BuildSdist'">OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)`))\;%(Properties)</Properties>
       </Project>
     </ItemGroup>
   </Target>
 
   <Target Name="BuildDependencies" DependsOnTargets="_AssignProjectProperties">
+    <Message Text="Building $(Project) with %(Project.Properties)" Importance="$(_Low)" />
     <MSBuild Projects="@(Project)" Targets="$(_ProjectBuildTarget)" Properties="%(Project.Properties)" />
   </Target>
 

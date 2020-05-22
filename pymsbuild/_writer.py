@@ -18,9 +18,12 @@ def _guid(target_name):
 
 class CV:
     def __init__(self, value, condition=None, if_empty=False):
-        self.value = value
+        self.value = str(value)
         self.condition = condition
         self.if_empty = if_empty
+
+    def __str__(self):
+        return self.value
 
 
 class ProjectFileWriter:
@@ -33,6 +36,7 @@ class ProjectFileWriter:
         self.current_group = None
 
     def __enter__(self):
+        Path(self.filename).parent.mkdir(parents=True, exist_ok=True)
         self._file = open(self.filename, "w", encoding="utf-8")
         print(PROLOGUE, file=self._file)
         if self._vc_platforms is True:
@@ -75,11 +79,16 @@ class ProjectFileWriter:
             for v in value:
                 self._write_value(name, v, symbol)
             return
-        if hasattr(value, "condition"):
-            if getattr(value, "if_empty", None):
-                self.write("<", name, ' Condition="', symbol, "(", name, ") == ''\">", value.value, "</", name, ">")
-            else:
-                self.write("<", name, ' Condition="', value.condition, '">', value.value, "</", name, ">")
+        c = getattr(value, "condition", None)
+        if c:
+            v = str(value)
+            if getattr(value, "if_empty", False):
+                c = "{}({}) == ''".format(symbol, name)
+            if getattr(value, "append", False):
+                v = "{}({}){}".format(symbol, name, v)
+            if getattr(value, "prepend", False):
+                v = "{}({}){}".format(v, name, symbol)
+            self.write("<", name, ' Condition="', c, '">', v, "</", name, ">")
         else:
             self.write("<", name, ">", value, "</", name, ">")
 
