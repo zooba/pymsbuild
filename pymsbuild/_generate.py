@@ -93,6 +93,9 @@ def _generate_pyd(project, build_dir, source_dir):
         with f.group("PropertyGroup", Label="Globals"):
             f.add_property("OutDir", "layout\\")
             f.add_property("IntDir", ConditionalValue("build\\", if_empty=True))
+            for k, v in project.options.items():
+                if k not in {"ConfigurationType", "TargetExt"}:
+                    f.add_property(k, v)
         f.add_import("$(VCTargetsPath)\Microsoft.Cpp.Default.props")
         f.add_import(r"$(PyMsbuildTargets)\common.props")
         with f.group("PropertyGroup", Label="Configuration"):
@@ -115,7 +118,6 @@ def _generate_pyd(project, build_dir, source_dir):
         f.add_import(r"$(PyMsbuildTargets)\common.targets")
         f.add_import(r"$(VCTargetsPath)\Microsoft.Cpp.targets")
         f.add_import(r"$(PyMsbuildTargets)\pyd.targets")
-        f.add_import(r"$(PyMsbuildTargets)\sdist.targets")
 
     return proj
 
@@ -134,6 +136,8 @@ def generate(project, build_dir, source_dir):
             f.add_property("SourceDir", ConditionalValue(root_dir, if_empty=True))
             f.add_property("OutDir", ConditionalValue("layout\\", if_empty=True))
             f.add_property("IntDir", ConditionalValue("build\\", if_empty=True))
+            for k, v in project.options.items():
+                f.add_property(k, v)
         f.add_import(r"$(PyMsbuildTargets)\common.props")
         with f.group("ItemGroup", Label="ProjectReferences"):
             for n, p in _all_members(project, return_if=lambda m: isinstance(m, PydFile)):
@@ -167,7 +171,6 @@ def generate(project, build_dir, source_dir):
         ))
         f.add_import(r"$(PyMsbuildTargets)\common.targets")
         f.add_import(r"$(PyMsbuildTargets)\package.targets")
-        f.add_import(r"$(PyMsbuildTargets)\sdist.targets")
 
     return proj
 

@@ -2,24 +2,108 @@ import os
 import pytest
 import sys
 
-from pathlib import Path
+from xml.etree import ElementTree
+from pathlib import Path, PurePath
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import pymsbuild
-from pymsbuild import Package, PyFile
+import pymsbuild._generate as G
+import pymsbuild._types as T
+
+FILE_TYPES = [
+    ("Content", T.File),
+    ("Content", T.PyFile),
+    ("None", T.SourceFile),
+    ("ClCompile", T.CSourceFile),
+    ("ClInclude", T.IncludeFile),
+]
 
 
-def test_simple_collect():
-    p = Package("test",
-        PyFile("testdata/f.py"),
-        Package("subtest",
-            PyFile("testdata/f-1.py", "f"),
+@pytest.mark.parametrize("itemkind, ftype", FILE_TYPES)
+def test_file_types(itemkind, ftype):
+    f = ftype("testdata\\f.py", opt1=1)
+    assert f._ITEMNAME == itemkind
+    assert f.source == PurePath("testdata\\f.py")
+    assert f.name == "f.py"
+    assert f.options["opt1"] == 1
+
+
+class ProjectFileChecker:
+    def __init__(self, projfile):
+        print(projfile)
+        print(projfile.read_text())
+        self.root = ElementTree.parse(projfile)
+        self.ns = {
+            "x": self.root.getroot().tag.partition("}")[0][1:]
+        }
+
+    def get(self, xpath):
+        return self.root.find(xpath, namespaces=self.ns)
+
+    def getall(self, xpath, attr=None):
+        f = self.root.findall(xpath, namespaces=self.ns)
+        if attr:
+            return (i.get(attr) for i in f)
+        return f
+
+
+def test_pyd_generation(tmp_path):
+    p = T.PydFile("package",
+        T.CSourceFile("m.c"),
+        T.IncludeFile("m.h"),
+        T.SourceFile("m.txt"),
+    )
+    pf = ProjectFileChecker(G._generate_pyd(p, tmp_path, tmp_path))
+    targets = Path(pf.get("./x:PropertyGroup[@Label='Globals']/x:PyMsbuildTargets").text)
+    assert (targets / "package.targets").is_file()
+    assert (targets / "pyd.targets").is_file()
+
+    clcompile = pf.get("./x:ItemGroup/x:ClCompile[@Include]")
+    assert Path(tmp_path / "m.c") == Path(clcompile.get("Include"))
+    clinclude = pf.get("./x:ItemGroup/x:ClInclude[@Include]")
+    assert Path(tmp_path / "m.h") == Path(clinclude.get("Include"))
+    none = pf.get("./x:ItemGroup/x:None[@Include]")
+    assert Path(tmp_path / "m.txt") == Path(none.get("Include"))
+
+    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets)\\common.targets']") is not None
+    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets)\\pyd.targets']") is not None
+
+def test_package_generation(tmp_path):
+    p = T.Package("package",
+        T.PyFile("m.py", "__init__.py"),
+        T.SourceFile("m.txt"),
+        T.Package("subpackage",
+            T.PyFile("__init__.py"),
+            T.Package("subpackage",
+                T.PyFile("__init__.py"),
+            )
         )
     )
-    print(*pymsbuild.list_output("."), sep="\n")
-    assert 0
-    src = list(p._get_sources(".", None))
-    assert {i[2] for i in src} == {"test\\f.py", "test\\subtest\\f.py"}
+    pf = ProjectFileChecker(G.generate(p, tmp_path, tmp_path))
+    targets = Path(pf.get("./x:PropertyGroup[@Label='Globals']/x:PyMsbuildTargets").text)
+    assert (targets / "package.targets").is_file()
 
+    sdist_md = pf.getall("./x:ItemGroup[@Label='Sdist metadata']/x:Sdist", "Include")
+    assert {PurePath(i).name for i in sdist_md} == {"pyproject.toml", "PKG-INFO", "_msbuild.py"}
+    sdist_md = pf.getall("./x:ItemGroup[@Label='Sdist metadata']/x:Sdist/x:RelativeSource")
+    assert {i.text for i in sdist_md} == {"pyproject.toml", "PKG-INFO", "_msbuild.py"}
 
+    files = pf.getall("./x:ItemGroup/x:Content/x:Name")
+    assert {i.text for i in files} == {
+        "package/__init__.py",
+        "package/subpackage/__init__.py",
+        "package/subpackage/subpackage/__init__.py",
+    }
+
+    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets)\\common.targets']") is not None
+    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets)\\pyd.targets']") is None
+
+def test_package_project_reference(tmp_path):
+    p = T.Package("package", T.PydFile("module"))
+    pf = ProjectFileChecker(G.generate(p, tmp_path, tmp_path))
+
+    assert "package/module" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:Name").text
+    assert "package" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetDir").text
+    assert "module" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetName").text
+    assert ".pyd" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetExt").text

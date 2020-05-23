@@ -17,6 +17,8 @@ def _guid(target_name):
 
 
 class CV:
+    has_condition = True
+
     def __init__(self, value, condition=None, if_empty=False):
         self.value = str(value)
         self.condition = condition
@@ -64,7 +66,7 @@ class ProjectFileWriter:
     @contextlib.contextmanager
     def group(self, tag, **attributes):
         if attributes:
-            self.write("<", tag, *(' {}="{}"'.format(*i) for i in attributes.items()), ">")
+            self.write("<", tag, *(' {}="{}"'.format(*i) for i in attributes.items() if all(i)), ">")
         else:
             self.write("<", tag, ">")
         self.indent += 2
@@ -79,8 +81,8 @@ class ProjectFileWriter:
             for v in value:
                 self._write_value(name, v, symbol)
             return
-        c = getattr(value, "condition", None)
-        if c:
+        if getattr(value, "has_condition", None):
+            c = value.condition
             v = str(value)
             if getattr(value, "if_empty", False):
                 c = "{}({}) == ''".format(symbol, name)
@@ -96,12 +98,24 @@ class ProjectFileWriter:
         self._write_value(name, value, "$")
 
     def add_item(self, kind, name, **metadata):
+        n = str(name)
+        c = None
+        if getattr(name, "has_condition", False):
+            c = name.condition
+            if getattr(name, "if_empty", False):
+                c = "@({}) == ''".format(kind)
+            if getattr(value, "append", False) or getattr(value, "prepend", False):
+                raise ValueError("'append' and 'prepend' are not supported on '{}'".format(name))
+
         if metadata:
-            with self.group(kind, Include=name):
+            with self.group(kind, Include=n, Condition=c):
                 for k, v in metadata.items():
                     self._write_value(k, v, "%")
         else:
-            self.write("<", kind, ' Include="', name, '" />')
+            if c:
+                self.write("<", kind, ' Include="', n, '" Condition="', c, '" />')
+            else:
+                self.write("<", kind, ' Include="', n, '" />')
 
     def add_item_property(self, kind, name, value):
         self._write_value(name, value, "%")

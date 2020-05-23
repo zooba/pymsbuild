@@ -17,32 +17,67 @@ __all__ = [
 ]
 
 
-def _extmap(*exts):
-    return frozenset(map(str.casefold, exts))
-
-
 class _Project:
+    r"""Base class of compilable projects. Do not use directly."""
     _ACTIONS = ()
     options = {}
 
-    def __init__(self, name, *members, project_file=None, source="", **kwargs):
+    def __init__(self, name, *members, project_file=None, source="", **options):
         self.name = name
         self.source = source
-        self.options = {**self.options, **kwargs}
+        self.options = {**self.options, **options}
         self.project_file = project_file
         self.members = list(members)
 
 
 class Package(_Project):
-    pass
+    r"""Represents a Python package.
+
+Each Package represents a directory in the final distribution. Its
+members may be other packages, files, or configuration settings.
+
+Packages and files that are members of a Package will be installed
+to the package directory. Note that only explicitly listed contents
+will be included.
+
+Specify `project_file` to override all generation with a fixed
+MSBuild project file. This also overrides additional options and
+sdist generation.
+
+Specify `source` to find sources in a subdirectory without impacting
+the install structure.
+
+Other options will be added to the project as properties.
+"""
 
 
 class PydFile(_Project):
-    _NATIVE_BUILD = True
+    r"""Represents a .pyd module.
+
+Each PydFile represents a single .pyd file in the final distribution.
+It must be included in a Package, and the built module will be
+included in that package's directory.
+
+Its members should be source files or projects. Directly referenced
+files will be included in sdists, but transitive references will not.
+
+Specify `project_file` to override all generation with a fixed
+MSBuild project file. This also overrides additional options and
+sdist generation.
+
+Specify `source` to find sources in a subdirectory.
+
+Other options will be added to the project as properties.
+"""
     options = {"TargetExt": ".pyd"}
 
 
 class LiteralXML:
+    r"""Literal string to insert into generated project file.
+
+This must be valid XML and may use any MSBuild syntax. It will be
+inserted under the top-level <Project> element.
+"""
     members = ()
 
     def __init__(self, xml_string):
@@ -51,22 +86,47 @@ class LiteralXML:
 
 
 class ConditionalValue:
-    """A wrapper for any metadata or property value to add a condition"""
-    def __init__(self, value, *, condition=None, if_empty=None, prepend=False, append=False):
+    r"""Add a condition to any property value.
+
+This may be applied to any value that will be written into a project
+file.
+
+Specify `condition` to directly control the test, or `if_empty` to
+check for an existing value.
+
+Specify either `prepend` or `append` (or both, if you have a reason)
+to concatenate the existing property value.
+"""
+    has_condition = True
+
+    def __init__(self, value, *, condition=None, if_empty=False, prepend=False, append=False):
         self.value = value
+        # Ensure condition has a True value so we can test for it later
         self.condition = condition
         self.if_empty = if_empty
         self.prepend = prepend
         self.append = append
 
     def __repr__(self):
-        return repr(self.value)
+        return "ConditionalValue(" + ", ".join(s for s in (
+            "condition={}".format(self.condition) if self.condition else None,
+            "if_empty=True" if self.if_empty else None,
+            "prepend=True" if self.prepend else None,
+            "append=True" if self.append else None,
+        ) if s) + ")"
 
     def __str__(self):
         return str(self.value)
 
 
 class Property:
+    r"""Add a property to a project.
+
+When generated into an MSBuild project, this property will be defined
+at the point in member order where it is specified.
+
+Use `ConditionalValue` to add conditions to the property.
+"""
     members = ()
 
     def __init__(self, name, value):
@@ -75,21 +135,35 @@ class Property:
 
 
 class ItemDefinition:
+    r"""Add an item definition to a project.
+
+When generated into an MSBuild project, the item definition group will
+be defined at the point in member order where it is specified.
+
+Provide a list or tuple as the metadata value to include multiple
+specifications.
+
+Use `ConditionalValue` to add conditions to each metadata item.
+"""
     members = ()
 
     def __init__(self, kind, **metadata):
-        self.name = "ItemDefinition/" + kind
+        self.name = "ItemDefinition({})".format(kind)
         self.kind = kind
         self.options = metadata
 
 
 class File:
-    _ITEMNAME = "Content"
-    _SUBCLASSES = []
-    options = {}
+    r"""Add a generic file to a package or project.
 
-    def __init_subclass__(cls):
-        File._SUBCLASSES.append(cls)
+When added to `Package`, the file will be copied into the resulting
+package directory.
+
+When added to another project, behaviour will depend on how that
+project treats "Content" elements.
+"""
+    _ITEMNAME = "Content"
+    options = {}
 
     def __init__(self, source, name=None, **metadata):
         self.source = PurePath(source)
@@ -99,25 +173,53 @@ class File:
 
 
 class PyFile(File):
-    _EXTENSIONS = _extmap(".py")
+    r"""Add a Python source file to a package.
+
+Currently does nothing special. One day will generate .pyc files.
+"""
+    options = {"GeneratePyc": True}
 
 
 class Project(File):
+    r"""Add a reference to an external MSBuild project.
+
+This project should either provide Build, BuildSdist and BuildInPlace
+targets, or import "$(PyMsbuildTargets)\common.targets". Otherwise,
+files referenced or generated by this project are not automatically
+included in sdists or wheels, or the projcet may cause the build to
+fail.
+"""
     _ITEMNAME = "Project"
-    _EXTENSIONS = _extmap(".proj", ".vcxproj")
 
 
 class SourceFile(File):
-    _ITEMNAME = "Content"
-    options = {"IncludeInWheel": False}
+    r"""Add a generic file to use for building.
+
+These files will be included in the sdist, but will not be copied
+in-place or included in wheels.
+"""
+    _ITEMNAME = "None"
 
 
 class CSourceFile(File):
+    r"""Add a C/C++ source file.
+
+These files will be included in the sdist, but will not be copied
+in-place or included in wheels, except as built output.
+
+Incremental rebuilds will be triggered when these files are modified.
+"""
     _ITEMNAME = "ClCompile"
-    _EXTENSIONS = _extmap(".c", ".cpp", ".cxx")
 
 
 class IncludeFile(File):
+    r"""Add a header file.
+
+These files will be included in the sdist, but will not be copied
+in-place or included in wheels, except as built output.
+
+Incremental rebuilds will be triggered when these files are modified,
+but they do not directly participate in most builds.
+"""
     _ITEMNAME = "ClInclude"
-    _EXTENSIONS = _extmap(".h", ".hpp", ".hxx")
 

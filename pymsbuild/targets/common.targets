@@ -43,4 +43,6 @@
       <FileWrites Remove="@(FileWrites)" />
     </ItemGroup>
   </Target>
+
+  <Import Project="sdist.targets" />
 </Project>
