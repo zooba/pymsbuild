@@ -60,6 +60,8 @@
   </Target>
 
   <Target Name="BuildInPlace" DependsOnTargets="Build;CalculateInPlace;_MkdirInPlace;_CopyInPlace">
+    <Message Text="Copied to source tree:" Importance="high" Condition="@(InPlace) != ''" />
+    <Message Text=" - %(InPlace.Destination)" Importance="high" Condition="@(InPlace) != ''" />
   </Target>
 
   <Target Name="Clean" />

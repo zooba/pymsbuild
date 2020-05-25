@@ -112,7 +112,8 @@ class ProjectFileWriter:
         if metadata:
             with self.group(kind, Include=n, Condition=c):
                 for k, v in metadata.items():
-                    self._write_value(k, v, "%")
+                    if v is not None:
+                        self._write_value(k, v, "%")
         else:
             if c:
                 self.write("<", kind, ' Include="', n, '" Condition="', c, '" />')
