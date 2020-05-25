@@ -17,7 +17,7 @@ def locate():
     vswhere = Path(os.getenv("ProgramFiles(x86)"), "Microsoft Visual Studio", "Installer", "vswhere.exe")
     if vswhere.is_file():
         out = Path(subprocess.check_output([
-            vswhere,
+            str(vswhere),
             "-nologo",
             "-property", "installationPath",
             "-latest",
