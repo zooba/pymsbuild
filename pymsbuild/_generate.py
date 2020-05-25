@@ -96,13 +96,13 @@ def _generate_pyd(project, build_dir, source_dir):
             for k, v in project.options.items():
                 if k not in {"ConfigurationType", "TargetExt"}:
                     f.add_property(k, v)
-        f.add_import("$(VCTargetsPath)\Microsoft.Cpp.Default.props")
+        f.add_import(r"$(VCTargetsPath)\Microsoft.Cpp.Default.props")
         f.add_import(r"$(PyMsbuildTargets)\common.props")
         with f.group("PropertyGroup", Label="Configuration"):
             f.add_property("ConfigurationType", project.options.get("ConfigurationType", "DynamicLibrary"))
             f.add_property("PlatformToolset", "$(DefaultPlatformToolset)")
             f.add_property("CharacterSet", "Unicode")
-        f.add_import("$(VCTargetsPath)\Microsoft.Cpp.props")
+        f.add_import(r"$(VCTargetsPath)\Microsoft.Cpp.props")
         with f.group("PropertyGroup"):
             f.add_property("TargetExt", project.options.get("TargetExt", ".pyd"))
             f.add_property("LinkIncremental", "false")
