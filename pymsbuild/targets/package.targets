@@ -2,13 +2,13 @@
   <Target Name="_AssignContentProperties">
     <ItemGroup>
       <Content>
-        <TargetDir Condition="%(TargetDir) == ''">$([System.IO.Path]::GetDirectoryName(%(Name)))</TargetDir>
+        <TargetDir Condition="%(TargetDir) == ''">$([msbuild]::EnsureTrailingSlash($([System.IO.Path]::GetDirectoryName(%(Name)))))</TargetDir>
         <TargetName Condition="%(TargetName) == ''">$([System.IO.Path]::GetFileNameWithoutExtension(%(Name)))</TargetName>
         <TargetExt Condition="%(TargetExt) == ''">$([System.IO.Path]::GetExtension(%(Name)))</TargetExt>
       </Content>
       <Content>
         <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir), %(FullPath)))</RelativeSource>
-        <Destination Condition="%(IncludeInWheel)">$(OutDir)%(TargetDir)\%(TargetName)%(TargetExt)</Destination>
+        <Destination Condition="%(IncludeInWheel)">$(OutDir)%(TargetDir)%(TargetName)%(TargetExt)</Destination>
         <Source>$(OutDir)%(RelativeSource)</Source>
       </Content>
     </ItemGroup>
@@ -32,8 +32,8 @@
 
   <Target Name="CalculateInPlace">
     <ItemGroup>
-      <InPlace Include="@(Content);@(Project)">
-        <Destination>%(SourceDir)\%(TargetName)%(TargetExt)</Destination>
+      <InPlace Include="@(Content)">
+        <Destination>%(SourceDir)\%(TargetDir)%(TargetName)%(TargetExt)</Destination>
       </InPlace>
     </ItemGroup>
   </Target>

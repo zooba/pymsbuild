@@ -35,7 +35,7 @@ def read_config(root):
     return mod
 
 
-def generate(output_dir, source_dir, build_dir, force=False, config=None, pkginfo=None, **unused):
+def generate(output_dir, source_dir, build_dir, force=False, config=None, pkginfo=None, wheel_tag=..., **unused):
     if config is None:
         config = read_config(source_dir)
     from ._generate import generate as G, generate_distinfo as GD, readback_distinfo as RBD
@@ -54,7 +54,9 @@ def generate(output_dir, source_dir, build_dir, force=False, config=None, pkginf
             GD(config.METADATA, build_dir, source_dir)
     if hasattr(config, "init_PACKAGE"):
         _log("Dynamically initialising PACKAGE")
-        config.PACKAGE = config.init_PACKAGE() or config.PACKAGE
+        if wheel_tag is ...:
+            wheel_tag = config.METADATA.get("WheelTag") or DEFAULT_TAG
+        config.PACKAGE = config.init_PACKAGE(str(wheel_tag)) or config.PACKAGE
     _log("Generating projects")
     p = G(config.PACKAGE, build_dir, source_dir)
     _log("Generated", p)
@@ -126,6 +128,7 @@ def build_sdist(sdist_directory, config_settings=None, **kwargs):
     if build_dir.is_dir():
         shutil.rmtree(build_dir)
     temp_dir = root_dir / "temp"
+    kwargs.setdefault("wheel_tag", None)
     p = generate(sdist_directory, **kwargs)
     build(
         p,
