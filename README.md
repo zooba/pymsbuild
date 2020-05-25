@@ -50,6 +50,7 @@ python -m pymsbuild
 ```
 
 Interactively generate the `_msbuild.py` file with project spec.
+(Or at least, it will, once implemented.)
 
 ```
 python -m pymsbuild init
@@ -65,6 +66,12 @@ Build the project and output a wheel
 
 ```
 python -m pymsbuild wheel
+```
+
+Clean any recent builds
+
+```
+python -m pymsbuild clean
 ```
 
 # Advanced Examples
