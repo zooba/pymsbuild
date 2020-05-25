@@ -121,6 +121,7 @@ def build_sdist(sdist_directory, config_settings=None, **kwargs):
     _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
     sdist_directory = Path(sdist_directory)
     sdist_directory.mkdir(parents=True, exist_ok=True)
+    kwargs.setdefault("source_dir", Path.cwd())
     config = kwargs.get("config") or read_config(kwargs["source_dir"])
     target = "RebuildSdist" if kwargs.get("force", False) else "BuildSdist"
     root_dir = kwargs.get("build_dir") or (Path.cwd() / "build")
@@ -158,6 +159,7 @@ def pack_sdist(output_dir, build_dir, **kwargs):
 
 def build_wheel(wheel_directory, config_settings=None, metadata_directory=None, **kwargs):
     _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
+    kwargs.setdefault("source_dir", Path.cwd())
     config = kwargs.get("config") or read_config(kwargs["source_dir"])
     kwargs.setdefault("config", config)
     source_dir = Path(config.__file__).absolute().parent
@@ -241,6 +243,7 @@ def pack_wheel(wheel, build_dir, metadata_directory, source_dir, **kwargs):
 
 def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None, **kwargs):
     _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
+    kwargs.setdefault("source_dir", Path.cwd())
     config = kwargs.get("config") or read_config(kwargs["source_dir"])
     name, version = config.METADATA["Name"], config.METADATA["Version"]
     tag = config.METADATA.get("WheelTag") or DEFAULT_TAG
