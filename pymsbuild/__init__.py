@@ -194,7 +194,7 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None, 
         metadata_directory = Path(metadata_directory)
     p = generate(
         build_dir, source_dir, temp_dir, config=config,
-        pkginfo=metadata_directory / "PKG-INFO",
+        pkginfo=source_dir / "PKG-INFO",
     )
     target = "Rebuild" if kwargs.get("force", False) else "Build"
     build(p, target=target, OutDir=build_dir, IntDir=temp_dir)

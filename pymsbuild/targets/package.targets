@@ -7,7 +7,7 @@
         <TargetExt Condition="%(TargetExt) == ''">$([System.IO.Path]::GetExtension(%(Name)))</TargetExt>
       </Content>
       <Content>
-        <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir), %(FullPath)))</RelativeSource>
+        <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir.TrimEnd(`\`)), %(FullPath)))</RelativeSource>
         <Destination Condition="%(IncludeInWheel)">$(OutDir)%(TargetDir)%(TargetName)%(TargetExt)</Destination>
         <Source>$(OutDir)%(RelativeSource)</Source>
       </Content>
