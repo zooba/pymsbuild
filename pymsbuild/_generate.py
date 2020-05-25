@@ -193,9 +193,9 @@ def _write_metadata(f, key, value, source_dir):
             _write_metadata(f, key, v, source_dir)
         return
     if isinstance(value, File):
-        values = (source_dir / value.source).read_text(encoding="utf-8")
+        value = (source_dir / value.source).read_text(encoding="utf-8")
     if "\n" in value:
-        values = value.replace("\n", "\n       |")
+        value = value.replace("\n", "\n       |")
     print(key, value, sep=": ", file=f)
 
 
@@ -222,10 +222,18 @@ def generate_distinfo(distinfo, build_dir, source_dir):
         if description:
             _write_metadata_description(f, description, source_dir)
 
-def readback_distinfo(pkg_config):
+def readback_distinfo(pkg_info):
     distinfo = []
-    with open(pkg_config, "r", encoding="utf-8") as f:
-        for line in r:
+    description = None
+    with open(pkg_info, "r", encoding="utf-8") as f:
+        for line in f:
+            if description is not None:
+                description.append(line)
+                continue
+            line = line.rstrip()
+            if not line:
+                description = []
+                continue
             if line.startswith(("       |", "        ")):
                 distinfo[-1] = (distinfo[-1][0], distinfo[-1][1] + "\n" + line[8:])
                 continue
@@ -238,4 +246,6 @@ def readback_distinfo(pkg_config):
             r.append(v)
         elif r is not v:
             d[k] = [r, v]
+    if description:
+        d["Description"] = "".join(description).rstrip()
     return d

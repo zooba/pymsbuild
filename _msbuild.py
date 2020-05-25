@@ -4,7 +4,7 @@ from pymsbuild import *
 METADATA = {
     "Metadata-Version": "2.1",
     "Name": "pymsbuild",
-    "Version": os.getenv("BUILD_BUILDNUMBER", "0.0.4"),
+    "Version": os.getenv("BUILD_BUILDNUMBER", "0.0.5"),
     "Author": "Steve Dower",
     "Author-email": "Steve Dower <steve.dower@python.org>",
     "Home-page": "https://github.com/zooba/pymsbuild",

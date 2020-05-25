@@ -69,6 +69,7 @@ def test_pyd_generation(tmp_path):
     assert pf.get("./x:Import[@Project='$(PyMsbuildTargets)\\common.targets']") is not None
     assert pf.get("./x:Import[@Project='$(PyMsbuildTargets)\\pyd.targets']") is not None
 
+
 def test_package_generation(tmp_path):
     p = T.Package("package",
         T.PyFile("m.py", "__init__.py"),
@@ -99,6 +100,7 @@ def test_package_generation(tmp_path):
     assert pf.get("./x:Import[@Project='$(PyMsbuildTargets)\\common.targets']") is not None
     assert pf.get("./x:Import[@Project='$(PyMsbuildTargets)\\pyd.targets']") is None
 
+
 def test_package_project_reference(tmp_path):
     p = T.Package("package", T.PydFile("module"))
     pf = ProjectFileChecker(G.generate(p, tmp_path, tmp_path))
@@ -107,3 +109,20 @@ def test_package_project_reference(tmp_path):
     assert "package" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetDir").text
     assert "module" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetName").text
     assert ".pyd" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetExt").text
+
+
+def test_pkginfo_gen_readback(tmp_path):
+    with open(tmp_path / "txt.txt", "w", encoding="utf-8") as f:
+        f.write("Test Data")
+    d = {
+        "Key": "Value",
+        "Multikey": ["1", "2"],
+        "File": T.File(tmp_path / "txt.txt"),
+        "Description": "Multiple lines\nof text\nthat go at the end",
+    }
+    G.generate_distinfo(d, tmp_path, tmp_path)
+    di = tmp_path / "PKG-INFO"
+    assert di.is_file()
+    d2 = G.readback_distinfo(di)
+    d_check = {**d, "File": "Test Data"}
+    assert d_check == d2
