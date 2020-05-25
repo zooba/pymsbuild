@@ -46,7 +46,7 @@ class ProjectFileWriter:
         elif self._vc_platforms:
             self.add_vc_platforms(*self._vc_platforms)
         with self.group("PropertyGroup", Label="Globals"):
-            self.add_property("Configuration", CV("Release", "$(Release) == ''"))
+            self.add_property("Configuration", CV("Release", "$(Configuration) == ''"))
             self.add_property("Platform", CV("x64", "$(Platform) == ''"))
             self.add_property("ProjectGuid", _guid(self.target_name))
             self.add_property("RootNamespace", self.target_name)
