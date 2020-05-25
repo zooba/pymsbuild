@@ -3,7 +3,7 @@
     <_PyxCompileWithOutput Include="@(PyxCompile)">
       <IncludeDirs>%(IncludeDirs)</IncludeDirs>
       <RelativeSource Condition="%(RelativeSource) != ''">%(RelativeSource)</RelativeSource>
-      <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir), %(FullPath)))</RelativeSource>
+      <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd(`\`)), %(FullPath)))</RelativeSource>
       <RelativeOutput>$([System.IO.Path]::ChangeExtension(%(RelativeSource), %(TargetExt)))</RelativeOutput>
       <TargetPath>$([System.IO.Path]::Combine($(IntDir), %(RelativeOutput)))</TargetPath>
     </_PyxCompileWithOutput>

@@ -66,10 +66,6 @@ def _write_members(f, source_dir, members):
                 wrote_any = False
                 for n2, p2 in _resolve_wildcards(n, source_dir / p.source):
                     options = dict(p.options)
-                    try:
-                        options.setdefault("RelativeSource", p2.relative_to(source_dir))
-                    except ValueError:
-                        pass
                     options.setdefault("SourceDir", source_dir)
                     options.setdefault("Name", n2)
                     f.add_item(p._ITEMNAME, p2, **options)
