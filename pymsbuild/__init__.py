@@ -93,7 +93,7 @@ def build(project, *, quiet=False, target="Build", msbuild_exe=None, **propertie
         _log()
     _run = subprocess.check_output if quiet else subprocess.check_call
     try:
-        _run([msbuild_exe, "/noAutoResponse", f"@{rsp}"],
+        _run([str(msbuild_exe), "/noAutoResponse", f"@{rsp}"],
              stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as ex:
         if quiet:
