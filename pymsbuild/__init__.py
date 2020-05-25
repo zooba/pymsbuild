@@ -232,6 +232,8 @@ class BuildState:
             shutil.rmtree(self.build_dir)
         if metadata_dir is None:
             metadata_dir = self.temp_dir / "metadata"
+            if metadata_dir.is_dir():
+                shutil.rmtree(metadata_dir)
         else:
             metadata_dir = Path(metadata_dir)
 
@@ -305,4 +307,4 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
 def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None):
     bs = BuildState()
     bs.output_dir = Path(metadata_directory)
-    return bs.prepare_wheel_metadata(bs.output_dir)
+    return bs.prepare_wheel_distinfo(bs.output_dir)
