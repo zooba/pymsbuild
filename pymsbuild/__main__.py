@@ -8,6 +8,7 @@ def parse_args():
     parser = argparse.ArgumentParser("pymsbuild")
     parser.add_argument("--force", "-f", action="store_true", help="Force a full rebuild")
     parser.add_argument("--verbose", "-v", action="store_true", help="Additional output")
+    parser.add_argument("--quiet", "-q", action="store_true", help="Less output")
     parser.add_argument("--source-dir", "-s", type=PurePath, default=None, help="Specify the source directory")
     parser.add_argument("--dist-dir", "-d", type=PurePath, default=None, help="Set the temporary directory")
     parser.add_argument("--temp-dir", "-t", type=PurePath, default=None, help="Set the build artifacts directory")
@@ -47,4 +48,5 @@ cmd(
     build_dir=build_dir,
     force=ns.force,
     verbose=ns.verbose,
+    quiet=ns.quiet,
 )

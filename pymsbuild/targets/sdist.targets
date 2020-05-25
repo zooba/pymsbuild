@@ -3,13 +3,16 @@
     <ItemGroup>
       <Sdist Include="@(None);@(Content);@(ClCompile);@(ClInclude)" Condition="Exists(%(FullPath))" />
       <Sdist>
-        <RelativeSource Condition="%(Sdist.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir), %(FullPath)))</RelativeSource>
+        <IncludeInSdist Condition="%(Sdist.IncludeInSdist) != 'False'">True</IncludeInSdist>
+        <RelativeSource Condition="%(Sdist.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir), %(FullPath)))</RelativeSource>
       </Sdist>
+      <_ToRemove Include="@(Sdist)" Condition="!%(IncludeInSdist)" />
+      <Sdist Remove="@(_ToRemove)" />
       <Sdist>
         <Destination>$([System.IO.Path]::Combine($(OutDir), %(RelativeSource)))</Destination>
       </Sdist>
     </ItemGroup>
-    <Message Text="Sdist contains:%0A- @(Sdist->'%(RelativeSource)','%0A- ')"
+    <Message Text="Sdist contains:%0A- @(Sdist->'%(Destination)','%0A- ')"
              Importance="$(_Low)"
              Condition="@(Sdist) != ''" />
     <Message Text="Sdist contains no files" Importance="$(_Low)" Condition="@(Sdist) == ''" />

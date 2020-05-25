@@ -81,18 +81,20 @@ class ProjectFileWriter:
             for v in value:
                 self._write_value(name, v, symbol)
             return
+        c = None
+        v = str(value)
         if getattr(value, "has_condition", None):
             c = value.condition
-            v = str(value)
             if getattr(value, "if_empty", False):
                 c = "{}({}) == ''".format(symbol, name)
             if getattr(value, "append", False):
                 v = "{}({}){}".format(symbol, name, v)
             if getattr(value, "prepend", False):
-                v = "{}({}){}".format(v, name, symbol)
+                v = "{}{}({})".format(v, symbol, name)
+        if c:
             self.write("<", name, ' Condition="', c, '">', v, "</", name, ">")
         else:
-            self.write("<", name, ">", value, "</", name, ">")
+            self.write("<", name, ">", v, "</", name, ">")
 
     def add_property(self, name, value):
         self._write_value(name, value, "$")
@@ -110,7 +112,8 @@ class ProjectFileWriter:
         if metadata:
             with self.group(kind, Include=n, Condition=c):
                 for k, v in metadata.items():
-                    self._write_value(k, v, "%")
+                    if v is not None:
+                        self._write_value(k, v, "%")
         else:
             if c:
                 self.write("<", kind, ' Include="', n, '" Condition="', c, '" />')

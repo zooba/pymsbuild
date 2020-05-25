@@ -5,7 +5,7 @@
       <RelativeSource Condition="%(RelativeSource) != ''">%(RelativeSource)</RelativeSource>
       <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir), %(FullPath)))</RelativeSource>
       <RelativeOutput>$([System.IO.Path]::ChangeExtension(%(RelativeSource), %(TargetExt)))</RelativeOutput>
-      <TargetPath>$(IntDir)%(RelativeOutput)</TargetPath>
+      <TargetPath>$([System.IO.Path]::Combine($(IntDir), %(RelativeOutput)))</TargetPath>
     </_PyxCompileWithOutput>
     <ClCompile Include="@(_PyxCompileWithOutput->'%(TargetPath)')">
       <RelativeSource>%(RelativeOutput)</RelativeSource>

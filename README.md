@@ -164,7 +164,7 @@ def init_PACKAGE(tag=None):
 ## Source offsets
 
 If you keep your source in a `src` folder (recommended), provide the
-`root=` argument to `Package` in order to properly offset filenames.
+`source=` argument to `Package` in order to properly offset filenames.
 Because it is a named argument, it must be provided last.
 
 This is important for sdist generation and in-place builds, which need
@@ -172,16 +172,17 @@ to match package layout with source layout. Simply prefixing filename
 patterns with the additional directory is not always sufficient.
 
 Note that this will also offset subpackages, and that subpackages may
-include additional `root` arguments. However, it only affects sources,
-while the package name (the first argument) determines where in the
-output the package will be located. In-place builds will create new
-folders in your source tree if it does not match the final structure.
+include additional `source` arguments. However, it only affects
+sources, while the package name (the first argument) determines where
+in the output the package will be located. In-place builds will create
+new folders in your source tree if it does not match the final
+structure.
 
 ```python
 PACKAGE = Package(
     "my_package",
     PyFile(r"my_package\__init__.py"),
-    root="src",
+    source="src",
 )
 ```
 

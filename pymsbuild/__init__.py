@@ -17,10 +17,21 @@ from pymsbuild._types import *
 DEFAULT_TAG = str(next(iter(packaging.tags.sys_tags()), "py3-none-any"))
 
 _VERBOSE = contextvars.ContextVar("VERBOSE", default=True)
+_QUIET = contextvars.ContextVar("QUIET", default=False)
 
 def _log(*values, sep=" "):
     if _VERBOSE.get():
         print(*values, sep=sep)
+
+
+def _write(*values, sep=" "):
+    if not _QUIET.get():
+        print(*values, sep=sep)
+
+
+def _common_state(kwargs):
+    _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
+    _QUIET.set(kwargs.pop("quiet", _QUIET.get()))
 
 
 def read_config(root):
@@ -63,11 +74,12 @@ def generate(output_dir, source_dir, build_dir, force=False, config=None, pkginf
     return p
 
 
-def build(project, *, quiet=False, target="Build", msbuild_exe=None, **properties):
+def build(project, *, target="Build", msbuild_exe=None, **properties):
     import subprocess
     project = Path(project)
     msbuild_exe = msbuild_exe or _build.locate()
     _log("Compiling", project, "with", msbuild_exe, "({})".format(target))
+    quiet = _QUIET.get()
     properties.setdefault("Configuration", "Release")
     properties.setdefault("HostPython", sys.executable)
     properties.setdefault("PyMsbuildTargets", Path(__file__).parent / "targets")
@@ -77,7 +89,9 @@ def build(project, *, quiet=False, target="Build", msbuild_exe=None, **propertie
         print("/nologo", file=f)
         if _VERBOSE.get():
             print("/p:_Low=Normal", file=f)
-        print("/v:n", file=f)
+            print("/v:n", file=f)
+        else:
+            print("/v:m", file=f)
         print("/t:", target, sep="", file=f)
         for k, v in properties.items():
             if v is None:
@@ -104,13 +118,13 @@ def build(project, *, quiet=False, target="Build", msbuild_exe=None, **propertie
 
 
 def build_in_place(output_dir, **kwargs):
-    _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
+    _common_state(kwargs)
     p = generate(output_dir, **kwargs)
-    build(p, target="BuildInPlace")
+    build(p, target="BuildInPlace", _ProjectBuildTarget="BuildInPlace")
 
 
 def clean(output_dir, **kwargs):
-    _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
+    _common_state(kwargs)
     config = kwargs.get("config") or read_config(kwargs["source_dir"])
     proj = kwargs["build_dir"] / (config.PACKAGE.name + ".proj")
     if proj.is_file():
@@ -118,7 +132,7 @@ def clean(output_dir, **kwargs):
 
 
 def build_sdist(sdist_directory, config_settings=None, **kwargs):
-    _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
+    _common_state(kwargs)
     sdist_directory = Path(sdist_directory)
     sdist_directory.mkdir(parents=True, exist_ok=True)
     kwargs.setdefault("source_dir", Path.cwd())
@@ -137,11 +151,13 @@ def build_sdist(sdist_directory, config_settings=None, **kwargs):
         OutDir=build_dir,
         IntDir=temp_dir,
     )
-    return pack_sdist(sdist_directory, build_dir, config=config)
+    sdist_name = pack_sdist(sdist_directory, build_dir, config=config)
+    _write("Wrote sdist to", sdist_directory / sdist_name)
+    return sdist_name
 
 
 def pack_sdist(output_dir, build_dir, **kwargs):
-    _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
+    _common_state(kwargs)
     import gzip, tarfile
     config = kwargs.get("config") or read_config(kwargs["source_dir"])
     name, version = config.METADATA["Name"], config.METADATA["Version"]
@@ -158,7 +174,7 @@ def pack_sdist(output_dir, build_dir, **kwargs):
 
 
 def build_wheel(wheel_directory, config_settings=None, metadata_directory=None, **kwargs):
-    _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
+    _common_state(kwargs)
     kwargs.setdefault("source_dir", Path.cwd())
     config = kwargs.get("config") or read_config(kwargs["source_dir"])
     kwargs.setdefault("config", config)
@@ -190,6 +206,7 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None, 
         tag,
     )
     pack_wheel(wheel, build_dir, metadata_directory, source_dir)
+    _write("Wrote wheel to", wheel)
     return wheel.name
 
 
@@ -215,7 +232,7 @@ def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
 
 
 def pack_wheel(wheel, build_dir, metadata_directory, source_dir, **kwargs):
-    _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
+    _common_state(kwargs)
     config = kwargs.get("config") or read_config(source_dir)
     name, version = config.METADATA["Name"], config.METADATA["Version"]
     import hashlib, zipfile
@@ -242,7 +259,7 @@ def pack_wheel(wheel, build_dir, metadata_directory, source_dir, **kwargs):
 
 
 def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None, **kwargs):
-    _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
+    _common_state(kwargs)
     kwargs.setdefault("source_dir", Path.cwd())
     config = kwargs.get("config") or read_config(kwargs["source_dir"])
     name, version = config.METADATA["Name"], config.METADATA["Version"]

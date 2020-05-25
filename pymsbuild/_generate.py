@@ -65,7 +65,14 @@ def _write_members(f, source_dir, members):
                 g.switch_to("ItemGroup")
                 wrote_any = False
                 for n2, p2 in _resolve_wildcards(n, source_dir / p.source):
-                    f.add_item(p._ITEMNAME, p2, Name=n2, SourceDir=source_dir, **p.options)
+                    options = dict(p.options)
+                    try:
+                        options.setdefault("RelativeSource", p2.relative_to(source_dir))
+                    except ValueError:
+                        pass
+                    options.setdefault("SourceDir", source_dir)
+                    options.setdefault("Name", n2)
+                    f.add_item(p._ITEMNAME, p2, **options)
                     wrote_any = True
                 if not wrote_any:
                     raise ValueError("failed to find any files for " + str(p.source))
@@ -82,15 +89,19 @@ def _write_members(f, source_dir, members):
                 f.add_text(p.xml)
 
 
-def _generate_pyd(project, build_dir, source_dir):
+def _generate_pyd(project, build_dir, root_dir):
     build_dir = Path(build_dir)
     proj = build_dir / "{}.proj".format(project.name)
+    root_dir = Path(root_dir)
+    source_dir = root_dir / project.source
 
     if project.project_file:
         return Path(project.project_file)
 
     with ProjectFileWriter(proj, project.name, vc_platforms=True) as f:
         with f.group("PropertyGroup", Label="Globals"):
+            f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
+            f.add_property("SourceRootDir", ConditionalValue(root_dir, if_empty=True))
             f.add_property("OutDir", "layout\\")
             f.add_property("IntDir", ConditionalValue("build\\", if_empty=True))
             for k, v in project.options.items():
@@ -133,7 +144,8 @@ def generate(project, build_dir, source_dir):
 
     with ProjectFileWriter(proj, project.name) as f:
         with f.group("PropertyGroup"):
-            f.add_property("SourceDir", ConditionalValue(root_dir, if_empty=True))
+            f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
+            f.add_property("SourceRootDir", ConditionalValue(root_dir, if_empty=True))
             f.add_property("OutDir", ConditionalValue("layout\\", if_empty=True))
             f.add_property("IntDir", ConditionalValue("build\\", if_empty=True))
             for k, v in project.options.items():
@@ -142,7 +154,7 @@ def generate(project, build_dir, source_dir):
         with f.group("ItemGroup", Label="ProjectReferences"):
             for n, p in _all_members(project, return_if=lambda m: isinstance(m, PydFile)):
                 fn = PurePath(n)
-                pdir = _generate_pyd(p, build_dir, source_dir / p.source)
+                pdir = _generate_pyd(p, build_dir, source_dir)
                 try:
                     pdir = pdir.relative_to(proj.parent)
                 except ValueError:
