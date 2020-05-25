@@ -8,206 +8,19 @@ import os
 import packaging.tags
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 from pymsbuild import _build
 from pymsbuild._types import *
 
-DEFAULT_TAG = str(next(iter(packaging.tags.sys_tags()), "py3-none-any"))
-
-_VERBOSE = contextvars.ContextVar("VERBOSE", default=True)
-_QUIET = contextvars.ContextVar("QUIET", default=False)
-
-def _log(*values, sep=" "):
-    if _VERBOSE.get():
-        print(*values, sep=sep)
-
-
-def _write(*values, sep=" "):
-    if not _QUIET.get():
-        print(*values, sep=sep)
-
-
-def _common_state(kwargs):
-    _VERBOSE.set(kwargs.pop("verbose", _VERBOSE.get()))
-    _QUIET.set(kwargs.pop("quiet", _QUIET.get()))
-
-
-def read_config(root):
-    import importlib
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "_msbuild",
-        root / "_msbuild.py",
-    )
-    mod = importlib.util.module_from_spec(spec)
-    mod.__loader__.exec_module(mod)
-    return mod
-
-
-def generate(output_dir, source_dir, build_dir, force=False, config=None, pkginfo=None, wheel_tag=..., **unused):
-    if config is None:
-        config = read_config(source_dir)
-    from ._generate import generate as G, generate_distinfo as GD, readback_distinfo as RBD
-    build_dir.mkdir(parents=True, exist_ok=True)
-    pkginfo = pkginfo or (source_dir / "PKG-INFO")
-    if pkginfo.is_file():
-        _log("Using", pkginfo)
-        shutil.copy(pkginfo, build_dir / "PKG-INFO")
-        config.METADATA = RBD(pkginfo)
-    else:
-        if hasattr(config, "init_METADATA"):
-            _log("Dynamically initialising METADATA")
-            config.METADATA = config.init_METADATA() or config.METADATA
-        if hasattr(config, "METADATA"):
-            _log("Generating", build_dir / "PKG-INFO")
-            GD(config.METADATA, build_dir, source_dir)
-    if hasattr(config, "init_PACKAGE"):
-        _log("Dynamically initialising PACKAGE")
-        if wheel_tag is ...:
-            wheel_tag = config.METADATA.get("WheelTag") or DEFAULT_TAG
-        config.PACKAGE = config.init_PACKAGE(str(wheel_tag)) or config.PACKAGE
-    _log("Generating projects")
-    p = G(config.PACKAGE, build_dir, source_dir)
-    _log("Generated", p)
-    return p
-
-
-def build(project, *, target="Build", msbuild_exe=None, **properties):
-    import subprocess
-    project = Path(project)
-    msbuild_exe = msbuild_exe or _build.locate()
-    _log("Compiling", project, "with", msbuild_exe, "({})".format(target))
-    quiet = _QUIET.get()
-    properties.setdefault("Configuration", "Release")
-    properties.setdefault("HostPython", sys.executable)
-    properties.setdefault("PyMsbuildTargets", Path(__file__).parent / "targets")
-    rsp = Path(f"{project}.{os.getpid()}.rsp")
-    with rsp.open("w", encoding="utf-8-sig") as f:
-        print(project, file=f)
-        print("/nologo", file=f)
-        if _VERBOSE.get():
-            print("/p:_Low=Normal", file=f)
-            print("/v:n", file=f)
-        else:
-            print("/v:m", file=f)
-        print("/t:", target, sep="", file=f)
-        for k, v in properties.items():
-            if v is None:
-                continue
-            if k in {"IntDir", "OutDir", "SourceDir"}:
-                v = str(v).replace("/", "\\")
-                if not v.endswith("\\"):
-                    v += "\\"
-            print("/p:", k, "=", v, sep="", file=f)
-    if _VERBOSE.get():
-        with rsp.open("r", encoding="utf-8-sig") as f:
-            _log(" ".join(map(str.strip, f)))
-        _log()
-    _run = subprocess.check_output if quiet else subprocess.check_call
-    try:
-        _run([str(msbuild_exe), "/noAutoResponse", f"@{rsp}"],
-             stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as ex:
-        if quiet:
-            print(ex.stdout.decode("mbcs", "replace"))
-        sys.exit(1)
-    else:
-        rsp.unlink()
-
-
-def build_in_place(output_dir, **kwargs):
-    _common_state(kwargs)
-    p = generate(output_dir, **kwargs)
-    build(p, target="BuildInPlace", _ProjectBuildTarget="BuildInPlace")
-
-
-def clean(output_dir, **kwargs):
-    _common_state(kwargs)
-    config = kwargs.get("config") or read_config(kwargs["source_dir"])
-    proj = kwargs["build_dir"] / (config.PACKAGE.name + ".proj")
-    if proj.is_file():
-        build(proj, target="Clean")
-
-
-def build_sdist(sdist_directory, config_settings=None, **kwargs):
-    _common_state(kwargs)
-    sdist_directory = Path(sdist_directory)
-    sdist_directory.mkdir(parents=True, exist_ok=True)
-    kwargs.setdefault("source_dir", Path.cwd())
-    config = kwargs.get("config") or read_config(kwargs["source_dir"])
-    target = "RebuildSdist" if kwargs.get("force", False) else "BuildSdist"
-    root_dir = kwargs.get("build_dir") or (Path.cwd() / "build")
-    build_dir = root_dir / "sdist"
-    if build_dir.is_dir():
-        shutil.rmtree(build_dir)
-    temp_dir = root_dir / "temp"
-    kwargs.setdefault("wheel_tag", None)
-    p = generate(sdist_directory, **kwargs)
-    build(
-        p,
-        target=target,
-        OutDir=build_dir,
-        IntDir=temp_dir,
-    )
-    sdist_name = pack_sdist(sdist_directory, build_dir, config=config)
-    _write("Wrote sdist to", sdist_directory / sdist_name)
-    return sdist_name
-
-
-def pack_sdist(output_dir, build_dir, **kwargs):
-    _common_state(kwargs)
-    import gzip, tarfile
-    config = kwargs.get("config") or read_config(kwargs["source_dir"])
-    name, version = config.METADATA["Name"], config.METADATA["Version"]
-    sdist = output_dir / "{}-{}.tar.gz".format(name, version)
-    with gzip.open(sdist, "w") as f_gz:
-        with tarfile.TarFile.open(
-            sdist.with_suffix(".tar"),
-            "w",
-            fileobj=f_gz,
-            format=tarfile.PAX_FORMAT
-        ) as f:
-            f.add(build_dir, arcname="{}-{}".format(name, version), recursive=True)
-    return sdist.name
-
-
-def build_wheel(wheel_directory, config_settings=None, metadata_directory=None, **kwargs):
-    _common_state(kwargs)
-    kwargs.setdefault("source_dir", Path.cwd())
-    config = kwargs.get("config") or read_config(kwargs["source_dir"])
-    kwargs.setdefault("config", config)
-    source_dir = Path(config.__file__).absolute().parent
-    name, version = config.METADATA["Name"], config.METADATA["Version"]
-    wheel_directory = Path(wheel_directory)
-
-    root_dir = kwargs.setdefault("build_dir", Path.cwd() / "build")
-    build_dir = root_dir / "wheel"
-    if build_dir.is_dir():
-        shutil.rmtree(build_dir)
-    temp_dir = root_dir / "temp"
-    if metadata_directory is None:
-        metadata_directory = build_dir
-        prepare_metadata_for_build_wheel(build_dir, config_settings, **kwargs)
-    else:
-        metadata_directory = Path(metadata_directory)
-    p = generate(
-        build_dir, source_dir, temp_dir, config=config,
-        pkginfo=source_dir / "PKG-INFO",
-    )
-    target = "Rebuild" if kwargs.get("force", False) else "Build"
-    build(p, target=target, OutDir=build_dir, IntDir=temp_dir)
-
-    tag = config.METADATA.get("WheelTag") or DEFAULT_TAG
-    wheel = wheel_directory / "{}-{}-{}.whl".format(
-        re.sub(r"[^\w\d.]+", "_", name, re.UNICODE),
-        re.sub(r"[^\w\d.]+", "_", version, re.UNICODE),
-        tag,
-    )
-    pack_wheel(wheel, build_dir, metadata_directory, source_dir)
-    _write("Wrote wheel to", wheel)
-    return wheel.name
+_TAG_PLATFORM_MAP = {
+    "win32": "Win32",
+    "win_amd64": "x64",
+    "win_arm64": "ARM64",
+    "any": None,
+}
 
 
 def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
@@ -231,57 +44,265 @@ def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
     return "{},,".format(relpath)
 
 
-def pack_wheel(wheel, build_dir, metadata_directory, source_dir, **kwargs):
-    _common_state(kwargs)
-    config = kwargs.get("config") or read_config(source_dir)
-    name, version = config.METADATA["Name"], config.METADATA["Version"]
-    import hashlib, zipfile
-    wheel = Path(wheel)
-    wheel.parent.mkdir(parents=True, exist_ok=True)
-    record = []
-    with zipfile.ZipFile(wheel, "w", compression=zipfile.ZIP_DEFLATED) as f:
-        if metadata_directory != build_dir:
-            for n in metadata_directory.rglob(r"**\*"):
+class BuildState:
+    def __init__(self):
+        self.verbose = False
+        self.quiet = False
+        self.force = False
+        self._config = None
+        self.package = None
+        self.metadata = None
+        self.project = None
+        self.target = None
+        for t in packaging.tags.sys_tags():
+            self.wheel_tag = str(t)
+            break
+        else:
+            self.wheel_tag = "py3-none-any"
+
+        self._msbuild_exe = None
+        self.source_dir = Path.cwd()
+        self.output_dir = self.source_dir / "dist"
+        self.build_dir = self.source_dir / "build" / "layout"
+        self.temp_dir = self.source_dir / "build" / "temp"
+        self.pkginfo = self.source_dir / "PKG-INFO"
+        self.targets = Path(__file__).parent / "targets"
+
+    @property
+    def config(self):
+        if self._config is None:
+            import importlib
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(
+                "_msbuild",
+                self.source_dir / "_msbuild.py",
+            )
+            self._config = mod = importlib.util.module_from_spec(spec)
+            mod.__loader__.exec_module(mod)
+        return self._config
+
+    @property
+    def msbuild_exe(self):
+        if self._msbuild_exe is None:
+            from ._build import locate
+            self._msbuild_exe = locate()
+        return self._msbuild_exe
+
+    @msbuild_exe.setter
+    def msbuild_exe(self, value):
+        self._msbuild_exe = Path(value)
+
+    def log(self, *values, sep=" "):
+        if self.verbose:
+            print(*values, sep=sep)
+
+    def write(self, *values, sep=" "):
+        if not self.quiet:
+            print(*values, sep=sep)
+
+    def generate(self):
+        from . import _generate as G
+        self.temp_dir.mkdir(parents=True, exist_ok=True)
+        if self.metadata is None:
+            if self.pkginfo.is_file():
+                self.log("Using", self.pkginfo)
+                self.metadata = G.readback_distinfo(self.pkginfo)
+            else:
+                if hasattr(self.config, "init_METADATA"):
+                    self.log("Dynamically initialising METADATA")
+                    self.metadata = self.config.init_METADATA()
+                    if self.metadata:
+                        self.config.METADATA = self.metadata
+                    else:
+                        self.metadata = self.config.METADATA
+                if hasattr(self.config, "METADATA"):
+                    self.metadata = self.config.METADATA
+        if self.metadata is not None:
+            self.pkginfo = self.temp_dir / "PKG-INFO"
+            self.log("Generating", self.pkginfo)
+            G.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
+        self.wheel_tag = self.metadata.get("WheelTag", self.wheel_tag)
+
+        if self.package is None:
+            if hasattr(self.config, "init_PACKAGE"):
+                self.log("Dynamically initialising PACKAGE")
+                pack = self.config.init_PACKAGE(str(self.wheel_tag))
+                if pack:
+                    self.config.PACKAGE = self.package
+            self.package = self.config.PACKAGE
+
+        if self.project is None:
+            self.log("Generating projects")
+            self.project = Path(G.generate(self.package, self.temp_dir, self.source_dir))
+            self.log("Generated", self.project)
+
+        return self.project
+
+    def build(self, **properties):
+        if self.target is None:
+            self.target = "Rebuild" if self.force else "Build"
+        self.log("Compiling", self.project, "with", self.msbuild_exe, "({})".format(self.target))
+        properties.setdefault("Configuration", "Release")
+        for tag in packaging.tags.parse_tag(self.wheel_tag):
+            properties.setdefault("Platform", _TAG_PLATFORM_MAP.get(tag.platform))
+            break
+        properties.setdefault("HostPython", sys.executable)
+        properties.setdefault("PyMsbuildTargets", self.targets)
+        properties.setdefault("_ProjectBuildTarget", self.target)
+        properties.setdefault("OutDir", self.build_dir)
+        properties.setdefault("IntDir", self.temp_dir)
+        rsp = Path(f"{self.project}.{os.getpid()}.rsp")
+        with rsp.open("w", encoding="utf-8-sig") as f:
+            print(self.project, file=f)
+            print("/nologo", file=f)
+            if self.verbose:
+                print("/p:_Low=Normal", file=f)
+                print("/v:n", file=f)
+            else:
+                print("/v:m", file=f)
+            print("/t:", self.target, sep="", file=f)
+            for k, v in properties.items():
+                if v is None:
+                    continue
+                if k in {"IntDir", "OutDir", "SourceDir"}:
+                    v = str(v).replace("/", "\\")
+                    if not v.endswith("\\"):
+                        v += "\\"
+                print("/p:", k, "=", v, sep="", file=f)
+        if self.verbose:
+            with rsp.open("r", encoding="utf-8-sig") as f:
+                self.log(" ".join(map(str.strip, f)))
+            self.log()
+        _run = subprocess.check_output if self.quiet else subprocess.check_call
+        try:
+            _run([str(self.msbuild_exe), "/noAutoResponse", f"@{rsp}"],
+                 stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as ex:
+            if self.quiet:
+                print(ex.stdout.decode("mbcs", "replace"))
+            sys.exit(1)
+        else:
+            rsp.unlink()
+
+    def build_in_place(self):
+        self.generate()
+        assert self.project
+        self.target = "RebuildInPlace" if self.force else "BuildInPlace"
+        self.build()
+
+    def clean(self):
+        p = self.config.PACKAGE
+        self.project = self.build_dir / (p.name + ".proj")
+        if self.project.is_file():
+            self.target = "Clean"
+            self.build()
+
+    def build_sdist(self):
+        self.target = "RebuildSdist" if self.force else "BuildSdist"
+        if self.build_dir.is_dir():
+            shutil.rmtree(self.build_dir)
+            self.build_dir.mkdir(parents=True, exist_ok=True)
+        self.generate()
+        self.build()
+        return self.pack_sdist()
+
+    def pack_sdist(self):
+        import gzip, tarfile
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        name, version = self.metadata["Name"], self.metadata["Version"]
+        sdist = self.output_dir / "{}-{}.tar.gz".format(name, version)
+        with gzip.open(sdist, "w") as f_gz:
+            with tarfile.TarFile.open(
+                sdist.with_suffix(".tar"),
+                "w",
+                fileobj=f_gz,
+                format=tarfile.PAX_FORMAT
+            ) as f:
+                f.add(
+                    self.build_dir,
+                    arcname="{}-{}".format(name, version),
+                    recursive=True,
+                )
+        self.write("Wrote sdist to", sdist)
+        return sdist.name
+
+    def build_wheel(self, metadata_dir=None):
+        self.target = "Rebuild" if self.force else "Build"
+        if self.build_dir.is_dir():
+            shutil.rmtree(self.build_dir)
+        if metadata_dir is None:
+            metadata_dir = self.temp_dir / "metadata"
+        else:
+            metadata_dir = Path(metadata_dir)
+
+        self.generate()
+        if not metadata_dir.is_dir():
+            self.prepare_wheel_distinfo(metadata_dir)
+
+        self.build()
+        return self.pack_wheel(metadata_dir)
+
+    def pack_wheel(self, metadata_dir):
+        import hashlib, zipfile
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        name, version = self.metadata["Name"], self.metadata["Version"]
+        wheel = self.output_dir / "{}-{}-{}.whl".format(
+            re.sub(r"[^\w\d.]+", "_", name, re.UNICODE),
+            re.sub(r"[^\w\d.]+", "_", version, re.UNICODE),
+            self.wheel_tag,
+        )
+        record = []
+        with zipfile.ZipFile(wheel, "w", compression=zipfile.ZIP_DEFLATED) as f:
+            for n in metadata_dir.rglob(r"**\*"):
                 if n.is_file():
-                    record.append(_add_and_record(f, n, n.relative_to(metadata_directory)))
-        for n in build_dir.rglob(r"**\*"):
-            if n.is_file():
-                record.append(_add_and_record(f, n, n.relative_to(build_dir)))
-        record_files = []
-        for n in metadata_directory.glob("*.dist-info"):
-            if not n.is_dir():
-                continue
-            record_files.append(r"{}\RECORD".format(n.name))
-            record.append(r"{}\RECORD,,".format(n.name))
-        record_file = "\n".join(record).encode("utf-8")
-        for n in record_files:
-            f.writestr(n, record_file)
+                    record.append(_add_and_record(f, n, n.relative_to(metadata_dir)))
+            for n in self.build_dir.rglob(r"**\*"):
+                if n.is_file():
+                    record.append(_add_and_record(f, n, n.relative_to(self.build_dir)))
+            record_files = []
+            for n in metadata_dir.glob("*.dist-info"):
+                if not n.is_dir():
+                    continue
+                record_files.append(r"{}\RECORD".format(n.name))
+                record.append(r"{}\RECORD,,".format(n.name))
+            record_file = "\n".join(record).encode("utf-8")
+            for n in record_files:
+                f.writestr(n, record_file)
+        self.write("Wrote wheel to", wheel)
+        return wheel.name
+
+    def prepare_wheel_distinfo(self, metadata_dir=None):
+        metadata_dir = Path(metadata_dir or self.output_dir)
+        self.generate()
+        name, version = self.metadata["Name"], self.metadata["Version"]
+        outdir = metadata_dir / "{}-{}.dist-info".format(name, version)
+        outdir.mkdir(parents=True, exist_ok=True)
+        with open(outdir / "WHEEL", "w", encoding="utf-8") as f:
+            print("Wheel-Version: 1.0", file=f)
+            print("Generator: pymsbuild", __version__, file=f)
+            print("Root-Is-Purelib: false", file=f)
+            for t in sorted(self.wheel_tag):
+                print("Tag:", t, file=f)
+            if os.getenv("BUILD_BUILDNUMBER"):
+                print("Build:", os.getenv("BUILD_BUILDNUMBER", "0"), file=f)
+        shutil.copy(self.pkginfo, outdir / "METADATA")
+        return outdir.name
 
 
-def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None, **kwargs):
-    _common_state(kwargs)
-    kwargs.setdefault("source_dir", Path.cwd())
-    config = kwargs.get("config") or read_config(kwargs["source_dir"])
-    name, version = config.METADATA["Name"], config.METADATA["Version"]
-    tag = config.METADATA.get("WheelTag") or DEFAULT_TAG
-    metadata_directory = Path(metadata_directory)
-    outdir = metadata_directory / "{}-{}.dist-info".format(name, version)
-    outdir.mkdir(parents=True, exist_ok=True)
+def build_sdist(sdist_directory, config_settings=None):
+    bs = BuildState()
+    bs.output_dir = Path(sdist_directory)
+    return bs.build_sdist()
 
-    root_dir = kwargs.setdefault("build_dir", Path.cwd() / "build")
-    build_dir = root_dir / "wheel"
-    temp_dir = root_dir / "temp"
-    generate(build_dir, Path.cwd(), temp_dir, force=False, config=config)
 
-    with open(outdir / "WHEEL", "w", encoding="utf-8") as f:
-        print("Wheel-Version: 1.0", file=f)
-        print("Generator: pymsbuild", __version__, file=f)
-        print("Root-Is-Purelib: false", file=f)
-        for t in sorted(packaging.tags.parse_tag(tag)):
-            print("Tag:", t, file=f)
-        if os.getenv("BUILD_BUILDNUMBER"):
-            print("Build:", os.getenv("BUILD_BUILDNUMBER", "0"), file=f)
+def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
+    bs = BuildState()
+    bs.output_dir = Path(wheel_directory)
+    return bs.build_wheel()
 
-    shutil.copy(temp_dir / "PKG-INFO", outdir / "METADATA")
 
-    return outdir.name
+def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None):
+    bs = BuildState()
+    bs.output_dir = Path(metadata_directory)
+    return bs.prepare_wheel_metadata(bs.output_dir)

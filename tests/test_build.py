@@ -14,21 +14,54 @@ from pymsbuild._build import locate as locate_msbuild
 # Avoid calling locate() for each test
 os.environ["MSBUILD"] = str(locate_msbuild())
 
-def test_build_sdist(tmp_path, testdata):
-    p = T.Package("package",
+@pytest.fixture
+def build_state(tmp_path, testdata):
+    bs = pymsbuild.BuildState()
+    bs.source_dir = testdata
+    bs.output_dir = tmp_path / "out"
+    bs.build_dir = tmp_path / "build"
+    bs.temp_dir = tmp_path / "temp"
+    bs.package = T.Package("package",
         T.PyFile(testdata / "empty.py", "__init__.py"),
         T.PydFile("mod",
             T.CSourceFile(testdata / "mod.c"),
         ),
     )
-    G.generate_distinfo({"Name": "package", "Version": "1.0"}, tmp_path / "obj", testdata)
-    pf = G.generate(p, tmp_path / "obj", testdata)
-    pymsbuild.build(pf, target="BuildSdist", OutDir=tmp_path / "out")
+    bs.metadata = {"Name": "package", "Version": "1.0"}
+    return bs
 
-    files = [p.relative_to(tmp_path) for p in Path(tmp_path).rglob("out\\**\\*")]
+
+def test_build(build_state):
+    bs = build_state
+    bs.generate()
+    bs.target = "Build"
+    bs.build()
+
+    files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
     assert files
-    assert {f.name for f in files} == {"empty.py", "mod.c", "pyproject.toml", "_msbuild.py", "PKG-INFO"}
+    assert not (bs.build_dir / "PKG-INFO").is_file()
+    assert files > {"package\\__init__.py", "package\\mod.pyd"}
+    assert "pyproject.toml" not in files
 
-    pymsbuild.build(pf, target="Clean", OutDir=tmp_path / "out")
-    files = [p.relative_to(tmp_path) for p in Path(tmp_path).rglob("out\\**\\*")]
+    bs.target = "Clean"
+    bs.build()
+    files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
+    assert not files
+
+
+def test_build_sdist(build_state):
+    bs = build_state
+    bs.build_sdist()
+
+    files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
+    assert files == {"empty.py", "mod.c", "pyproject.toml", "_msbuild.py"}
+    assert (bs.build_dir / "PKG-INFO").is_file()
+    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**\\*.*")}
+    assert len(files) == 1
+    f = next(iter(files))
+    assert f.endswith(".tar.gz")
+
+    bs.target = "Clean"
+    bs.build()
+    files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
     assert not files

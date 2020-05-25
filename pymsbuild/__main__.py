@@ -23,7 +23,7 @@ def parse_args():
     p = subparser.add_parser("wheel", help="Build a wheel")
     p.set_defaults(cmd="build_wheel")
     p = subparser.add_parser("distinfo", help="Build just the wheel metadata")
-    p.set_defaults(cmd="prepare_metadata_for_build_wheel")
+    p.set_defaults(cmd="prepare_wheel_distinfo")
     p = subparser.add_parser("clean", help="Clean any builds")
     p.set_defaults(cmd="clean")
 
@@ -37,16 +37,15 @@ if ns.cmd == "init":
     print("TODO: Generate workflow")
     sys.exit(2)
 
-source_dir = Path.cwd() / (ns.source_dir or "")
-build_dir = source_dir / (ns.temp_dir or "build")
-dist_dir = source_dir / (ns.dist_dir or "dist")
+bs = pymsbuild.BuildState()
+bs.source_dir = Path.cwd() / (ns.source_dir or "")
+bs.output_dir = bs.source_dir / (ns.dist_dir or "dist")
+root_dir = bs.source_dir / (ns.temp_dir or "build")
+bs.build_dir = root_dir / "layout"
+bs.temp_dir = root_dir / "temp"
+bs.verbose = ns.verbose
+bs.quiet = ns.quiet
+bs.force = ns.force
 
-cmd = getattr(pymsbuild, ns.cmd)
-cmd(
-    dist_dir,
-    source_dir=source_dir,
-    build_dir=build_dir,
-    force=ns.force,
-    verbose=ns.verbose,
-    quiet=ns.quiet,
-)
+cmd = getattr(bs, ns.cmd)
+cmd()
