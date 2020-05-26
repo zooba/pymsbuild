@@ -32,13 +32,24 @@ PACKAGE = Package(
     PydFile(
         "_accelerator",
         CSourceFile(r"win32\*.c"),
-        CHeaderFile(r"win32\*.h"),
+        IncludeFile(r"win32\*.h"),
     ),
     Package(
         "subpackage",
         PyFile(r"subpackage\*.py"),
     ),
 )
+```
+
+# pyproject.toml file
+
+You will need this file in order for `pip` to build your sdist, but otherwise it's
+generally easier and faster to use `pymsbuild` directly.
+
+```
+[build-system]
+requires = ["pymsbuild"]
+build-backend = "pymsbuild"
 ```
 
 # Usage
