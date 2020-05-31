@@ -111,7 +111,7 @@ def _generate_pyd(project, build_dir, root_dir):
             f.add_property("CharacterSet", "Unicode")
         f.add_import(r"$(VCTargetsPath)\Microsoft.Cpp.props")
         with f.group("PropertyGroup"):
-            f.add_property("TargetExt", project.options.get("TargetExt", ".pyd"))
+            f.add_property("TargetExt", ConditionalValue(".pyd", if_empty=True))
             f.add_property("LinkIncremental", "false")
         with f.group("ItemDefinitionGroup"):
             with f.group("ClCompile"):
@@ -127,6 +127,23 @@ def _generate_pyd(project, build_dir, root_dir):
         f.add_import(r"$(PyMsbuildTargets)\pyd.targets")
 
     return proj
+
+
+def _generate_pyd_reference_metadata(relname, project, source_dir):
+    output = project.options.get("TargetName", relname.stem) + project.options.get("TargetExt", ".pyd")
+    tname, tdot, text = output.rpartition(".")
+    return {
+        **dict(
+            TargetDir=relname.parent,
+            IntDir="$(IntDir)" + tname,
+        ),
+        **project.options,
+        **dict(
+            TargetName=tname,
+            TargetExt=tdot + text,
+            SourceDir=source_dir / project.source,
+        ),
+    }
 
 
 def generate(project, build_dir, source_dir):
@@ -159,15 +176,7 @@ def generate(project, build_dir, source_dir):
                     "Project",
                     pdir,
                     Name=n,
-                    **{
-                        **dict(
-                            TargetDir=fn.parent,
-                            TargetName=fn.stem,
-                            TargetExt=".pyd",
-                            SourceDir=source_dir / p.source,
-                        ),
-                        **p.options,
-                    }
+                    **_generate_pyd_reference_metadata(fn, p, source_dir),
                 )
         with f.group("ItemGroup", Label="Sdist metadata"):
             f.add_item("Sdist", build_dir / "PKG-INFO", RelativeSource="PKG-INFO")
