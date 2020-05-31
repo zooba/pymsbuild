@@ -229,10 +229,14 @@ familiarity with MSBuild files and the toolsets you are building with.
 The `Property` element inserts a `<PropertyGroup>` with the value you
 specifiy at the position in the project the element appears.
 
+Note that project files also interpret (most) named arguments as
+properties, so the two properties shown here are equivalent.
+
 ```python
 PYD = PydFile(
     "module",
     Property("WindowsSdkVersion", "10.0.18363.0"),
+    WindowsSdkVersion="10.0.18363.0",
     ...
 )
 ```

@@ -1,4 +1,4 @@
-from os import name
+from importlib.machinery import EXTENSION_SUFFIXES as _EXTENSION_SUFFIXES
 from pathlib import WindowsPath as Path, PureWindowsPath as PurePath
 
 __all__ = [
@@ -69,7 +69,7 @@ Specify `source` to find sources in a subdirectory.
 
 Other options will be added to the project as properties.
 """
-    options = {"TargetExt": ".pyd"}
+    options = {"TargetExt": _EXTENSION_SUFFIXES[0]}
 
 
 class LiteralXML:
