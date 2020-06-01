@@ -146,9 +146,10 @@ def _generate_pyd_reference_metadata(relname, project, source_dir):
     }
 
 
-def generate(project, build_dir, source_dir):
+def generate(project, build_dir, source_dir, config_file=None):
     build_dir = Path(build_dir)
     root_dir = Path(source_dir)
+    config_file = root_dir / (config_file or "_msbuild.py")
     source_dir = root_dir / project.source
     proj = build_dir / "{}.proj".format(project.name)
 
@@ -180,7 +181,7 @@ def generate(project, build_dir, source_dir):
                 )
         with f.group("ItemGroup", Label="Sdist metadata"):
             f.add_item("Sdist", build_dir / "PKG-INFO", RelativeSource="PKG-INFO")
-            f.add_item("Sdist", root_dir / "_msbuild.py", RelativeSource="_msbuild.py")
+            f.add_item("Sdist", config_file, RelativeSource="_msbuild.py")
             f.add_item("Sdist", root_dir / "pyproject.toml", RelativeSource="pyproject.toml")
         _write_members(f, source_dir, _all_members(
             project,

@@ -12,6 +12,7 @@ def parse_args():
     parser.add_argument("--source-dir", "-s", type=PurePath, default=None, help="Specify the source directory")
     parser.add_argument("--dist-dir", "-d", type=PurePath, default=None, help="Set the temporary directory")
     parser.add_argument("--temp-dir", "-t", type=PurePath, default=None, help="Set the build artifacts directory")
+    parser.add_argument("--config", "-c", type=PurePath, default=None, help="Override the path to _msbuild.py")
 
     subparser = parser.add_subparsers()
     p = subparser.add_parser("init", help="Initialise a new _msbuild.py file")
@@ -40,6 +41,7 @@ if ns.cmd == "init":
 bs = pymsbuild.BuildState()
 bs.source_dir = Path.cwd() / (ns.source_dir or "")
 bs.output_dir = bs.source_dir / (ns.dist_dir or "dist")
+bs.config_file = ns.config
 root_dir = bs.source_dir / (ns.temp_dir or "build")
 bs.build_dir = root_dir / "layout"
 bs.temp_dir = root_dir / "temp"

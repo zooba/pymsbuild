@@ -35,4 +35,8 @@
   </Target>
 
   <Target Name="DoLinkOutputFilesMatch" />
+
+  <Target Name="Rebuild" DependsOnTargets="Clean;Build" />
+  <Target Name="RebuildInPlace" DependsOnTargets="Clean;BuildInPlace" />
+  <Target Name="RebuildSdist" DependsOnTargets="Clean;BuildSdist" />
 </Project>
