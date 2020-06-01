@@ -192,7 +192,7 @@ class BuildState:
 
     def clean(self):
         p = self.config.PACKAGE
-        self.project = self.build_dir / (p.name + ".proj")
+        self.project = self.temp_dir / (p.name + ".proj")
         if self.project.is_file():
             self.target = "Clean"
             self.build()
