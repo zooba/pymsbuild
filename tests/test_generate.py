@@ -53,6 +53,7 @@ def test_pyd_generation(tmp_path):
         T.CSourceFile("m.c"),
         T.IncludeFile("m.h"),
         T.SourceFile("m.txt"),
+        TargetExt=".pyd",
     )
     pf = ProjectFileChecker(G._generate_pyd(p, tmp_path, tmp_path))
     targets = Path(pf.get("./x:PropertyGroup[@Label='Globals']/x:PyMsbuildTargets").text)
@@ -102,12 +103,12 @@ def test_package_generation(tmp_path):
 
 
 def test_package_project_reference(tmp_path):
-    p = T.Package("package", T.PydFile("module"))
+    p = T.Package("package", T.PydFile("module", TargetExt=".TAG.pyd"))
     pf = ProjectFileChecker(G.generate(p, tmp_path, tmp_path))
 
     assert "package/module" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:Name").text
     assert "package" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetDir").text
-    assert "module" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetName").text
+    assert "module.TAG" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetName").text
     assert ".pyd" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetExt").text
 
 

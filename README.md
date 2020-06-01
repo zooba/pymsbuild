@@ -32,13 +32,24 @@ PACKAGE = Package(
     PydFile(
         "_accelerator",
         CSourceFile(r"win32\*.c"),
-        CHeaderFile(r"win32\*.h"),
+        IncludeFile(r"win32\*.h"),
     ),
     Package(
         "subpackage",
         PyFile(r"subpackage\*.py"),
     ),
 )
+```
+
+# pyproject.toml file
+
+You will need this file in order for `pip` to build your sdist, but otherwise it's
+generally easier and faster to use `pymsbuild` directly.
+
+```
+[build-system]
+requires = ["pymsbuild"]
+build-backend = "pymsbuild"
 ```
 
 # Usage
@@ -218,10 +229,14 @@ familiarity with MSBuild files and the toolsets you are building with.
 The `Property` element inserts a `<PropertyGroup>` with the value you
 specifiy at the position in the project the element appears.
 
+Note that project files also interpret (most) named arguments as
+properties, so the two properties shown here are equivalent.
+
 ```python
 PYD = PydFile(
     "module",
     Property("WindowsSdkVersion", "10.0.18363.0"),
+    WindowsSdkVersion="10.0.18363.0",
     ...
 )
 ```

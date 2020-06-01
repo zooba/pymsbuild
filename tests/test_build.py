@@ -25,6 +25,7 @@ def build_state(tmp_path, testdata):
         T.PyFile(testdata / "empty.py", "__init__.py"),
         T.PydFile("mod",
             T.CSourceFile(testdata / "mod.c"),
+            TargetExt=".pyd",
         ),
     )
     bs.metadata = {"Name": "package", "Version": "1.0"}
