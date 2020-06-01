@@ -300,3 +300,18 @@ top-level `Project` element.
     LiteralXml("<Import Project='my_props.props' />"),
     ...
 ```
+
+## Alternate config file
+
+To use a configuration file other than `_msbuild.py`, specify the
+`--config` (`-c`) argument _before_ the command.
+
+```
+python -m pymsbuild --config build-spec.py sdist
+python -m pymsbuild --config build-spec.py wheel
+```
+
+Generated sdists will rename the configuration file back to
+`_msbuild.py` in the package to ensure that builds work correctly.
+There is no need to override the configuration file path when
+building from sdists.

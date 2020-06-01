@@ -62,6 +62,7 @@ class BuildState:
 
         self._msbuild_exe = None
         self.source_dir = Path.cwd()
+        self.config_file = None
         self.output_dir = self.source_dir / "dist"
         self.build_dir = self.source_dir / "build" / "layout"
         self.temp_dir = self.source_dir / "build" / "temp"
@@ -73,10 +74,8 @@ class BuildState:
         if self._config is None:
             import importlib
             import importlib.util
-            spec = importlib.util.spec_from_file_location(
-                "_msbuild",
-                self.source_dir / "_msbuild.py",
-            )
+            file = self.source_dir / (self.config_file or "_msbuild.py")
+            spec = importlib.util.spec_from_file_location("_msbuild", file)
             self._config = mod = importlib.util.module_from_spec(spec)
             mod.__loader__.exec_module(mod)
         return self._config
@@ -133,7 +132,12 @@ class BuildState:
 
         if self.project is None:
             self.log("Generating projects")
-            self.project = Path(G.generate(self.package, self.temp_dir, self.source_dir))
+            self.project = Path(G.generate(
+                self.package,
+                self.temp_dir,
+                self.source_dir,
+                self.config_file,
+            ))
             self.log("Generated", self.project)
 
         return self.project
