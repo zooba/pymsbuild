@@ -218,7 +218,7 @@ class BuildState:
             re.sub(r"[^\w\d.]+", "_", name, re.UNICODE),
             re.sub(r"[^\w\d.]+", "_", version, re.UNICODE),
         )
-        sdist = (self.output_dir / sdist_basename).with_suffix(".tar.gz")
+        sdist = self.output_dir / (sdist_basename + ".tar.gz")
         with gzip.open(sdist, "w") as f_gz:
             with tarfile.TarFile.open(
                 sdist_basename + ".tar",
