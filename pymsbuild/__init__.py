@@ -214,17 +214,21 @@ class BuildState:
         import gzip, tarfile
         self.output_dir.mkdir(parents=True, exist_ok=True)
         name, version = self.metadata["Name"], self.metadata["Version"]
-        sdist = self.output_dir / "{}-{}.tar.gz".format(name, version)
+        sdist_basename = "{}-{}".format(
+            re.sub(r"[^\w\d.]+", "_", name, re.UNICODE),
+            re.sub(r"[^\w\d.]+", "_", version, re.UNICODE),
+        )
+        sdist = self.output_dir / (sdist_basename + ".tar.gz")
         with gzip.open(sdist, "w") as f_gz:
             with tarfile.TarFile.open(
-                sdist.with_suffix(".tar"),
+                sdist_basename + ".tar",
                 "w",
                 fileobj=f_gz,
                 format=tarfile.PAX_FORMAT
             ) as f:
                 f.add(
                     self.build_dir,
-                    arcname="{}-{}".format(name, version),
+                    arcname=sdist_basename,
                     recursive=True,
                 )
         self.write("Wrote sdist to", sdist)
@@ -282,7 +286,10 @@ class BuildState:
         metadata_dir = Path(metadata_dir or self.output_dir)
         self.generate()
         name, version = self.metadata["Name"], self.metadata["Version"]
-        outdir = metadata_dir / "{}-{}.dist-info".format(name, version)
+        outdir = metadata_dir / "{}-{}.dist-info".format(
+            re.sub(r"[^\w\d.]+", "_", name, re.UNICODE),
+            re.sub(r"[^\w\d.]+", "_", version, re.UNICODE),
+        )
         outdir.mkdir(parents=True, exist_ok=True)
         with open(outdir / "WHEEL", "w", encoding="utf-8") as f:
             print("Wheel-Version: 1.0", file=f)
