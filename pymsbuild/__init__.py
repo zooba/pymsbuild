@@ -100,6 +100,9 @@ class BuildState:
             print(*values, sep=sep)
 
     def generate(self):
+        if self.project:
+            return self.project
+
         self.finalize()
         from . import _generate as G
         self.temp_dir.mkdir(parents=True, exist_ok=True)
@@ -131,28 +134,25 @@ class BuildState:
                     self.config.PACKAGE = self.package
             self.package = self.config.PACKAGE
 
-        if self.project is None:
-            self.log("Generating projects")
-            self.project = Path(G.generate(
-                self.package,
-                self.temp_dir,
-                self.source_dir,
-                self.config_file,
-            ))
-            self.log("Generated", self.project)
+        self.log("Generating projects")
+        self.project = Path(G.generate(
+            self.package,
+            self.temp_dir,
+            self.source_dir,
+            self.config_file,
+        ))
+        self.log("Generated", self.project)
 
         return self.project
 
     def build(self, **properties):
-        if not self._finalized:
-            raise RuntimeError("BuildState must be finalized and generated before building")
-        if not self.project:
-            raise RuntimeError("BuildState.generate() must be called before building")
+        self.finalize()
+        project = self.generate()
         if self.target is None:
             self.target = "Rebuild" if self.force else "Build"
-        self.log("Compiling", self.project, "with", self.msbuild_exe, "({})".format(self.target))
-        if not self.project.is_file():
-            raise FileNotFoundError(self.project)
+        self.log("Compiling", project, "with", self.msbuild_exe, "({})".format(self.target))
+        if not project.is_file():
+            raise FileNotFoundError(project)
         properties.setdefault("Configuration", "Release")
         for tag in packaging.tags.parse_tag(self.wheel_tag):
             properties.setdefault("Platform", _TAG_PLATFORM_MAP.get(tag.platform))
@@ -162,9 +162,9 @@ class BuildState:
         properties.setdefault("_ProjectBuildTarget", self.target)
         properties.setdefault("OutDir", self.build_dir)
         properties.setdefault("IntDir", self.temp_dir)
-        rsp = Path(f"{self.project}.{os.getpid()}.rsp")
+        rsp = Path(f"{project}.{os.getpid()}.rsp")
         with rsp.open("w", encoding="utf-8-sig") as f:
-            print(self.project, file=f)
+            print(project, file=f)
             print("/nologo", file=f)
             if self.verbose:
                 print("/p:_Low=Normal", file=f)
@@ -211,10 +211,7 @@ class BuildState:
             self.build()
 
     def build_sdist(self):
-        if not self._finalized:
-            raise RuntimeError("BuildState must be finalized and generated before building")
-        if not self.project:
-            raise RuntimeError("BuildState.generate() must be called before building")
+        self.finalize()
         self.target = "RebuildSdist" if self.force else "BuildSdist"
         if self.build_dir.is_dir():
             shutil.rmtree(self.build_dir)
