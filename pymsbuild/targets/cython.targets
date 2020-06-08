@@ -2,16 +2,24 @@
   <ItemGroup>
     <_PyxCompileWithOutput Include="@(PyxCompile)">
       <IncludeDirs>%(IncludeDirs)</IncludeDirs>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RelativeSource Condition="%(RelativeSource) != ''">%(RelativeSource)</RelativeSource>
       <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd(`\`)), %(FullPath)))</RelativeSource>
       <RelativeOutput>$([System.IO.Path]::ChangeExtension(%(RelativeSource), %(TargetExt)))</RelativeOutput>
       <TargetPath>$([System.IO.Path]::Combine($(IntDir), %(RelativeOutput)))</TargetPath>
     </_PyxCompileWithOutput>
+  </ItemGroup>
+  <ItemGroup>
     <ClCompile Include="@(_PyxCompileWithOutput->'%(TargetPath)')">
       <RelativeSource>%(RelativeOutput)</RelativeSource>
+      <PreprocessorDefinitions Condition="%(ClPreprocessorDefinitions) != ''">%(ClPreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemGroup>
+
+
+  <Target Name="_CythonWarnings" BeforeTargets="PrepareForBuild">
+    <Error Text="Do not specify PreprocessorDefinitions on PyxCompile elements. Use ClPreprocessorDefinitions or CythonPreprocessorDefinitions, depending on which preprocessor you are targeting."
+           Condition="@(PyxCompile->'%(PreprocessorDefinitions)','') != ''" />
+  </Target>
 
   <Target Name="_ForceCythonize" Inputs="@(PyxCompile);@(PyxInclude)" Outputs="%(_PyxCompileWithOutput.TargetPath)">
     <CreateProperty Value="true">
@@ -24,7 +32,7 @@
       <_IncludeDirs Include="%(_PyxCompileWithOutput.IncludeDirs)" />
       <FileWrites Include="%(_PyxCompileWithOutput.TargetPath)" />
       <_Outputs Include="%(_PyxCompileWithOutput.TargetPath)" />
-      <_Defs Include="%(_PyxCompileWithOutput.PreprocessorDefinitions)" />
+      <_Defs Include="%(_PyxCompileWithOutput.CythonPreprocessorDefinitions)" />
     </ItemGroup>
     <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
     <PropertyGroup>
