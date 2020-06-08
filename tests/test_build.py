@@ -14,6 +14,7 @@ from pymsbuild._build import locate as locate_msbuild
 # Avoid calling locate() for each test
 os.environ["MSBUILD"] = str(locate_msbuild())
 
+
 @pytest.fixture
 def build_state(tmp_path, testdata):
     bs = pymsbuild.BuildState()
@@ -52,6 +53,7 @@ def test_build(build_state):
 
 def test_build_sdist(build_state):
     bs = build_state
+    bs.generate()
     bs.build_sdist()
 
     files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
@@ -66,3 +68,11 @@ def test_build_sdist(build_state):
     bs.build()
     files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
     assert not files
+
+
+@pytest.mark.parametrize("proj", ["testcython", "testproject1"])
+def test_build_test_project(build_state, proj):
+    bs = build_state
+    bs.source_dir = bs.source_dir.parent / proj
+    bs.generate()
+    bs.build()

@@ -46,50 +46,50 @@ def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
 
 class BuildState:
     def __init__(self):
+        self._finalized = False
         self.verbose = False
         self.quiet = False
         self.force = False
-        self._config = None
+        self.config = None
         self.package = None
         self.metadata = None
         self.project = None
         self.target = None
+        self.msbuild_exe = None
+        self.output_dir = None
+        self.build_dir = None
+        self.temp_dir = None
+        self.pkginfo = None
+        self.source_dir = Path.cwd()
+        self.config_file = "_msbuild.py"
+        self.targets = Path(__file__).parent / "targets"
+        self.wheel_tag = "py3-none-any"
         for t in packaging.tags.sys_tags():
             self.wheel_tag = str(t)
             break
-        else:
-            self.wheel_tag = "py3-none-any"
 
-        self._msbuild_exe = None
-        self.source_dir = Path.cwd()
-        self.config_file = None
-        self.output_dir = self.source_dir / "dist"
-        self.build_dir = self.source_dir / "build" / "layout"
-        self.temp_dir = self.source_dir / "build" / "temp"
-        self.pkginfo = self.source_dir / "PKG-INFO"
-        self.targets = Path(__file__).parent / "targets"
+    def finalize(self):
+        if self._finalized:
+            return
+        self._finalized = True
 
-    @property
-    def config(self):
-        if self._config is None:
+        if self.config is None:
             import importlib
             import importlib.util
             file = self.source_dir / (self.config_file or "_msbuild.py")
             spec = importlib.util.spec_from_file_location("_msbuild", file)
-            self._config = mod = importlib.util.module_from_spec(spec)
+            self.config = mod = importlib.util.module_from_spec(spec)
             mod.__loader__.exec_module(mod)
-        return self._config
 
-    @property
-    def msbuild_exe(self):
-        if self._msbuild_exe is None:
+        if self.msbuild_exe is None:
             from ._build import locate
-            self._msbuild_exe = locate()
-        return self._msbuild_exe
+            self.msbuild_exe = locate()
+        self.msbuild_exe = Path(self.msbuild_exe)
 
-    @msbuild_exe.setter
-    def msbuild_exe(self, value):
-        self._msbuild_exe = Path(value)
+        self.output_dir = self.source_dir / (self.output_dir or "dist")
+        self.build_dir = self.source_dir / (self.build_dir or "build/layout")
+        self.temp_dir = self.source_dir / (self.temp_dir or "build/temp")
+        self.pkginfo = self.source_dir / (self.pkginfo or "PKG-INFO")
 
     def log(self, *values, sep=" "):
         if self.verbose:
@@ -100,6 +100,7 @@ class BuildState:
             print(*values, sep=sep)
 
     def generate(self):
+        self.finalize()
         from . import _generate as G
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         if self.metadata is None:
@@ -120,7 +121,7 @@ class BuildState:
             self.pkginfo = self.temp_dir / "PKG-INFO"
             self.log("Generating", self.pkginfo)
             G.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
-        self.wheel_tag = self.metadata.get("WheelTag", self.wheel_tag)
+            self.wheel_tag = self.metadata.get("WheelTag", self.wheel_tag)
 
         if self.package is None:
             if hasattr(self.config, "init_PACKAGE"):
@@ -143,9 +144,15 @@ class BuildState:
         return self.project
 
     def build(self, **properties):
+        if not self._finalized:
+            raise RuntimeError("BuildState must be finalized and generated before building")
+        if not self.project:
+            raise RuntimeError("BuildState.generate() must be called before building")
         if self.target is None:
             self.target = "Rebuild" if self.force else "Build"
         self.log("Compiling", self.project, "with", self.msbuild_exe, "({})".format(self.target))
+        if not self.project.is_file():
+            raise FileNotFoundError(self.project)
         properties.setdefault("Configuration", "Release")
         for tag in packaging.tags.parse_tag(self.wheel_tag):
             properties.setdefault("Platform", _TAG_PLATFORM_MAP.get(tag.platform))
@@ -189,12 +196,14 @@ class BuildState:
             rsp.unlink()
 
     def build_in_place(self):
+        self.finalize()
         self.generate()
         assert self.project
         self.target = "RebuildInPlace" if self.force else "BuildInPlace"
         self.build()
 
     def clean(self):
+        self.finalize()
         p = self.config.PACKAGE
         self.project = self.temp_dir / (p.name + ".proj")
         if self.project.is_file():
@@ -202,6 +211,10 @@ class BuildState:
             self.build()
 
     def build_sdist(self):
+        if not self._finalized:
+            raise RuntimeError("BuildState must be finalized and generated before building")
+        if not self.project:
+            raise RuntimeError("BuildState.generate() must be called before building")
         self.target = "RebuildSdist" if self.force else "BuildSdist"
         if self.build_dir.is_dir():
             shutil.rmtree(self.build_dir)
@@ -211,6 +224,7 @@ class BuildState:
         return self.pack_sdist()
 
     def pack_sdist(self):
+        self.finalize()
         import gzip, tarfile
         self.output_dir.mkdir(parents=True, exist_ok=True)
         name, version = self.metadata["Name"], self.metadata["Version"]
@@ -235,6 +249,7 @@ class BuildState:
         return sdist.name
 
     def build_wheel(self, metadata_dir=None):
+        self.finalize()
         self.target = "Rebuild" if self.force else "Build"
         if self.build_dir.is_dir():
             shutil.rmtree(self.build_dir)
@@ -253,7 +268,8 @@ class BuildState:
         return self.pack_wheel(metadata_dir)
 
     def pack_wheel(self, metadata_dir):
-        import hashlib, zipfile
+        self.finalize()
+        import zipfile
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         name, version = self.metadata["Name"], self.metadata["Version"]
@@ -283,6 +299,7 @@ class BuildState:
         return wheel.name
 
     def prepare_wheel_distinfo(self, metadata_dir=None):
+        self.finalize()
         metadata_dir = Path(metadata_dir or self.output_dir)
         self.generate()
         name, version = self.metadata["Name"], self.metadata["Version"]

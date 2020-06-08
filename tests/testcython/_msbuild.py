@@ -4,7 +4,12 @@ from pymsbuild.cython import *
 PACKAGE = Package(
     "testcython",
     CythonPydFile("mod1",
-        PyxFile("src.pyx", Dependencies="header.pyd", TargetExt=".cpp")
+        PyxFile(
+            "src.pyx",
+            Dependencies="header.pxd",
+            TargetExt=".cpp",
+            PreprocessorDefinitions="SHOW=1",
+        ),
     ),
 )
 
