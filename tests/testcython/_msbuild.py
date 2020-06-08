@@ -8,7 +8,8 @@ PACKAGE = Package(
             "src.pyx",
             Dependencies="header.pxd",
             TargetExt=".cpp",
-            PreprocessorDefinitions="SHOW=1",
+            ClPreprocessorDefinitions="SHOW=1",
+            CythonPreprocessorDefinitions="SHOW=1",
         ),
     ),
 )
