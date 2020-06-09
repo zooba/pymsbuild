@@ -14,4 +14,8 @@ class CythonPydFile(PydFile):
 
 class PyxFile(File):
     _ITEMNAME = "PyxCompile"
-    options = {"TargetExt": ".c", "Dependencies": ""}
+    options = {"TargetExt": ".c"}
+
+
+class CythonIncludeFile(File):
+    _ITEMNAME = "CythonInclude"

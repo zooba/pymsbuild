@@ -21,7 +21,7 @@
            Condition="@(PyxCompile->'%(PreprocessorDefinitions)','') != ''" />
   </Target>
 
-  <Target Name="_ForceCythonize" Inputs="@(PyxCompile);@(PyxInclude)" Outputs="%(_PyxCompileWithOutput.TargetPath)">
+  <Target Name="_ForceCythonize" Inputs="@(PyxCompile);@(CythonInclude);@(ClInclude)" Outputs="%(_PyxCompileWithOutput.TargetPath)">
     <CreateProperty Value="true">
       <Output TaskParameter="ValueSetByTask" PropertyName="ForceCythonize" />
     </CreateProperty>

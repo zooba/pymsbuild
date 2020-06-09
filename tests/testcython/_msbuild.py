@@ -4,9 +4,9 @@ from pymsbuild.cython import *
 PACKAGE = Package(
     "testcython",
     CythonPydFile("mod1",
+        CythonIncludeFile("header.pxd"),
         PyxFile(
             "src.pyx",
-            Dependencies="header.pxd",
             TargetExt=".cpp",
             ClPreprocessorDefinitions="SHOW=1",
             CythonPreprocessorDefinitions="SHOW=1",
