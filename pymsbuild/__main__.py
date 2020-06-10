@@ -91,7 +91,7 @@ clean: Clean any builds.
 
 
 ns = parse_args()
-if not hasattr(ns, "command"):
+if not getattr(ns, "command", None):
     ns.command = ["build_in_place"]
 
 if "init" in ns.command:
