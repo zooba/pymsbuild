@@ -58,6 +58,10 @@
       <Sdist Include="@(_PyxCompileWithOutput)">
         <RelativeSource>%(RelativeSource)</RelativeSource>
       </Sdist>
+      <Sdist Include="@(CythonInclude)">
+        <RelativeSource Condition="%(CythonInclude.RelativeSource) != ''">%(CythonInclude.RelativeSource)</RelativeSource>
+        <RelativeSource Condition="%(CythonInclude.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd(`\`)), %(FullPath)))</RelativeSource>
+      </Sdist>
     </ItemGroup>
   </Target>
 
