@@ -54,6 +54,7 @@ class BuildState:
         self.package = None
         self.metadata = None
         self.project = None
+        self.configuration = "Release"
         self.target = None
         self.msbuild_exe = None
         self.output_dir = None
@@ -153,7 +154,7 @@ class BuildState:
         self.log("Compiling", project, "with", self.msbuild_exe, "({})".format(self.target))
         if not project.is_file():
             raise FileNotFoundError(project)
-        properties.setdefault("Configuration", "Release")
+        properties.setdefault("Configuration", self.configuration)
         for tag in packaging.tags.parse_tag(self.wheel_tag):
             properties.setdefault("Platform", _TAG_PLATFORM_MAP.get(tag.platform))
             break
