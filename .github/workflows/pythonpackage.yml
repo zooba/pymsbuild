@@ -30,9 +30,6 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
-    - name: Check self sdist build
+    - name: Check self builds
       run: |
-        python -m pymsbuild sdist
-    - name: Check self wheel build
-      run: |
-        python -m pymsbuild wheel
+        python -m pymsbuild sdist wheel

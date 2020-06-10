@@ -33,10 +33,12 @@ def build_state(tmp_path, testdata):
     return bs
 
 
-def test_build(build_state):
+@pytest.mark.parametrize("configuration", ["Debug", "Release"])
+def test_build(build_state, configuration):
     bs = build_state
     bs.generate()
     bs.target = "Build"
+    bs.configuration = configuration
     bs.build()
 
     files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
@@ -51,9 +53,11 @@ def test_build(build_state):
     assert not files
 
 
-def test_build_sdist(build_state):
+@pytest.mark.parametrize("configuration", ["Debug", "Release"])
+def test_build_sdist(build_state, configuration):
     bs = build_state
     bs.generate()
+    bs.configuration = configuration
     bs.build_sdist()
 
     files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
@@ -71,8 +75,10 @@ def test_build_sdist(build_state):
 
 
 @pytest.mark.parametrize("proj", ["testcython", "testproject1"])
-def test_build_test_project(build_state, proj):
+@pytest.mark.parametrize("configuration", ["Debug", "Release"])
+def test_build_test_project(build_state, proj, configuration):
     bs = build_state
     bs.source_dir = bs.source_dir.parent / proj
     bs.generate()
+    bs.configuration = configuration
     bs.build()
