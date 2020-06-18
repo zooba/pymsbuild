@@ -1,12 +1,18 @@
 import os
 from pymsbuild import *
 
+VERSION = os.getenv("BUILD_BUILDNUMBER", "0.0.1")
+
+GHREF = os.getenv("GITHUB_REF")
+if GHREF:
+    VERSION = GHREF.rpartition("/")[2]
+
 METADATA = {
     "Metadata-Version": "2.1",
     "Name": "pymsbuild",
-    "Version": os.getenv("BUILD_BUILDNUMBER", "0.0.17"),
+    "Version": VERSION,
     "Author": "Steve Dower",
-    "Author-email": "Steve Dower <steve.dower@python.org>",
+    "Author-email": "steve.dower@python.org",
     "Home-page": "https://github.com/zooba/pymsbuild",
     "Project-url": [
         "Bug Tracker, https://github.com/zooba/pymsbuild/issues",
