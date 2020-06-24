@@ -106,7 +106,7 @@ class ProjectFileWriter:
             c = name.condition
             if getattr(name, "if_empty", False):
                 c = "@({}) == ''".format(kind)
-            if getattr(value, "append", False) or getattr(value, "prepend", False):
+            if getattr(name, "append", False) or getattr(name, "prepend", False):
                 raise ValueError("'append' and 'prepend' are not supported on '{}'".format(name))
 
         if metadata:
