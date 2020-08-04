@@ -8,8 +8,8 @@
       </Content>
       <Content>
         <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir.TrimEnd(`\`)), %(FullPath)))</RelativeSource>
-        <Destination Condition="%(IncludeInWheel)">$(OutDir)%(TargetDir)%(TargetName)%(TargetExt)</Destination>
-        <Source>$(OutDir)%(RelativeSource)</Source>
+        <Destination Condition="%(IncludeInWheel)">$([msbuild]::EnsureTrailingSlash($(OutDir)))%(TargetDir)%(TargetName)%(TargetExt)</Destination>
+        <Source>$([msbuild]::EnsureTrailingSlash($(OutDir)))%(RelativeSource)</Source>
       </Content>
     </ItemGroup>
   </Target>

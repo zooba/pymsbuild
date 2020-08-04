@@ -159,6 +159,7 @@ class BuildState:
             properties.setdefault("Platform", _TAG_PLATFORM_MAP.get(tag.platform))
             break
         properties.setdefault("HostPython", sys.executable)
+        properties.setdefault("_HostPythonPrefix", sys.base_prefix)
         properties.setdefault("PyMsbuildTargets", self.targets)
         properties.setdefault("_ProjectBuildTarget", self.target)
         properties.setdefault("OutDir", self.build_dir)
@@ -177,10 +178,8 @@ class BuildState:
                 if v is None:
                     continue
                 if k in {"IntDir", "OutDir", "SourceDir"}:
-                    v = str(v).replace("/", "\\")
-                    if not v.endswith("\\"):
-                        v += "\\"
-                print("/p:", k, "=", v, sep="", file=f)
+                    v = str(v).replace("/", "\\").rstrip("\\") + "\\\\"
+                print('"', "/p:", k, "=", v, '"', sep="", file=f)
         if self.verbose:
             with rsp.open("r", encoding="utf-8-sig") as f:
                 self.log(" ".join(map(str.strip, f)))

@@ -110,15 +110,7 @@ def _generate_pyd(project, build_dir, root_dir):
             f.add_property("PlatformToolset", "$(DefaultPlatformToolset)")
             f.add_property("CharacterSet", "Unicode")
         f.add_import(r"$(VCTargetsPath)\Microsoft.Cpp.props")
-        with f.group("PropertyGroup"):
-            f.add_property("TargetExt", ConditionalValue(".pyd", if_empty=True))
-            f.add_property("LinkIncremental", "false")
-        with f.group("ItemDefinitionGroup"):
-            with f.group("ClCompile"):
-                f.add_property("AdditionalIncludeDirectories", "{};%(AdditionalIncludeDirectories)".format(INCPATH)),
-            with f.group("Link"):
-                f.add_property("AdditionalLibraryDirectories", "{};%(AdditionalLibraryDirectories)".format(LIBPATH)),
-                f.add_property("GenerateDebugInformation", "True")
+        f.add_import(r"$(PyMsbuildTargets)\pyd.props")
 
         _write_members(f, source_dir, _all_members(project, recurse_if=lambda m: m is project))
 

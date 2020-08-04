@@ -7,7 +7,7 @@ mod_roj(PyObject *unused, PyObject *args, PyObject **kwargs)
 }
 
 static PyMethodDef mod_methods[] = {
-    {"roj", mod_roj, METH_VARARGS, PyDoc_STR("roj(a,b) -> None")},
+    {"roj", (PyCFunction)mod_roj, METH_VARARGS, PyDoc_STR("roj(a,b) -> None")},
     {NULL, NULL} /* sentinel */
 };
 
