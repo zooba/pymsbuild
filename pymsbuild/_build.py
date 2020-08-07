@@ -353,7 +353,6 @@ class BuildState:
         return wheel.name
 
     def prepare_wheel_distinfo(self, metadata_dir=None):
-        from pymsbuild import __version__
         self.finalize()
         metadata_dir = Path(metadata_dir or self.output_dir)
         self.generate()
@@ -363,6 +362,7 @@ class BuildState:
             re.sub(r"[^\w\d.]+", "_", version, re.UNICODE),
         )
         outdir.mkdir(parents=True, exist_ok=True)
+        from pymsbuild import __version__
         with open(outdir / "WHEEL", "w", encoding="utf-8") as f:
             print("Wheel-Version: 1.0", file=f)
             print("Generator: pymsbuild", __version__, file=f)
