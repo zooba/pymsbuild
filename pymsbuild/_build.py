@@ -77,7 +77,7 @@ class BuildState:
         self.package = None
         self.metadata = None
         self.project = None
-        self.configuration = "Release"
+        self.configuration = None
         self.target = None
         self.msbuild_exe = None
         self.output_dir = Path(output_dir) if output_dir else None
@@ -85,26 +85,51 @@ class BuildState:
         self.temp_dir = None
         self.pkginfo = None
         self.source_dir = Path.cwd()
-        self.config_file = "_msbuild.py"
+        self.config_file = None
         self.targets = Path(__file__).parent / "targets"
-        self.wheel_tag = "py3-none-any"
-        for t in packaging.tags.sys_tags():
-            self.wheel_tag = str(t)
-            break
+        self.wheel_tag = None
+        self.platform = None
+        self.platform_toolset = None
+        self.build_number = None
 
-    def finalize(self):
+    def finalize(self, getenv=os.getenv):
         if self._finalized:
             return
         self._finalized = True
 
+        self._set_best("config_file", None, "PYMSBUILD_CONFIG", "_msbuild.py", getenv)
+
         if self.config is None:
-            import importlib
             import importlib.util
             file = self.source_dir / (self.config_file or "_msbuild.py")
             spec = importlib.util.spec_from_file_location("_msbuild", file)
             self.config = mod = importlib.util.module_from_spec(spec)
             mod.__loader__.exec_module(mod)
 
+        if self.metadata is None:
+            if self.pkginfo.is_file():
+                self.log("Using", self.pkginfo)
+                self.metadata = G.readback_distinfo(self.pkginfo)
+            else:
+                if hasattr(self.config, "init_METADATA"):
+                    self.log("Dynamically initialising METADATA")
+                    self.metadata = self.config.init_METADATA()
+                    if self.metadata:
+                        self.config.METADATA = self.metadata
+                    else:
+                        self.metadata = self.config.METADATA
+                if hasattr(self.config, "METADATA"):
+                    self.metadata = self.config.METADATA
+
+        if self.package is None:
+            if hasattr(self.config, "init_PACKAGE"):
+                self.log("Dynamically initialising PACKAGE")
+                pack = self.config.init_PACKAGE(str(self.wheel_tag))
+                if pack:
+                    self.config.PACKAGE = self.package
+            self.package = self.config.PACKAGE
+
+        self._set_best("msbuild_exe", None, "MSBUILD", None, getenv)
         if self.msbuild_exe is None:
             self.msbuild_exe = _locate_msbuild()
         self.msbuild_exe = Path(self.msbuild_exe)
@@ -113,6 +138,33 @@ class BuildState:
         self.build_dir = self.source_dir / (self.build_dir or "build/layout")
         self.temp_dir = self.source_dir / (self.temp_dir or "build/temp")
         self.pkginfo = self.source_dir / (self.pkginfo or "PKG-INFO")
+
+        self._set_best("build_number", None, "BUILD_BUILDNUMBER", None, getenv)
+        self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
+        if not self.wheel_tag:
+            for t in packaging.tags.sys_tags():
+                self.wheel_tag = str(t)
+                break
+            else:
+                self.wheel_tag = "py3-none-any"
+        self._set_best("platform", None, "PYMSBUILD_PLATFORM", None, getenv)
+        if not self.platform and self.wheel_tag:
+            for tag in packaging.tags.parse_tag(self.wheel_tag):
+                self.platform = tag.platform
+                break
+        self._set_best("platform_toolset", "PlatformToolset", "PlatformToolset", None, getenv)
+        self._set_best("configuration", None, "PYMSBUILD_CONFIGURATION", "Release", getenv)
+
+    def _set_best(self, key, metakey, envkey, default, getenv):
+        if getattr(self, key, None):
+            return
+        setattr(
+            self,
+            key,
+            (getattr(self.metadata, metakey, None) if metakey else None) or
+            (getenv(envkey) if envkey else None) or
+            default
+        )
 
     def log(self, *values, sep=" "):
         if self.verbose:
@@ -129,33 +181,11 @@ class BuildState:
         self.finalize()
         from . import _generate as G
         self.temp_dir.mkdir(parents=True, exist_ok=True)
-        if self.metadata is None:
-            if self.pkginfo.is_file():
-                self.log("Using", self.pkginfo)
-                self.metadata = G.readback_distinfo(self.pkginfo)
-            else:
-                if hasattr(self.config, "init_METADATA"):
-                    self.log("Dynamically initialising METADATA")
-                    self.metadata = self.config.init_METADATA()
-                    if self.metadata:
-                        self.config.METADATA = self.metadata
-                    else:
-                        self.metadata = self.config.METADATA
-                if hasattr(self.config, "METADATA"):
-                    self.metadata = self.config.METADATA
         if self.metadata is not None:
             self.pkginfo = self.temp_dir / "PKG-INFO"
             self.log("Generating", self.pkginfo)
             G.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
             self.wheel_tag = self.metadata.get("WheelTag", self.wheel_tag)
-
-        if self.package is None:
-            if hasattr(self.config, "init_PACKAGE"):
-                self.log("Dynamically initialising PACKAGE")
-                pack = self.config.init_PACKAGE(str(self.wheel_tag))
-                if pack:
-                    self.config.PACKAGE = self.package
-            self.package = self.config.PACKAGE
 
         self.log("Generating projects")
         self.project = Path(G.generate(
@@ -177,9 +207,14 @@ class BuildState:
         if not project.is_file():
             raise FileNotFoundError(project)
         properties.setdefault("Configuration", self.configuration)
-        for tag in packaging.tags.parse_tag(self.wheel_tag):
-            properties.setdefault("Platform", _TAG_PLATFORM_MAP.get(tag.platform))
-            break
+        if not properties.get("Platform"):
+            try:
+                properties["Platform"] = _TAG_PLATFORM_MAP[self.platform]
+            except KeyError:
+                raise ValueError("Cannot select MSBuild platform for '{}'".format(
+                    self.platform
+                ))
+        properties.setdefault("PlatformToolset", self.platform_toolset)
         properties.setdefault("HostPython", sys.executable)
         properties.setdefault("_HostPythonPrefix", sys.base_prefix)
         properties.setdefault("PyMsbuildTargets", self.targets)
@@ -333,7 +368,7 @@ class BuildState:
             print("Root-Is-Purelib: false", file=f)
             for t in sorted(self.wheel_tag):
                 print("Tag:", t, file=f)
-            if os.getenv("BUILD_BUILDNUMBER"):
-                print("Build:", os.getenv("BUILD_BUILDNUMBER", "0"), file=f)
+            if self.build_number:
+                print("Build:", self.built_number, file=f)
         shutil.copy(self.pkginfo, outdir / "METADATA")
         return outdir.name

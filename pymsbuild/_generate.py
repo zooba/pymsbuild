@@ -108,6 +108,7 @@ def _generate_pyd(project, build_dir, root_dir):
         with f.group("PropertyGroup", Label="Configuration"):
             f.add_property("ConfigurationType", project.options.get("ConfigurationType", "DynamicLibrary"))
             f.add_property("PlatformToolset", "$(DefaultPlatformToolset)")
+            f.add_property("BasePlatformToolset", "$(DefaultPlatformToolset)")
             f.add_property("CharacterSet", "Unicode")
         f.add_import(r"$(VCTargetsPath)\Microsoft.Cpp.props")
         f.add_import(r"$(PyMsbuildTargets)\pyd.props")
