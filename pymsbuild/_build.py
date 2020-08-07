@@ -97,6 +97,11 @@ class BuildState:
             return
         self._finalized = True
 
+        self.output_dir = self.source_dir / (self.output_dir or "dist")
+        self.build_dir = self.source_dir / (self.build_dir or "build/layout")
+        self.temp_dir = self.source_dir / (self.temp_dir or "build/temp")
+        self.pkginfo = self.source_dir / (self.pkginfo or "PKG-INFO")
+
         self._set_best("config_file", None, "PYMSBUILD_CONFIG", "_msbuild.py", getenv)
 
         if self.config is None:
@@ -133,11 +138,6 @@ class BuildState:
         if self.msbuild_exe is None:
             self.msbuild_exe = _locate_msbuild()
         self.msbuild_exe = Path(self.msbuild_exe)
-
-        self.output_dir = self.source_dir / (self.output_dir or "dist")
-        self.build_dir = self.source_dir / (self.build_dir or "build/layout")
-        self.temp_dir = self.source_dir / (self.temp_dir or "build/temp")
-        self.pkginfo = self.source_dir / (self.pkginfo or "PKG-INFO")
 
         self._set_best("build_number", None, "BUILD_BUILDNUMBER", None, getenv)
         self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
