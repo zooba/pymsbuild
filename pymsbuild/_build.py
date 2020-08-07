@@ -353,6 +353,7 @@ class BuildState:
         return wheel.name
 
     def prepare_wheel_distinfo(self, metadata_dir=None):
+        from pymsbuild import __version__
         self.finalize()
         metadata_dir = Path(metadata_dir or self.output_dir)
         self.generate()
