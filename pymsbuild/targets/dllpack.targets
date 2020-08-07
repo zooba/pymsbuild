@@ -1,0 +1,24 @@
+<Project>
+  <Target Name="GenerateDllPack">
+    <ItemGroup>
+      <_DllPackHeader Include="$(IntDir)\dllpack.h" />
+      <_DllPackRsp Include="$(IntDir)\dllpack.rsp" />
+      <FileWrites Include="@(_DllPackHeader)" />
+      <_SourceFiles Include="@(Content)" Condition="%(Extension) == '.py'">
+        <Name>%(Content.Name)</Name>
+      </_SourceFiles>
+      <Content Remove="@(_SourceFiles)" />
+    </ItemGroup>
+    <WriteLinesToFile Lines="@(_SourceFiles->'%(Name):%(FullPath)')" File="@(_DllPackRsp)" Encoding="UTF-8" Overwrite="true" />
+    <PropertyGroup>
+      <_GenCommand>"$(HostPython)" -m pymsbuild.dllpack "$(RootNamespace)" "@(_DllPackRsp)" "@(_DllPackHeader)"</_GenCommand>
+    </PropertyGroup>
+    <Exec Command="$(_GenCommand)" WorkingDirectory="$(IntDir)" />
+    <ItemGroup>
+      <ClCompile Include="$(MSBuildThisFileDirectory)dllpack.c">
+        <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      </ClCompile>
+      <ResourceCompile Include="$(IntDir)\dllpack.rc" />
+    </ItemGroup>
+  </Target>
+</Project>

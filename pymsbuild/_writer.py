@@ -29,9 +29,10 @@ class CV:
 
 
 class ProjectFileWriter:
-    def __init__(self, filename, target_name, *, vc_platforms=None):
+    def __init__(self, filename, target_name, *, vc_platforms=None, root_namespace=None):
         self.filename = filename
         self.target_name = target_name
+        self.root_namespace = root_namespace or target_name
         self._file = None
         self._vc_platforms = vc_platforms
         self.indent = 2
@@ -49,7 +50,7 @@ class ProjectFileWriter:
             self.add_property("Configuration", CV("Release", "$(Configuration) == ''"))
             self.add_property("Platform", CV("x64", "$(Platform) == ''"))
             self.add_property("ProjectGuid", _guid(self.target_name))
-            self.add_property("RootNamespace", self.target_name)
+            self.add_property("RootNamespace", self.root_namespace)
             self.add_property("TargetName", self.target_name)
             self.add_property("PyMsbuildTargets", CV(TARGETS, if_empty=True))
         return self

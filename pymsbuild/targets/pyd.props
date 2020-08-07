@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
-    <TargetExt Condition="$(TargetExt) == ''">.pyd</TargetExt>
+    <TargetExt Condition="$(__TargetExt) != ''">$(__TargetExt)</TargetExt>
+    <TargetPath>$([System.IO.Path]::Combine($(ProjectDir),$(OutDir)$(TargetName)$(TargetExt)))</TargetPath>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup>
@@ -19,5 +20,8 @@
       <AdditionalLibraryDirectories>$(PythonLibs);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>True</GenerateDebugInformation>
     </Link>
+    <Lib>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+    </Lib>
   </ItemDefinitionGroup>
 </Project>

@@ -1,7 +1,7 @@
 import sys
 
 from pathlib import PureWindowsPath as PurePath, WindowsPath as Path
-from ._types import PydFile, File, LiteralXML, Property, ItemDefinition, ConditionalValue
+from ._types import Package, PydFile, File, LiteralXML, Property, ItemDefinition, ConditionalValue
 from ._writer import ProjectFileWriter
 
 LIBPATH = Path(sys.base_prefix) / "libs"
@@ -94,12 +94,15 @@ def _generate_pyd(project, build_dir, root_dir):
     if project.project_file:
         return Path(project.project_file)
 
-    with ProjectFileWriter(proj, project.name, vc_platforms=True) as f:
+    tpath = project.options.get("TargetName", project.name) + project.options.get("TargetExt", ".pyd")
+    tname, tdot, text = tpath.rpartition(".")
+    with ProjectFileWriter(proj, tname, vc_platforms=True, root_namespace=project.name) as f:
         with f.group("PropertyGroup", Label="Globals"):
             f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
             f.add_property("SourceRootDir", ConditionalValue(root_dir, if_empty=True))
             f.add_property("OutDir", "layout\\")
             f.add_property("IntDir", ConditionalValue("build\\", if_empty=True))
+            f.add_property("__TargetExt", tdot + text)
             for k, v in project.options.items():
                 if k not in {"ConfigurationType", "TargetExt"}:
                     f.add_property(k, v)
@@ -114,6 +117,12 @@ def _generate_pyd(project, build_dir, root_dir):
         f.add_import(r"$(PyMsbuildTargets)\pyd.props")
 
         _write_members(f, source_dir, _all_members(project, recurse_if=lambda m: m is project))
+        for n, p in _all_members(project, recurse_if=lambda m: m is project, return_if=lambda m: isinstance(m, Package)):
+            _write_members(
+                f,
+                source_dir,
+                _all_members(p, recurse_if=lambda m: not isinstance(m, PydFile), prefix=f"{project.name}/")
+            )
 
         f.add_import(r"$(PyMsbuildTargets)\common.targets")
         f.add_import(r"$(VCTargetsPath)\Microsoft.Cpp.targets")
@@ -149,6 +158,9 @@ def generate(project, build_dir, source_dir, config_file=None):
     if project.project_file:
         return Path(project.project_file)
 
+    if isinstance(project, PydFile):
+        return _generate_pyd(project, build_dir, source_dir)
+
     with ProjectFileWriter(proj, project.name) as f:
         with f.group("PropertyGroup"):
             f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
@@ -159,7 +171,7 @@ def generate(project, build_dir, source_dir, config_file=None):
                 f.add_property(k, v)
         f.add_import(r"$(PyMsbuildTargets)\common.props")
         with f.group("ItemGroup", Label="ProjectReferences"):
-            for n, p in _all_members(project, return_if=lambda m: isinstance(m, PydFile)):
+            for n, p in _all_members(project, return_if=lambda m: m is not project and isinstance(m, PydFile)):
                 fn = PurePath(n)
                 pdir = _generate_pyd(p, build_dir, source_dir)
                 try:

@@ -250,7 +250,10 @@ class BuildState:
                 print(ex.stdout.decode("mbcs", "replace"))
             sys.exit(1)
         else:
-            rsp.unlink()
+            try:
+                rsp.unlink()
+            except FileNotFoundError:
+                pass
 
     def build_in_place(self):
         self.finalize()
