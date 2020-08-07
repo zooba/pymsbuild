@@ -1,0 +1,23 @@
+<Project>
+  <PropertyGroup>
+    <TargetExt Condition="$(TargetExt) == ''">.pyd</TargetExt>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PythonIncludes>$(PYTHON_INCLUDES)</PythonIncludes>
+    <PythonIncludes Condition="$(PythonIncludes) == '' and $(PYTHON_PREFIX) != ''">$([msbuild]::EnsureTrailingSlash($(PYTHON_PREFIX)))Include</PythonIncludes>
+    <PythonIncludes Condition="$(PythonIncludes) == ''">$([msbuild]::EnsureTrailingSlash($(_HostPythonPrefix)))Include</PythonIncludes>
+    <PythonLibs>$(PYTHON_LIBS)</PythonLibs>
+    <PythonLibs Condition="$(PythonLibs) == '' and $(PYTHON_PREFIX) != ''">$([msbuild]::EnsureTrailingSlash($(PYTHON_PREFIX)))libs</PythonLibs>
+    <PythonLibs Condition="$(PythonLibs) == ''">$([msbuild]::EnsureTrailingSlash($(_HostPythonPrefix)))libs</PythonLibs>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(PythonIncludes);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(PythonLibs);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>True</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>

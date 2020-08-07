@@ -209,7 +209,7 @@ including providing a number of undocumented and unsupported targets.
 
 Recommendations:
 * lock your `pymsbuild` dependency to a specific version in `pyproject.toml`
-* generate project files first and modify, rather than create new ones
+* generate project files first and modify, rather than writing by hand
 * read the `pymsbuild` source code, especially the `targets` folder
 * consider contributing/requesting your feature
 
@@ -304,14 +304,58 @@ top-level `Project` element.
 ## Alternate config file
 
 To use a configuration file other than `_msbuild.py`, specify the
-`--config` (`-c`) argument _before_ the command.
+`--config` (`-c`) argument or the `PYMSBUILD_CONFIG` environment
+variable.
 
-```
+```powershell
 python -m pymsbuild --config build-spec.py sdist
 python -m pymsbuild --config build-spec.py wheel
+
+# Alternatively
+$env:PYMSBUILD_CONFIG = "build-spec.py"
+python -m pymsbuild sdist wheel
 ```
 
 Generated sdists will rename the configuration file back to
 `_msbuild.py` in the package to ensure that builds work correctly.
 There is no need to override the configuration file path when
 building from sdists.
+
+## Cross-compiling wheels
+
+Cross compilation may be used by overriding the wheel tag or build
+platform, as well as the source for Python's includes and libraries.
+These must all be done using environment variables.
+
+Note that it is also possible to override the wheel tag by adding a
+`'WheelTag'` metadata value. However, while this will attempt to
+update the MSBuild target platform automatically it will not be able to
+select the correct Python libraries. For builds that do not directly
+link to `python##.dll`, this is probably fine.
+
+You can also override the platform toolset with the `'PlatformToolset'`
+metadata value, for scenarios where this information ought to be
+included in an sdist.
+
+The set of valid platforms for auto-generated `.pyd` project files are
+hard-coded into `pymsbuild` and are currently `Win32`, `x64`, `ARM` and
+`ARM64`. Custom project files may use whatever they like.
+
+```powershell
+# Directly specify the resulting wheel tag
+$env:PYMSBUILD_WHEEL_TAG = "py38-cp38-win_arm64"
+
+# Directly override the MSBuild platform.
+# In this example, the wheel tag would have been sufficient
+$env:PYMSBUILD_PLATFORM = "ARM64"
+
+# Specify the paths to ARM64 headers and libs
+$env:PYTHON_INCLUDES = "$pyarm64\Include"
+$env:PYTHON_LIBS = "$pyarm64\libs"
+
+# Alternatively, just specify the prefix directory
+$env:PYTHON_PREFIX = $pyarm64
+
+# If necessary, specify an alternate C++ toolset
+$env:PLATFORMTOOLSET = "Intel C++ Compiler 19.1"
+```

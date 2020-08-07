@@ -9,15 +9,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import pymsbuild
 import pymsbuild._generate as G
 import pymsbuild._types as T
-from pymsbuild._build import locate as locate_msbuild
+from pymsbuild._build import _locate_msbuild, BuildState
 
 # Avoid calling locate() for each test
-os.environ["MSBUILD"] = str(locate_msbuild())
+os.environ["MSBUILD"] = str(_locate_msbuild())
 
 
 @pytest.fixture
 def build_state(tmp_path, testdata):
-    bs = pymsbuild.BuildState()
+    bs = BuildState()
     bs.source_dir = testdata
     bs.output_dir = tmp_path / "out"
     bs.build_dir = tmp_path / "build"

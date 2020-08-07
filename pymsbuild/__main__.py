@@ -4,6 +4,7 @@ import sys
 
 from os import getenv
 from pathlib import PurePath, Path
+from pymsbuild._build import BuildState
 
 
 def _env(var, default=None):
@@ -98,7 +99,7 @@ if "init" in ns.command:
     print("TODO: Generate workflow")
     sys.exit(2)
 
-bs = pymsbuild.BuildState()
+bs = BuildState()
 bs.source_dir = Path.cwd() / (ns.source_dir or "")
 bs.output_dir = bs.source_dir / (ns.dist_dir or "dist")
 bs.config_file = ns.config
