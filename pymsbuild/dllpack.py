@@ -97,12 +97,11 @@ def _path_str(s):
 
 def _generate_files(module, sources, targets):
     f_main = _FileInfo.get_builtin(targets / "dllpack_main.py")
-    f_package = _FileInfo.get_builtin(targets / "dllpack_package.py")
 
     with open("dllpack.rc", "w", encoding="ascii", errors="backslashescape") as rc_file:
         print("#define PYCFILE 257", file=rc_file)
         print("#define DATAFILE 258", file=rc_file)
-        for f in [*sources, f_main, f_package]:
+        for f in [*sources, f_main]:
             if not f:
                 continue
             pyc = f.compile_pyc()
@@ -126,8 +125,6 @@ def _generate_files(module, sources, targets):
             preexec_resid = 0
             if f.name == module:
                 preexec_resid = f_main.resid
-            elif f.is_package:
-                preexec_resid = f_package.resid
             print("    {", file=h_file)
             print('        {},'.format(_path_str(f.name)), file=h_file)
             print('        {},'.format(_path_str(f.origin)), file=h_file)

@@ -242,6 +242,16 @@ mod_new(PyObject *self, PyObject *args)
     } else {
         PyErr_Clear();
     }
+    o = PyObject_GetAttrString(spec, "submodule_search_locations");
+    if (o) {
+        if (PyModule_AddObject(mod, "__path__", o) < 0) {
+            Py_DECREF(o);
+            Py_DECREF(mod);
+            return NULL;
+        }
+    } else {
+        PyErr_Clear();
+    }
     return mod;
 }
 
