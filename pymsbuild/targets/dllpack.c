@@ -5,65 +5,33 @@
 
 static HMODULE hInstance;
 
-static int
-ascii_eq_wide(const char *x, const wchar_t *y, int cch_y)
+static const struct ENTRY *
+lookup_import(const char *name)
 {
-    int i = 0;
-    while (i < cch_y) {
-        if ((int)*x != (int)*y) {
-            return 0;
+    for (struct ENTRY *entry = IMPORT_TABLE; entry->name; ++entry) {
+        if (!strcmp(entry->name, name)) {
+            return entry;
         }
-        ++x;
-        ++y;
-        ++i;
     }
-    return 1;
+    return NULL;
 }
 
-static int
-lookup_name_id(const char *name)
+static const struct ENTRY *
+lookup_data(const char *name)
 {
-    const wchar_t *buffer;
-    int cchBuffer;
-    printf("Finding %s\n", name);
-    for (UINT id = _FIRST_NAME_RES_ID; id < _FIRST_NAME_RES_ID + _MODULE_COUNT; ++id) {
-        int is_match = 0;
-        HRSRC block = FindResourceW(hInstance, MAKEINTRESOURCE((id >> 4) + 1), RT_STRING);
-        if (!block) {
-            PyErr_SetFromWindowsErr(GetLastError());
-            return -1;
-        }
-        HGLOBAL res = LoadResource(hInstance, block);
-        if (!res) {
-            PyErr_SetFromWindowsErr(GetLastError());
-            return -1;
-        }
-        const wchar_t *buffer = (const wchar_t*)LockResource(res);
-        if (!buffer) {
-            PyErr_SetFromWindowsErr(GetLastError());
-            FreeResource(res);
-            return -1;
-        }
-        ptrdiff_t off = 0;
-        for (UINT i = id & 0xF; i; --i) {
-            off += buffer[off] + 1;
-        }
-        printf("Checking %i: %ls (%i)\n", id, &buffer[off + 1], (int)buffer[off]);
-        is_match = ascii_eq_wide(name, &buffer[off + 1], (int)buffer[off]);
-        UnlockResource(buffer);
-        FreeResource(res);
-        if (is_match) {
-            return id - _FIRST_NAME_RES_ID + 1;
+    for (struct ENTRY *entry = DATA_TABLE; entry->name; ++entry) {
+        if (!strcmp(entry->name, name)) {
+            return entry;
         }
     }
-    return 0;
+    return NULL;
 }
 
 static PyObject *
-load_pyc(int id)
+load_bytes(int id)
 {
-    PyObject *pyc_obj;
-    HRSRC block = FindResourceW(hInstance, MAKEINTRESOURCE(id + _FIRST_PYC_RES_ID - 1), MAKEINTRESOURCE(_PYCFILE));
+    PyObject *obj;
+    HRSRC block = FindResourceW(hInstance, MAKEINTRESOURCE(id), MAKEINTRESOURCE(_DATAFILE));
     if (!block) {
         PyErr_SetFromWindowsErr(GetLastError());
         return NULL;
@@ -84,38 +52,312 @@ load_pyc(int id)
         FreeResource(res);
         return NULL;
     }
-    pyc_obj = PyMarshal_ReadObjectFromString(&buffer[16], (Py_ssize_t)cbBuffer - 16);
-    UnlockResource(buffer);
+    obj = PyBytes_FromStringAndSize(buffer, cbBuffer);
     FreeResource(res);
-    return pyc_obj;
+    return obj;
+}
+
+static PyObject *
+load_pyc(int id)
+{
+    PyObject *obj;
+    HRSRC block = FindResourceW(hInstance, MAKEINTRESOURCE(id), MAKEINTRESOURCE(_PYCFILE));
+    if (!block) {
+        PyErr_SetFromWindowsErr(GetLastError());
+        return NULL;
+    }
+    DWORD cbBuffer = SizeofResource(hInstance, block);
+    if (!cbBuffer) {
+        PyErr_SetFromWindowsErr(GetLastError());
+        return NULL;
+    }
+    HGLOBAL res = LoadResource(hInstance, block);
+    if (!res) {
+        PyErr_SetFromWindowsErr(GetLastError());
+        return NULL;
+    }
+    const char *buffer = (const char*)LockResource(res);
+    if (!buffer) {
+        PyErr_SetFromWindowsErr(GetLastError());
+        FreeResource(res);
+        return NULL;
+    }
+    // Our .pyc has a header
+    obj = PyMarshal_ReadObjectFromString(&buffer[_PYC_HEADER_LEN], cbBuffer - _PYC_HEADER_LEN);
+    FreeResource(res);
+    return obj;
+}
+
+static PyObject*
+get_origin_root()
+{
+    wchar_t buff[256];
+    DWORD cch = GetModuleFileNameW(hInstance, buff, sizeof(buff) / sizeof(buff[0]));
+    if (cch == 0) {
+        PyErr_SetFromWindowsErr(GetLastError());
+        return NULL;
+    } else if (cch < 256) {
+        while (cch && buff[cch - 1] != '\\' && buff[cch - 1] != '/') {
+            --cch;
+        }
+        return PyUnicode_FromWideChar(buff, cch);
+    }
+    cch += 1;
+    wchar_t *buff2 = (wchar_t *)PyMem_Malloc(sizeof(wchar_t) * cch);
+    if (!buff2) {
+        return NULL;
+    }
+    DWORD cch2 = GetModuleFileNameW(hInstance, buff2, cch);
+    PyObject *r = NULL;
+    if (cch2 == 0) {
+        PyErr_SetFromWindowsErr(GetLastError());
+    } else if (cch2 >= cch) {
+        PyErr_SetString(PyExc_SystemError, "failed to get DLL name; cannot import");
+    } else {
+        while (cch2 & buff2[cch2 - 1] != '\\' && buff2[cch2 - 1] != '/') {
+            --cch2;
+        }
+        r = PyUnicode_FromWideChar(buff2, cch2);
+    }
+    PyMem_Free(buff2);
+    return r;
+}
+
+static PyObject *
+mod_load_impl(const char *name, PyObject *mod) {
+    const struct ENTRY *e = lookup_import(name);
+    if (!e) {
+        PyErr_Format(PyExc_ModuleNotFoundError, "'%s' is not part of this package", name);
+        return NULL;
+    }
+    if (e->id == 0) {
+        PyErr_Format(PyExc_ModuleNotFoundError, "unable to import '%s'", name);
+        return NULL;
+    }
+
+    PyObject *pyc, *r;
+    if (e->preexec_id) {
+        pyc = load_pyc(e->preexec_id);
+        if (!pyc) {
+            return NULL;
+        }
+        r = PyImport_ExecCodeModule(name, pyc);
+        Py_DECREF(pyc);
+        if (!r) {
+            return NULL;
+        }
+        Py_DECREF(r);
+    }
+
+    pyc = load_pyc(e->id);
+    if (!pyc) {
+        return NULL;
+    }
+
+    PyObject *spec = PyObject_GetAttrString(mod, "__spec__");
+    PyObject *oname = spec ? PyObject_GetAttrString(spec, "name") : NULL;
+    PyObject *origin = spec ? PyObject_GetAttrString(spec, "origin") : NULL;
+    if (oname && origin) {
+        r = PyImport_ExecCodeModuleObject(oname, pyc, origin, NULL);
+    } else {
+        PyErr_Clear();
+        r = PyImport_ExecCodeModule(name, pyc);
+    }
+    Py_XDECREF(spec);
+    Py_XDECREF(oname);
+    Py_XDECREF(origin);
+    Py_DECREF(pyc);
+    if (!r) {
+        return NULL;
+    }
+    Py_DECREF(r);
+    return mod;
+}
+
+static PyObject *
+mod_load(PyObject *self, PyObject *args)
+{
+    PyObject *mod = NULL;
+    if (!PyArg_ParseTuple(args, "O", &mod)) {
+        return NULL;
+    }
+    mod = mod_load_impl(PyModule_GetName(mod), mod);
+    Py_XINCREF(mod);
+    return mod;
+}
+
+static PyObject *
+mod_new(PyObject *self, PyObject *args)
+{
+    PyObject *spec;
+    if (!PyArg_ParseTuple(args, "O", &spec)) {
+        return NULL;
+    }
+    PyObject *o = PyObject_GetAttrString(spec, "name");
+    if (!o) {
+        return NULL;
+    }
+    PyObject *mod = PyImport_AddModuleObject(o);
+    if (!mod) {
+        Py_DECREF(o);
+        return NULL;
+    }
+    Py_INCREF(mod);
+    if (PyModule_AddObject(mod, "__name__", o) < 0) {
+        Py_DECREF(o);
+        Py_DECREF(mod);
+        return NULL;
+    }
+    Py_DECREF(o);
+    o = PyObject_GetAttrString(spec, "parent");
+    if (o) {
+        if (o != Py_None) {
+            if (PyModule_AddObject(mod, "__package__", o) < 0) {
+                Py_DECREF(o);
+                Py_DECREF(mod);
+                return NULL;
+            }
+        }
+        Py_DECREF(o);
+    } else {
+        PyErr_Clear();
+    }
+    o = PyObject_GetAttrString(spec, "origin");
+    if (o) {
+        if (PyModule_AddObject(mod, "__file__", o) < 0) {
+            Py_DECREF(o);
+            Py_DECREF(mod);
+            return NULL;
+        }
+    } else {
+        PyErr_Clear();
+    }
+    o = PyObject_GetAttrString(spec, "loader");
+    if (o) {
+        if (PyModule_AddObject(mod, "__loader__", o) < 0) {
+            Py_DECREF(o);
+            Py_DECREF(mod);
+            return NULL;
+        }
+    } else {
+        PyErr_Clear();
+    }
+    return mod;
+}
+
+static PyObject *
+mod_makespec(PyObject *self, PyObject *args)
+{
+    const char *name;
+    PyObject *loader;
+    if (!PyArg_ParseTuple(args, "sO", &name, &loader)) {
+        return NULL;
+    }
+
+    PyObject *ilib_m = NULL, *mspec = NULL, *kwargs = NULL, *origin = NULL, *r = NULL;
+    ilib_m = PyImport_ImportModule("importlib.machinery");
+    if (!ilib_m) {
+        goto error;
+    }
+    mspec = PyObject_GetAttrString(ilib_m, "ModuleSpec");
+    if (!mspec) {
+        goto error;
+    }
+    kwargs = PyDict_New();
+    if (!kwargs) {
+        goto error;
+    }
+
+    const struct ENTRY *e = lookup_import(name);
+    if (!e) {
+        PyErr_Format(PyExc_ModuleNotFoundError, "'%s' is not part of this package", name);
+        goto error;
+    }
+    origin = get_origin_root();
+    if (origin) {
+        Py_SETREF(origin, PyUnicode_FromFormat("%U%s", origin, e->origin));
+    }
+    if (!origin) {
+        goto error;
+    }
+    if (PyDict_SetItemString(kwargs, "origin", origin) < 0) {
+        goto error;
+    }
+    if (e->package) {
+        if (PyDict_SetItemString(kwargs, "is_package", Py_True) < 0) {
+            goto error;
+        }
+    }
+
+    r = PyObject_Call(mspec, args, kwargs);
+error:
+    Py_XDECREF(origin);
+    Py_XDECREF(kwargs);
+    Py_XDECREF(mspec);
+    Py_XDECREF(ilib_m);
+
+    return r;
+}
+
+static PyObject *
+mod_data(PyObject *self, PyObject *args)
+{
+    const char *name;
+    if (!PyArg_ParseTuple(args, "s", &name)) {
+        return NULL;
+    }
+    const struct ENTRY *e = lookup_data(name);
+    if (e) {
+        return load_bytes(e->id);
+    }
+    PyErr_Format(PyExc_FileNotFoundError, "'%s' is not part of this package", name);
+    return NULL;
+}
+
+static PyObject *
+mod_data_names(PyObject *self, PyObject *args)
+{
+    PyObject *r = PyList_New(0);
+    if (!r) {
+        return NULL;
+    }
+    for (struct ENTRY *entry = DATA_TABLE; entry->name; ++entry) {
+        PyObject *o = PyUnicode_FromString(entry->name);
+        if (!o) {
+            Py_DECREF(r);
+            return NULL;
+        }
+        if (PyList_Append(r, o) < 0) {
+            Py_DECREF(r);
+            Py_DECREF(o);
+            return NULL;
+        }
+    }
+    return r;
+}
+
+static PyObject*
+mod_name(PyObject *self, PyObject *args)
+{
+    return PyUnicode_FromString(_MODULE_NAME);
 }
 
 static int
 mod_exec(PyObject *m)
 {
-    if (_MODULE_COUNT) {
-        // TODO: Set up import hook for submodules
-    }
-
-    int id = lookup_name_id(_MODULE_NAME ".__init__");
-    if (id < 0) {
-        return -1;
-    } else if (id > 0) {
-        PyObject *pyc = load_pyc(id);
-        if (!pyc) {
-            return -1;
-        }
-        PyObject *mod = PyImport_ExecCodeModule(_MODULE_NAME, pyc);
-        if (!mod) {
-            Py_DECREF(pyc);
-            return -1;
-        }
-        Py_SETREF(mod, PyObject_Repr(mod));
-        Py_DECREF(mod);
-        Py_DECREF(pyc);
-    }
-    return 0;
+    return mod_load_impl(PyModule_GetName(m), m) ? 0 : -1;
 }
+
+
+static struct PyMethodDef mod_meth[] = {
+    {"NAME", mod_name, METH_NOARGS, NULL},
+    {"MAKESPEC", mod_makespec, METH_VARARGS, NULL},
+    {"DATA", mod_data, METH_VARARGS, NULL},
+    {"DATA_NAMES", mod_data_names, METH_NOARGS, NULL},
+    {"CREATE_MODULE", mod_new, METH_VARARGS, NULL},
+    {"EXEC_MODULE", mod_load, METH_VARARGS, NULL},
+    {NULL, NULL, 0, NULL}
+};
 
 static struct PyModuleDef_Slot mod_slots[] = {
     {Py_mod_exec, mod_exec},
@@ -127,12 +369,13 @@ static struct PyModuleDef modmodule = {
     _MODULE_NAME,
     NULL,
     0,
-    NULL,
+    mod_meth,
     mod_slots,
     NULL,
     NULL,
     NULL
 };
+
 
 PyMODINIT_FUNC
 _INIT_FUNC_NAME(void)
@@ -143,8 +386,8 @@ _INIT_FUNC_NAME(void)
 BOOL WINAPI
 DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved)
 {
-    switch( fdwReason ) 
-    { 
+    switch( fdwReason )
+    {
         case DLL_PROCESS_ATTACH:
             hInstance = hinstDLL;
             break;

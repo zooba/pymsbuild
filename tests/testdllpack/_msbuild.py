@@ -7,6 +7,7 @@ PACKAGE = DllPackage(
     PyFile("mod1.py"),
     PyFile("data.txt"),
     Package("sub",
+        PyFile("__init__.py"),
         PyFile("mod2.py"),
         PyFile("data.txt"),
     ),
