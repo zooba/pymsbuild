@@ -19,7 +19,6 @@ __all__ = [
 
 class _Project:
     r"""Base class of compilable projects. Do not use directly."""
-    _ACTIONS = ()
     options = {}
 
     def __init__(self, name, *members, project_file=None, source="", **options):

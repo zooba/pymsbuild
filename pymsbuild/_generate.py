@@ -83,6 +83,8 @@ def _write_members(f, source_dir, members):
             elif isinstance(p, LiteralXML):
                 g.switch_to(None)
                 f.add_text(p.xml)
+            elif hasattr(p, "write_member"):
+                p.write_member(f, g)
 
 
 def _generate_pyd(project, build_dir, root_dir):

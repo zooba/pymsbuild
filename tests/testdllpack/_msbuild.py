@@ -5,12 +5,14 @@ PACKAGE = DllPackage(
     "testdllpack",
     PyFile("__init__.py"),
     PyFile("mod1.py"),
-    PyFile("data.txt"),
+    File("data.txt"),
     Package("sub",
         PyFile("__init__.py"),
         PyFile("mod2.py"),
-        PyFile("data.txt"),
+        File("data.txt"),
     ),
+    CSourceFile("extra.c"),
+    CFunction("myfunc"),
 )
 
 DIST_INFO = {

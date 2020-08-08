@@ -6,11 +6,13 @@ def _init():
     from importlib.machinery import ModuleSpec
     from ntpath import split as nt_split
 
-    _NAME = NAME()
+    _NAME = __NAME()
     _NAME_DOT = _NAME + "."
-    _MAKESPEC = MAKESPEC
-    _DATA = DATA
-    _DATA_NAMES = set(DATA_NAMES())
+    _MAKESPEC = __MAKESPEC
+    _DATA = __DATA
+    _DATA_NAMES = set(__DATA_NAMES())
+    _CREATE_MODULE = __CREATE_MODULE
+    _EXEC_MODULE = __EXEC_MODULE
 
     class DllPackReader(ResourceReader):
         def __init__(self, prefix):
@@ -32,10 +34,9 @@ def _init():
     DllPackReader.__name__ += "_" + _NAME
     DllPackReader.__qualname__ = "<generated>." + DllPackReader.__name__
 
-
     class DllPackLoader(Loader):
-        create_module = CREATE_MODULE
-        exec_module = EXEC_MODULE
+        create_module = _CREATE_MODULE
+        exec_module = _EXEC_MODULE
 
         def get_resource_reader(self, fullname):
             try:
@@ -69,7 +70,7 @@ def _init():
 
 
 __spec__ = _init()
-del _init, NAME, CREATE_MODULE, EXEC_MODULE, DATA, DATA_NAMES, MAKESPEC
+del _init, __NAME, __CREATE_MODULE, __EXEC_MODULE, __DATA, __DATA_NAMES, __MAKESPEC
 
 __file__ = __spec__.origin
 __loader__ = __spec__.loader

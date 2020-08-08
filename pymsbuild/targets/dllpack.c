@@ -360,13 +360,13 @@ mod_exec(PyObject *m)
 
 
 static struct PyMethodDef mod_meth[] = {
-    {"NAME", mod_name, METH_NOARGS, NULL},
-    {"MAKESPEC", mod_makespec, METH_VARARGS, NULL},
-    {"DATA", mod_data, METH_VARARGS, NULL},
-    {"DATA_NAMES", mod_data_names, METH_NOARGS, NULL},
-    {"CREATE_MODULE", mod_new, METH_VARARGS, NULL},
-    {"EXEC_MODULE", mod_load, METH_VARARGS, NULL},
-    {NULL, NULL, 0, NULL}
+    {"__NAME", mod_name, METH_NOARGS, NULL},
+    {"__MAKESPEC", mod_makespec, METH_VARARGS, NULL},
+    {"__DATA", mod_data, METH_VARARGS, NULL},
+    {"__DATA_NAMES", mod_data_names, METH_NOARGS, NULL},
+    {"__CREATE_MODULE", mod_new, METH_VARARGS, NULL},
+    {"__EXEC_MODULE", mod_load, METH_VARARGS, NULL},
+    MOD_METH_TAIL
 };
 
 static struct PyModuleDef_Slot mod_slots[] = {

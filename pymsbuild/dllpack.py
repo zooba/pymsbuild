@@ -5,7 +5,11 @@ from pymsbuild._types import *
 
 class DllPackage(PydFile):
     r"""Represents a DLL-packed package.
-"""
+
+This is the equivalent of a regular `Package`, but the output is a
+compiled DLL that exposes submodules and resources using an import hook.
+
+Add `Function` elements to link """
     options = {
         **PydFile.options,
     }
@@ -13,12 +17,34 @@ class DllPackage(PydFile):
     def __init__(self, name, *members, project_file=None, **kwargs):
         super().__init__(
             name,
-            Property("BeforeBuildGenerateSourcesTargets", "GenerateDllPack;$(BeforeBuildGenerateSourcesTargets)"),
             *members,
             LiteralXML('<Import Project="$(PyMsbuildTargets)\\dllpack.targets" />'),
             project_file=project_file,
             **kwargs
         )
+
+
+class CFunction:
+    r"""Represents a function exposed in a DLL-packed package.
+
+The named function must be provided in a `CSourceFile` element and
+follow this prototype:
+
+```
+PyObject *function(PyObject *module, PyObject *args, PyObject *kwargs)
+```
+
+It will be available in the root of the package as the same name.
+"""
+    _ITEMNAME = "DllPackFunction"
+
+    def __init__(self, name, **options):
+        self.name = name
+        self.options = dict(**options)
+
+    def write_member(self, project, group):
+        group.switch_to("ItemGroup")
+        project.add_item(self._ITEMNAME, self.name, **self.options)
 
 
 class _FileInfo:
@@ -95,7 +121,7 @@ def _path_str(s):
         str(s).replace("\\", "\\\\").replace('"', '\\"')
     ) + '"'
 
-def _generate_files(module, sources, targets):
+def _generate_files(module, sources, callables, targets):
     f_main = _FileInfo.get_builtin(targets / "dllpack_main.py")
 
     with open("dllpack.rc", "w", encoding="ascii", errors="backslashescape") as rc_file:
@@ -144,13 +170,24 @@ def _generate_files(module, sources, targets):
             print("    },", file=h_file)
         print("    {NULL, NULL, 0, 0}", file=h_file)
         print("};", file=h_file)
-
+        for c in callables:
+            print('extern PyObject *{}(PyObject *, PyObject *, PyObject *);'.format(c), file=h_file);
+        print("#define MOD_METH_TAIL \\", file=h_file)
+        for c in callables:
+            print('    {{"{0}", (PyCFunction){0}, METH_VARARGS|METH_KEYWORDS, NULL}}, \\'.format(c), file=h_file)
+        print("    {NULL, NULL, 0, NULL}", file=h_file)
 
 if __name__ == "__main__":
     import sys
     MODULE = sys.argv[1]
     FILES = []
+    CALLABLES = []
     with open(sys.argv[2], "r", encoding="utf-8-sig") as f:
-        FILES = [_FileInfo.parse(s.strip()) for s in f]
+        for s in map(str.strip, f):
+            fi = _FileInfo.parse(s)
+            if fi:
+                FILES.append(fi)
+            elif s.endswith("()"):
+                CALLABLES.append(s[:-2])
     TARGETS = Path(sys.argv[3])
-    _generate_files(MODULE, FILES, TARGETS)
+    _generate_files(MODULE, FILES, CALLABLES, TARGETS)

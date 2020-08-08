@@ -1,4 +1,7 @@
 <Project>
+  <PropertyGroup>
+    <BeforeBuildGenerateSourcesTargets>GenerateDllPack;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
+  </PropertyGroup>
   <Target Name="GenerateDllPack">
     <ItemGroup>
       <_DllPackHeader Include="$(IntDir)\dllpack.h" />
@@ -9,7 +12,8 @@
       </_SourceFiles>
       <Content Remove="@(_SourceFiles)" />
     </ItemGroup>
-    <WriteLinesToFile Lines="@(_SourceFiles->'%(Name):%(FullPath)')" File="@(_DllPackRsp)" Encoding="UTF-8" Overwrite="true" />
+    <WriteLinesToFile Lines="@(_SourceFiles->'%(Name):%(FullPath)');@(DllPackFunction->'%(Identity)()')"
+                      File="@(_DllPackRsp)" Encoding="UTF-8" Overwrite="true" />
     <PropertyGroup>
       <_GenCommand>"$(HostPython)" -m pymsbuild.dllpack "$(RootNamespace)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
     </PropertyGroup>
