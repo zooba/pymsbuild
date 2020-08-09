@@ -86,7 +86,7 @@ class BuildState:
         self.pkginfo = None
         self.source_dir = Path.cwd()
         self.config_file = None
-        self.targets = Path(__file__).parent / "targets"
+        self.targets = Path(__file__).absolute().parent / "targets"
         self.wheel_tag = None
         self.platform = None
         self.platform_toolset = None

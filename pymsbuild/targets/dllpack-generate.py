@@ -177,5 +177,5 @@ if __name__ == "__main__":
     if any(ERRORS):
         print(*filter(None, ERRORS), sep="\n")
         sys.exit(1)
-    TARGETS = Path(sys.argv[3])
+    TARGETS = Path(sys.argv[3]).absolute()
     _generate_files(MODULE, PARSED, TARGETS)
