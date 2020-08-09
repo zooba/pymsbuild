@@ -65,7 +65,7 @@ class CodeFileInfo:
 
     @classmethod
     def get_builtin(cls, resid, sourcefile):
-        return cls(resid, "${}:{}".format(sourcefile.stem, sourcefile))
+        return cls(resid, "code:${}:{}".format(sourcefile.stem, sourcefile))
 
 
 class DataFileInfo:
