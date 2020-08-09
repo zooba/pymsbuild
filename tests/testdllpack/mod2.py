@@ -1,2 +1,3 @@
 # mod2.py
-print("This is mod2.py at", __file__)
+
+MOD2_MEMBER = 3.1415

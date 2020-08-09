@@ -6,14 +6,23 @@
 static HMODULE hInstance;
 
 static const struct ENTRY *
-lookup_import(const char *name)
+lookup_import(const char *name, int *is_package)
 {
+    struct ENTRY *found = NULL;
+    int cchName = strlen(name);
+    *is_package = 0;
     for (struct ENTRY *entry = IMPORT_TABLE; entry->name; ++entry) {
         if (!strcmp(entry->name, name)) {
-            return entry;
+            found = entry;
+        }
+        if (!strncmp(entry->name, name, cchName) && entry->name[cchName] == '.') {
+            *is_package = 1;
+            if (found) {
+                break;
+            }
         }
     }
-    return NULL;
+    return found;
 }
 
 static const struct ENTRY *
@@ -124,8 +133,9 @@ get_origin_root()
 }
 
 static PyObject *
-mod_load_impl(const char *name, PyObject *mod) {
-    const struct ENTRY *e = lookup_import(name);
+mod_load_impl(const char *name, PyObject *mod, int is_main) {
+    int is_package = 0;
+    const struct ENTRY *e = lookup_import(name, &is_package);
     if (!e) {
         PyErr_Format(PyExc_ModuleNotFoundError, "'%s' is not part of this package", name);
         return NULL;
@@ -136,8 +146,8 @@ mod_load_impl(const char *name, PyObject *mod) {
     }
 
     PyObject *pyc, *r;
-    if (e->preexec_id) {
-        pyc = load_pyc(e->preexec_id);
+    if (is_main) {
+        pyc = load_pyc(_IMPORTERS_RESID);
         if (!pyc) {
             return NULL;
         }
@@ -181,7 +191,7 @@ mod_load(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O", &mod)) {
         return NULL;
     }
-    mod = mod_load_impl(PyModule_GetName(mod), mod);
+    mod = mod_load_impl(PyModule_GetName(mod), mod, 0);
     Py_XINCREF(mod);
     return mod;
 }
@@ -208,7 +218,7 @@ mod_new(PyObject *self, PyObject *args)
         Py_DECREF(mod);
         return NULL;
     }
-    Py_DECREF(o);
+    // o reference has been consumed, so no DECREF needed
     o = PyObject_GetAttrString(spec, "parent");
     if (o) {
         if (o != Py_None) {
@@ -217,8 +227,10 @@ mod_new(PyObject *self, PyObject *args)
                 Py_DECREF(mod);
                 return NULL;
             }
+            // o reference has been consumed
+        } else {
+            Py_DECREF(o);
         }
-        Py_DECREF(o);
     } else {
         PyErr_Clear();
     }
@@ -229,6 +241,7 @@ mod_new(PyObject *self, PyObject *args)
             Py_DECREF(mod);
             return NULL;
         }
+        // o reference has been consumed
     } else {
         PyErr_Clear();
     }
@@ -239,6 +252,7 @@ mod_new(PyObject *self, PyObject *args)
             Py_DECREF(mod);
             return NULL;
         }
+        // o reference has been consumed
     } else {
         PyErr_Clear();
     }
@@ -249,6 +263,7 @@ mod_new(PyObject *self, PyObject *args)
             Py_DECREF(mod);
             return NULL;
         }
+        // o reference has been consumed
     } else {
         PyErr_Clear();
     }
@@ -278,7 +293,8 @@ mod_makespec(PyObject *self, PyObject *args)
         goto error;
     }
 
-    const struct ENTRY *e = lookup_import(name);
+    int is_package = 0;
+    const struct ENTRY *e = lookup_import(name, &is_package);
     if (!e) {
         PyErr_Format(PyExc_ModuleNotFoundError, "'%s' is not part of this package", name);
         goto error;
@@ -293,7 +309,7 @@ mod_makespec(PyObject *self, PyObject *args)
     if (PyDict_SetItemString(kwargs, "origin", origin) < 0) {
         goto error;
     }
-    if (e->package) {
+    if (is_package) {
         if (PyDict_SetItemString(kwargs, "is_package", Py_True) < 0) {
             goto error;
         }
@@ -355,7 +371,7 @@ mod_name(PyObject *self, PyObject *args)
 static int
 mod_exec(PyObject *m)
 {
-    return mod_load_impl(PyModule_GetName(m), m) ? 0 : -1;
+    return mod_load_impl(PyModule_GetName(m), m, 1) ? 0 : -1;
 }
 
 

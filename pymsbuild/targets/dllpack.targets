@@ -9,13 +9,15 @@
       <FileWrites Include="@(_DllPackHeader)" />
       <_SourceFiles Include="@(Content)">
         <Name>%(Content.Name)</Name>
+        <Kind>resource</Kind>
+        <Kind Condition="%(Content.GeneratePyc) == 'true'">code</Kind>
       </_SourceFiles>
       <Content Remove="@(_SourceFiles)" />
     </ItemGroup>
-    <WriteLinesToFile Lines="@(_SourceFiles->'%(Name):%(FullPath)');@(DllPackFunction->'%(Identity)()')"
+    <WriteLinesToFile Lines="@(_SourceFiles->'%(Kind):%(Name):%(FullPath)');@(DllPackFunction->'function:%(Identity)')"
                       File="@(_DllPackRsp)" Encoding="UTF-8" Overwrite="true" />
     <PropertyGroup>
-      <_GenCommand>"$(HostPython)" -m pymsbuild.dllpack "$(RootNamespace)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
+      <_GenCommand>"$(HostPython)" "$(PyMsbuildTargets)\dllpack-generate.py" "$(RootNamespace)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
     </PropertyGroup>
     <Exec Command="$(_GenCommand)" WorkingDirectory="$(IntDir)" />
     <ItemGroup>

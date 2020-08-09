@@ -29,7 +29,9 @@ def _init():
             return prefix + resource in _DATA_NAMES
 
         def contents(self):
-            return (n for n in _DATA_NAMES if n.startswith(self.prefix))
+            p = self.prefix
+            lp = len(p)
+            return (n[lp:] for n in _DATA_NAMES if n.startswith(p))
 
     DllPackReader.__name__ += "_" + _NAME
     DllPackReader.__qualname__ = "<generated>." + DllPackReader.__name__

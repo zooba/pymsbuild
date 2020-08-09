@@ -13,6 +13,8 @@ PACKAGE = DllPackage(
     ),
     CSourceFile("extra.c"),
     CFunction("myfunc"),
+    # Included as content, not code
+    File("test-dllpack.py"),
 )
 
 DIST_INFO = {
