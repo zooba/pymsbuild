@@ -97,6 +97,6 @@ def test_dllpack(build_state, configuration):
     print(bs.build_dir)
     print(list(bs.build_dir.glob("*")))
     subprocess.check_call(
-        [sys.executable, bs.source_dir / "test-dllpack.py"],
+        [sys.executable, str(bs.source_dir / "test-dllpack.py")],
         env={**os.environ, "PYTHONPATH": str(bs.build_dir)}
     )
