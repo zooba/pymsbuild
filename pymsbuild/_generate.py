@@ -8,19 +8,6 @@ LIBPATH = Path(sys.base_prefix) / "libs"
 INCPATH = Path(sys.base_prefix) / "include"
 
 
-def _all_members(item, recurse_if=None, return_if=None, *, prefix=""):
-    if not return_if or return_if(item):
-        yield "{}{}".format(prefix, item.name), item
-    if not recurse_if or recurse_if(item):
-        for m in item.members:
-            yield from _all_members(
-                m,
-                recurse_if,
-                return_if,
-                prefix="{}{}/".format(prefix, item.name),
-            )
-
-
 class GroupSwitcher:
     def __init__(self, project):
         self.project = project
@@ -48,15 +35,33 @@ class GroupSwitcher:
 
 def _resolve_wildcards(basename, source):
     if source.parent.name == "**":
-        for d in source.parent.parent.iterdir():
+        for d in source.parent.parent.rglob("*"):
             if d.is_dir():
                 yield from _resolve_wildcards(basename, d / source.name)
+    elif "**" in source.parts:
+        raise ValueError("Unsupported wildcard pattern" + str(source))
     elif "*" in source.name or "?" in source.name:
         name = PurePath(basename)
         for p in source.parent.glob(source.name):
             yield name.parent / p.name, p
+    elif any("*" in p or "?" in p for p in source.parts):
+        raise ValueError("Unsupported wildcard pattern " + str(source))
     else:
         yield basename, source
+
+
+def _all_members(item, recurse_if=None, return_if=None, *, prefix=""):
+    if not return_if or return_if(item):
+        yield "{}{}".format(prefix, item.name), item
+    if not recurse_if or recurse_if(item):
+        for m in item.members:
+            yield from _all_members(
+                m,
+                recurse_if,
+                return_if,
+                prefix="{}{}/".format(prefix, item.name),
+            )
+
 
 def _write_members(f, source_dir, members):
     with GroupSwitcher(f) as g:
@@ -71,7 +76,8 @@ def _write_members(f, source_dir, members):
                     f.add_item(p._ITEMNAME, p2, **options)
                     wrote_any = True
                 if not wrote_any:
-                    raise ValueError("failed to find any files for " + str(p.source))
+                    raise ValueError("failed to find any files for {} in {}".format(
+                        p.source, source_dir))
             elif isinstance(p, Property):
                 g.switch_to("PropertyGroup")
                 f.add_property(p.name, p.value)
@@ -161,7 +167,7 @@ def generate(project, build_dir, source_dir, config_file=None):
         return Path(project.project_file)
 
     if isinstance(project, PydFile):
-        return _generate_pyd(project, build_dir, source_dir)
+        return _generate_pyd(project, build_dir, root_dir)
 
     with ProjectFileWriter(proj, project.name) as f:
         with f.group("PropertyGroup"):

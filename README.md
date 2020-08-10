@@ -41,6 +41,14 @@ PACKAGE = Package(
 )
 ```
 
+Note that subpackages _must_ be specified as a `Package` element, as the
+nesting of `Package` elements determines the destination path. Otherwise you
+will find all of your files flattened. Recursive wildcards, while partially
+supported, are not going to work!
+
+Also note that if you do not specify the `source=` named argument, all source
+paths are relative to the configuration file.
+
 # pyproject.toml file
 
 You will need this file in order for `pip` to build your sdist, but otherwise it's

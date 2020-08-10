@@ -147,10 +147,12 @@ def _generate_files(module, files, targets):
         print("#define _DATAFILE 258", file=h_file)
         print("#define _PYC_HEADER_LEN 16", file=h_file)
         print("struct ENTRY {const char *name; const char *origin; int id;};", file=h_file)
+        expected_tables = {"IMPORT_TABLE", "DATA_TABLE"}
         tables = groupby(files, lambda f: f.RC_TABLE)
         for table, table_files in tables.items():
             if not table or not table.isidentifier():
                 continue
+            expected_tables.discard(table)
             print("struct ENTRY ", table, "[] = {", sep="", file=h_file)
             for f in table_files:
                 print("    {", file=h_file)
@@ -160,6 +162,8 @@ def _generate_files(module, files, targets):
                 print("    },", file=h_file)
             print("    {NULL, NULL, 0}", file=h_file)
             print("};", file=h_file)
+        for table in expected_tables:
+            print("struct ENTRY ", table, "[] = {{NULL, NULL, 0}};", sep="", file=h_file)
         for f in tables.get("$FUNCTIONS", ()):
             print("extern", f.prototype(), file=h_file);
         print("#define MOD_METH_TAIL \\", file=h_file)
