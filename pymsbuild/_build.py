@@ -370,6 +370,6 @@ class BuildState:
             for t in sorted(self.wheel_tag):
                 print("Tag:", t, file=f)
             if self.build_number:
-                print("Build:", self.built_number, file=f)
+                print("Build:", self.build_number, file=f)
         shutil.copy(self.pkginfo, outdir / "METADATA")
         return outdir.name

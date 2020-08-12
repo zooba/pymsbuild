@@ -35,8 +35,10 @@ def build_state(tmp_path, testdata):
 
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
 def test_build(build_state, configuration):
+    os.environ["BUILD_BUILDNUMBER"] = "1"
     bs = build_state
     bs.generate()
+    del os.environ["BUILD_BUILDNUMBER"]
     bs.target = "Build"
     bs.configuration = configuration
     bs.build()
