@@ -38,7 +38,7 @@ def test_build(build_state, configuration):
     os.environ["BUILD_BUILDNUMBER"] = "1"
     bs = build_state
     bs.generate()
-    os.environ["BUILD_BUILDNUMBER"] = None
+    del os.environ["BUILD_BUILDNUMBER"]
     bs.target = "Build"
     bs.configuration = configuration
     bs.build()
