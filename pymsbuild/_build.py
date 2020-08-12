@@ -113,6 +113,7 @@ class BuildState:
 
         if self.metadata is None:
             if self.pkginfo.is_file():
+                from . import _generate as G
                 self.log("Using", self.pkginfo)
                 self.metadata = G.readback_distinfo(self.pkginfo)
             else:
