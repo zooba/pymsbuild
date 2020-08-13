@@ -370,6 +370,8 @@ $env:PLATFORMTOOLSET = "Intel C++ Compiler 19.1"
 
 ## DLL Packing
 
+**Experimental.**
+
 DLL Packing is a way to compile a complete Python package (`.py` source
 and resource files) into a Windows DLL. It is fundamentally equivalent
 to packing in a ZIP file, except that additional native code may also be
