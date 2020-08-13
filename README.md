@@ -41,6 +41,14 @@ PACKAGE = Package(
 )
 ```
 
+Note that subpackages _must_ be specified as a `Package` element, as the
+nesting of `Package` elements determines the destination path. Otherwise you
+will find all of your files flattened. Recursive wildcards, while partially
+supported, are not going to work!
+
+Also note that if you do not specify the `source=` named argument, all source
+paths are relative to the configuration file.
+
 # pyproject.toml file
 
 You will need this file in order for `pip` to build your sdist, but otherwise it's
@@ -358,4 +366,51 @@ $env:PYTHON_PREFIX = $pyarm64
 
 # If necessary, specify an alternate C++ toolset
 $env:PLATFORMTOOLSET = "Intel C++ Compiler 19.1"
+```
+
+## DLL Packing
+
+**Experimental.**
+
+DLL Packing is a way to compile a complete Python package (`.py` source
+and resource files) into a Windows DLL. It is fundamentally equivalent
+to packing in a ZIP file, except that additional native code may also be
+included (though not an entire native module), and the whole file may be
+cryptographically signed and validated by the operating system.
+
+`DllPackage` is a drop-in substitute for the `Package` type.
+
+```python
+from pymsbuild import *
+from pymsbuild.dllpack import *
+
+PACKAGE = DllPackage(
+    "packed_package",
+    PyFile("__init__.py"),
+    File("data.txt"),
+    ...
+)
+```
+
+`DllPackage` is a subclass of `PydFile`, and so all logic or elements
+by that type are also available. `ClCompile` elements will be compiled
+and linked into the output and functions may be exposed in the root of
+the package using the `Function` element.
+
+```c
+// extra.c
+
+PyObject *my_func(PyObject *, PyObject *args, PyObject **kwargs) {
+    ...
+}
+```
+
+```python
+PACKAGE = DllPackage(
+    "packed_package",
+    PyFile("__init__.py"),
+    CSourceFile("extra.c"),
+    CFunction("my_func"),
+    ...
+)
 ```

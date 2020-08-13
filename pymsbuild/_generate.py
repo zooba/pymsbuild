@@ -1,24 +1,11 @@
 import sys
 
 from pathlib import PureWindowsPath as PurePath, WindowsPath as Path
-from ._types import PydFile, File, LiteralXML, Property, ItemDefinition, ConditionalValue
+from ._types import Package, PydFile, File, LiteralXML, Property, ItemDefinition, ConditionalValue
 from ._writer import ProjectFileWriter
 
 LIBPATH = Path(sys.base_prefix) / "libs"
 INCPATH = Path(sys.base_prefix) / "include"
-
-
-def _all_members(item, recurse_if=None, return_if=None, *, prefix=""):
-    if not return_if or return_if(item):
-        yield "{}{}".format(prefix, item.name), item
-    if not recurse_if or recurse_if(item):
-        for m in item.members:
-            yield from _all_members(
-                m,
-                recurse_if,
-                return_if,
-                prefix="{}{}/".format(prefix, item.name),
-            )
 
 
 class GroupSwitcher:
@@ -48,15 +35,33 @@ class GroupSwitcher:
 
 def _resolve_wildcards(basename, source):
     if source.parent.name == "**":
-        for d in source.parent.parent.iterdir():
+        for d in source.parent.parent.rglob("*"):
             if d.is_dir():
                 yield from _resolve_wildcards(basename, d / source.name)
+    elif "**" in source.parts:
+        raise ValueError("Unsupported wildcard pattern" + str(source))
     elif "*" in source.name or "?" in source.name:
         name = PurePath(basename)
         for p in source.parent.glob(source.name):
             yield name.parent / p.name, p
+    elif any("*" in p or "?" in p for p in source.parts):
+        raise ValueError("Unsupported wildcard pattern " + str(source))
     else:
         yield basename, source
+
+
+def _all_members(item, recurse_if=None, return_if=None, *, prefix=""):
+    if not return_if or return_if(item):
+        yield "{}{}".format(prefix, item.name), item
+    if not recurse_if or recurse_if(item):
+        for m in item.members:
+            yield from _all_members(
+                m,
+                recurse_if,
+                return_if,
+                prefix="{}{}/".format(prefix, item.name),
+            )
+
 
 def _write_members(f, source_dir, members):
     with GroupSwitcher(f) as g:
@@ -71,7 +76,8 @@ def _write_members(f, source_dir, members):
                     f.add_item(p._ITEMNAME, p2, **options)
                     wrote_any = True
                 if not wrote_any:
-                    raise ValueError("failed to find any files for " + str(p.source))
+                    raise ValueError("failed to find any files for {} in {}".format(
+                        p.source, source_dir))
             elif isinstance(p, Property):
                 g.switch_to("PropertyGroup")
                 f.add_property(p.name, p.value)
@@ -83,6 +89,8 @@ def _write_members(f, source_dir, members):
             elif isinstance(p, LiteralXML):
                 g.switch_to(None)
                 f.add_text(p.xml)
+            elif hasattr(p, "write_member"):
+                p.write_member(f, g)
 
 
 def _generate_pyd(project, build_dir, root_dir):
@@ -94,12 +102,15 @@ def _generate_pyd(project, build_dir, root_dir):
     if project.project_file:
         return Path(project.project_file)
 
-    with ProjectFileWriter(proj, project.name, vc_platforms=True) as f:
+    tpath = project.options.get("TargetName", project.name) + project.options.get("TargetExt", ".pyd")
+    tname, tdot, text = tpath.rpartition(".")
+    with ProjectFileWriter(proj, tname, vc_platforms=True, root_namespace=project.name) as f:
         with f.group("PropertyGroup", Label="Globals"):
             f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
             f.add_property("SourceRootDir", ConditionalValue(root_dir, if_empty=True))
             f.add_property("OutDir", "layout\\")
             f.add_property("IntDir", ConditionalValue("build\\", if_empty=True))
+            f.add_property("__TargetExt", tdot + text)
             for k, v in project.options.items():
                 if k not in {"ConfigurationType", "TargetExt"}:
                     f.add_property(k, v)
@@ -114,6 +125,12 @@ def _generate_pyd(project, build_dir, root_dir):
         f.add_import(r"$(PyMsbuildTargets)\pyd.props")
 
         _write_members(f, source_dir, _all_members(project, recurse_if=lambda m: m is project))
+        for n, p in _all_members(project, recurse_if=lambda m: m is project, return_if=lambda m: isinstance(m, Package)):
+            _write_members(
+                f,
+                source_dir,
+                _all_members(p, recurse_if=lambda m: not isinstance(m, PydFile), prefix=f"{project.name}/")
+            )
 
         f.add_import(r"$(PyMsbuildTargets)\common.targets")
         f.add_import(r"$(VCTargetsPath)\Microsoft.Cpp.targets")
@@ -149,6 +166,9 @@ def generate(project, build_dir, source_dir, config_file=None):
     if project.project_file:
         return Path(project.project_file)
 
+    if isinstance(project, PydFile):
+        return _generate_pyd(project, build_dir, root_dir)
+
     with ProjectFileWriter(proj, project.name) as f:
         with f.group("PropertyGroup"):
             f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
@@ -159,7 +179,7 @@ def generate(project, build_dir, source_dir, config_file=None):
                 f.add_property(k, v)
         f.add_import(r"$(PyMsbuildTargets)\common.props")
         with f.group("ItemGroup", Label="ProjectReferences"):
-            for n, p in _all_members(project, return_if=lambda m: isinstance(m, PydFile)):
+            for n, p in _all_members(project, return_if=lambda m: m is not project and isinstance(m, PydFile)):
                 fn = PurePath(n)
                 pdir = _generate_pyd(p, build_dir, source_dir)
                 try:

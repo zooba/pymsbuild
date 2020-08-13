@@ -1,0 +1,1 @@
+INIT_MEMBER = 123

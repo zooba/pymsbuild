@@ -1,9 +1,12 @@
 <Project>
-  <Target Name="CalculateInPlace">
+  <Target Name="CalculateInPlace" DependsOnTargets="_AssignContentProperties">
     <ItemGroup>
       <_TargetFiles Include="$(TargetDir)$(TargetName).*" />
       <InPlace Include="@(_TargetFiles)">
         <Destination>$([msbuild]::EnsureTrailingSlash($(SourceDir)))%(Filename)%(Extension)</Destination>
+      </InPlace>
+      <InPlace Include="@(Content)">
+        <Destination>$([msbuild]::EnsureTrailingSlash($(SourceDir)))%(Content.TargetDir)%(Content.TargetName)%(Content.TargetExt)</Destination>
       </InPlace>
     </ItemGroup>
   </Target>

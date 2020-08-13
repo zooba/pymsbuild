@@ -1,0 +1,4 @@
+build/
+testdllpack/
+testdllpack.*
+msbuild.log

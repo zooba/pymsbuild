@@ -1,0 +1,32 @@
+<Project>
+  <PropertyGroup>
+    <BeforeBuildGenerateSourcesTargets>GenerateDllPack;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
+  </PropertyGroup>
+  <Target Name="GenerateDllPack">
+    <Message Text="WARNING: DLL packing is experimental and may change. Send feedback at https://github.com/zooba/pymsbuild"
+             Importance="high" />
+    <ItemGroup>
+      <_DllPackHeader Include="$(IntDir)\dllpack.h" />
+      <_DllPackRsp Include="$(IntDir)\dllpack.rsp" />
+      <FileWrites Include="@(_DllPackHeader)" />
+      <_SourceFiles Include="@(Content)">
+        <Name>%(Content.Name)</Name>
+        <Kind>resource</Kind>
+        <Kind Condition="%(Content.GeneratePyc) == 'true'">code</Kind>
+      </_SourceFiles>
+      <Content Remove="@(_SourceFiles)" />
+    </ItemGroup>
+    <WriteLinesToFile Lines="@(_SourceFiles->'%(Kind):%(Name):%(FullPath)');@(DllPackFunction->'function:%(Identity)')"
+                      File="@(_DllPackRsp)" Encoding="UTF-8" Overwrite="true" />
+    <PropertyGroup>
+      <_GenCommand>"$(HostPython)" "$(PyMsbuildTargets)\dllpack-generate.py" "$(RootNamespace)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
+    </PropertyGroup>
+    <Exec Command="$(_GenCommand)" WorkingDirectory="$(IntDir)" />
+    <ItemGroup>
+      <ClCompile Include="$(MSBuildThisFileDirectory)dllpack.c">
+        <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      </ClCompile>
+      <ResourceCompile Include="$(IntDir)\dllpack.rc" />
+    </ItemGroup>
+  </Target>
+</Project>

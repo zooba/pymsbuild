@@ -1,5 +1,6 @@
 import os
 import pytest
+import subprocess
 import sys
 
 from pathlib import Path
@@ -81,6 +82,23 @@ def test_build_sdist(build_state, configuration):
 def test_build_test_project(build_state, proj, configuration):
     bs = build_state
     bs.source_dir = bs.source_dir.parent / proj
+    bs.package = None
     bs.generate()
     bs.configuration = configuration
     bs.build()
+
+
+@pytest.mark.parametrize("configuration", ["Debug", "Release"])
+def test_dllpack(build_state, configuration):
+    bs = build_state
+    bs.source_dir = bs.source_dir.parent / "testdllpack"
+    bs.package = None
+    bs.generate()
+    bs.configuration = configuration
+    bs.build()
+    print(bs.build_dir)
+    print(list(bs.build_dir.glob("*")))
+    subprocess.check_call(
+        [sys.executable, str(bs.source_dir / "test-dllpack.py")],
+        env={**os.environ, "PYTHONPATH": str(bs.build_dir)}
+    )

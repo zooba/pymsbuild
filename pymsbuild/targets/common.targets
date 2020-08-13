@@ -1,4 +1,33 @@
 <Project>
+  <Target Name="_AssignContentProperties">
+    <ItemGroup>
+      <Content>
+        <TargetDir Condition="%(TargetDir) == ''">$([msbuild]::EnsureTrailingSlash($([System.IO.Path]::GetDirectoryName(%(Name)))))</TargetDir>
+        <TargetName Condition="%(TargetName) == ''">$([System.IO.Path]::GetFileNameWithoutExtension(%(Name)))</TargetName>
+        <TargetExt Condition="%(TargetExt) == ''">$([System.IO.Path]::GetExtension(%(Name)))</TargetExt>
+      </Content>
+      <Content>
+        <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir.TrimEnd(`\`)), %(FullPath)))</RelativeSource>
+        <Destination Condition="%(IncludeInWheel)">$([msbuild]::EnsureTrailingSlash($(OutDir)))%(TargetDir)%(TargetName)%(TargetExt)</Destination>
+        <Source>$([msbuild]::EnsureTrailingSlash($(OutDir)))%(RelativeSource)</Source>
+      </Content>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_MkdirContent" DependsOnTargets="_AssignContentProperties">
+    <ItemGroup>
+      <_Outputs Include="%(Content.Destination)" />
+    </ItemGroup>
+    <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
+  </Target>
+
+  <Target Name="_CopyContent" Inputs="@(Content)" Outputs="%(Content.Destination)" DependsOnTargets="_MkdirContent">
+    <Copy SourceFiles="%(Content.FullPath)" DestinationFiles="%(Content.Destination)" Condition="%(Content.Destination) != ''" />
+    <ItemGroup>
+      <FileWrites Include="%(Content.Destination)" />
+    </ItemGroup>
+  </Target>
+
   <Target Name="_AssignProjectProperties">
     <ItemGroup>
       <Project>

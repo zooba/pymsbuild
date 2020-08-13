@@ -24,12 +24,8 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pytest packaging
+      run: pip install -r tests\requirements.txt
     - name: Test with pytest
-      run: |
-        pytest
+      run: pytest
     - name: Check self builds
-      run: |
-        python -m pymsbuild sdist wheel
+      run: python -m pymsbuild sdist wheel
