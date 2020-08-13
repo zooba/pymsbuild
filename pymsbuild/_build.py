@@ -113,6 +113,7 @@ class BuildState:
 
         if self.metadata is None:
             if self.pkginfo.is_file():
+                from . import _generate as G
                 self.log("Using", self.pkginfo)
                 self.metadata = G.readback_distinfo(self.pkginfo)
             else:
@@ -373,6 +374,6 @@ class BuildState:
             for t in sorted(self.wheel_tag):
                 print("Tag:", t, file=f)
             if self.build_number:
-                print("Build:", self.built_number, file=f)
+                print("Build:", self.build_number, file=f)
         shutil.copy(self.pkginfo, outdir / "METADATA")
         return outdir.name
