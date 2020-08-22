@@ -44,15 +44,15 @@ def test_build(build_state, configuration):
     bs.configuration = configuration
     bs.build()
 
-    files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
+    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*.*")}
     assert files
     assert not (bs.build_dir / "PKG-INFO").is_file()
-    assert files > {"package\\__init__.py", "package\\mod.pyd"}
+    assert files > {Path(p) for p in {"package/__init__.py", "package/mod.pyd"}}
     assert "pyproject.toml" not in files
 
     bs.target = "Clean"
     bs.build()
-    files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
+    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*.*")}
     assert not files
 
 
@@ -63,21 +63,21 @@ def test_build_sdist(build_state, configuration):
     bs.configuration = configuration
     bs.build_sdist()
 
-    files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
-    assert files == {"empty.py", "mod.c", "pyproject.toml", "_msbuild.py"}
+    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*.*")}
+    assert files == {Path(p) for p in {"empty.py", "mod.c", "pyproject.toml", "_msbuild.py"}}
     assert (bs.build_dir / "PKG-INFO").is_file()
-    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**\\*.*")}
+    files = {p.relative_to(bs.output_dir) for p in bs.output_dir.rglob("**/*.*")}
     assert len(files) == 1
     f = next(iter(files))
-    assert f.endswith(".tar.gz")
+    assert f.match("*.tar.gz")
 
     bs.target = "Clean"
     bs.build()
-    files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
+    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*.*")}
     assert not files
 
 
-@pytest.mark.parametrize("proj", ["testcython", "testproject1"])
+@pytest.mark.parametrize("proj", ["testcython", "testproject1", "testpurepy"])
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
 def test_build_test_project(build_state, proj, configuration):
     bs = build_state

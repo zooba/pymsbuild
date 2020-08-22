@@ -1,0 +1,5 @@
+<Project>
+  <Target Name="Build">
+    <Error Text="No supported native toolset/toolchain was found" />
+  </Target>
+</Project>

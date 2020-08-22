@@ -8,42 +8,18 @@ import sys
 from pathlib import PurePath, Path
 
 
+if sys.platform == "win32":
+    from ._locate_vs import _locate_msbuild
+else:
+    from ._locate_dotnet import _locate_msbuild
+
+
 _TAG_PLATFORM_MAP = {
     "win32": "Win32",
     "win_amd64": "x64",
     "win_arm64": "ARM64",
     "any": None,
 }
-
-
-def _locate_msbuild():
-    exe = Path(os.getenv("MSBUILD", ""))
-    if exe.is_file():
-        return exe
-    for part in os.getenv("PATH", "").split(os.path.pathsep):
-        p = Path(part)
-        if p.is_dir():
-            exe = p / "msbuild.exe"
-            if exe.is_file():
-                return exe
-    vswhere = Path(os.getenv("ProgramFiles(x86)"), "Microsoft Visual Studio", "Installer", "vswhere.exe")
-    if vswhere.is_file():
-        out = Path(subprocess.check_output([
-            str(vswhere),
-            "-nologo",
-            "-property", "installationPath",
-            "-latest",
-            "-prerelease",
-            "-products", "*",
-            "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-            "-utf8",
-        ], encoding="utf-8", errors="strict").strip())
-        if out.is_dir():
-            exe = out / "MSBuild" / "Current" / "Bin" / "msbuild.exe"
-            if exe.is_file():
-                return exe
-
-    raise RuntimeError("Unable to locate msbuild.exe. Please provide it as %MSBUILD%")
 
 
 def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
@@ -138,7 +114,8 @@ class BuildState:
         self._set_best("msbuild_exe", None, "MSBUILD", None, getenv)
         if self.msbuild_exe is None:
             self.msbuild_exe = _locate_msbuild()
-        self.msbuild_exe = Path(self.msbuild_exe)
+        else:
+            self.msbuild_exe = str(self.msbuild_exe)
 
         self._set_best("build_number", None, "BUILD_BUILDNUMBER", None, getenv)
         self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
@@ -244,7 +221,7 @@ class BuildState:
             self.log()
         _run = subprocess.check_output if self.quiet else subprocess.check_call
         try:
-            _run([str(self.msbuild_exe), "/noAutoResponse", f"@{rsp}"],
+            _run(f"{self.msbuild_exe} /noAutoResponse @{rsp}",
                  stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as ex:
             if self.quiet:
