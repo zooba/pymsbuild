@@ -8,8 +8,6 @@ from pathlib import Path
 def _locate_msbuild():
     exe = os.getenv("MSBUILD", "")
     if exe:
-        if Path(exe).is_file():
-            return [exe]
         return shlex.split(exe)
     
     try:

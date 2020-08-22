@@ -111,11 +111,10 @@ class BuildState:
                     self.config.PACKAGE = self.package
             self.package = self.config.PACKAGE
 
-        self._set_best("msbuild_exe", None, "MSBUILD", None, getenv)
         if self.msbuild_exe is None:
             self.msbuild_exe = _locate_msbuild()
         if isinstance(self.msbuild_exe, str):
-            self.msbuild_exe = [self.msbuild_exe]
+            raise TypeError("msbuild_exe must be a list, not " + repr(self.msbuild_exe))
 
         self._set_best("build_number", None, "BUILD_BUILDNUMBER", None, getenv)
         self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
