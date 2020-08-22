@@ -1,6 +1,6 @@
 import sys
 
-from pathlib import PureWindowsPath as PurePath, WindowsPath as Path
+from pathlib import PurePath, Path
 from ._types import Package, PydFile, File, LiteralXML, Property, ItemDefinition, ConditionalValue
 from ._writer import ProjectFileWriter
 
