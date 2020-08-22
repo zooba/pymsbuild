@@ -186,12 +186,7 @@ class BuildState:
             raise FileNotFoundError(project)
         properties.setdefault("Configuration", self.configuration)
         if not properties.get("Platform"):
-            try:
-                properties["Platform"] = _TAG_PLATFORM_MAP[self.platform]
-            except KeyError:
-                raise ValueError("Cannot select MSBuild platform for '{}'".format(
-                    self.platform
-                ))
+            properties["Platform"] = _TAG_PLATFORM_MAP.get(self.platform, self.platform)
         properties.setdefault("PlatformToolset", self.platform_toolset)
         properties.setdefault("HostPython", sys.executable)
         properties.setdefault("_HostPythonPrefix", sys.base_prefix)
