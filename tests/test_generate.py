@@ -22,9 +22,9 @@ FILE_TYPES = [
 
 @pytest.mark.parametrize("itemkind, ftype", FILE_TYPES)
 def test_file_types(itemkind, ftype):
-    f = ftype("testdata\\f.py", opt1=1)
+    f = ftype("testdata/f.py", opt1=1)
     assert f._ITEMNAME == itemkind
-    assert f.source == PurePath("testdata\\f.py")
+    assert f.source == PurePath("testdata/f.py")
     assert f.name == "f.py"
     assert f.options["opt1"] == 1
 
@@ -39,9 +39,11 @@ class ProjectFileChecker:
         }
 
     def get(self, xpath):
+        xpath = xpath.replace("{SEP}", os.path.sep)
         return self.root.find(xpath, namespaces=self.ns)
 
     def getall(self, xpath, attr=None):
+        xpath = xpath.replace("{SEP}", os.path.sep)
         f = self.root.findall(xpath, namespaces=self.ns)
         if attr:
             return (i.get(attr) for i in f)
@@ -67,8 +69,8 @@ def test_pyd_generation(tmp_path):
     none = pf.get("./x:ItemGroup/x:None[@Include]")
     assert Path(tmp_path / "m.txt") == Path(none.get("Include"))
 
-    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets)\\common.targets']") is not None
-    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets)\\pyd.targets']") is not None
+    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets){SEP}common.targets']") is not None
+    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets){SEP}pyd.targets']") is not None
 
 
 def test_package_generation(tmp_path):
@@ -98,8 +100,8 @@ def test_package_generation(tmp_path):
         "package/subpackage/subpackage/__init__.py",
     }
 
-    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets)\\common.targets']") is not None
-    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets)\\pyd.targets']") is None
+    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets){SEP}common.targets']") is not None
+    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets){SEP}pyd.targets']") is None
 
 
 def test_package_project_reference(tmp_path):
