@@ -1,4 +1,5 @@
 import os
+import shlex
 import shutil
 import subprocess
 
@@ -8,8 +9,8 @@ def _locate_msbuild():
     exe = os.getenv("MSBUILD", "")
     if exe:
         if Path(exe).is_file():
-            return f'"{exe}"'
-        return exe
+            return [exe]
+        return shlex.split(exe)
     
     try:
         out = subprocess.check_output(
@@ -19,7 +20,7 @@ def _locate_msbuild():
         )
         version = int(out.partition(".")[0])
         if version >= 15:
-            return "dotnet build"
+            return ["dotnet", "build"]
     except Exception:
         raise RuntimeError("Unable to locate 'dotnet build'. Please provide it as %MSBUILD%")
 

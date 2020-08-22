@@ -114,8 +114,8 @@ class BuildState:
         self._set_best("msbuild_exe", None, "MSBUILD", None, getenv)
         if self.msbuild_exe is None:
             self.msbuild_exe = _locate_msbuild()
-        else:
-            self.msbuild_exe = str(self.msbuild_exe)
+        if isinstance(self.msbuild_exe, str):
+            self.msbuild_exe = [self.msbuild_exe]
 
         self._set_best("build_number", None, "BUILD_BUILDNUMBER", None, getenv)
         self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
@@ -181,7 +181,7 @@ class BuildState:
         project = self.generate()
         if self.target is None:
             self.target = "Rebuild" if self.force else "Build"
-        self.log("Compiling", project, "with", self.msbuild_exe, "({})".format(self.target))
+        self.log("Compiling", project, "with", *self.msbuild_exe, "({})".format(self.target))
         if not project.is_file():
             raise FileNotFoundError(project)
         properties.setdefault("Configuration", self.configuration)
@@ -216,7 +216,7 @@ class BuildState:
             self.log()
         _run = subprocess.check_output if self.quiet else subprocess.check_call
         try:
-            _run(f"{self.msbuild_exe} /noAutoResponse @{rsp}",
+            _run([*self.msbuild_exe, "/noAutoResponse", f"@{rsp}"],
                  stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as ex:
             if self.quiet:
