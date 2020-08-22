@@ -29,9 +29,6 @@ jobs:
       with:
         dotnet-version: '3.1.x'
       if: ${{ matrix.os != 'windows-latest' }}
-    - name: Skip dotnet welcome message
-      run: dotnet build -version -nologo
-      if: ${{ matrix.os != 'windows-latest' }}
     - name: Install dependencies
       run: pip install -r tests/requirements.txt
     - name: Test with pytest

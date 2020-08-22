@@ -14,6 +14,10 @@ else:
     from ._locate_dotnet import _locate_msbuild
 
 
+# Needed to avoid printing an unhelpful message every time we invoke dotnet
+os.environ["DOTNET_NOLOGO"] = "1"
+
+
 _TAG_PLATFORM_MAP = {
     "win32": "Win32",
     "win_amd64": "x64",
