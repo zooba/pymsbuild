@@ -8,42 +8,22 @@ import sys
 from pathlib import PurePath, Path
 
 
+if sys.platform == "win32":
+    from ._locate_vs import _locate_msbuild
+else:
+    from ._locate_dotnet import _locate_msbuild
+
+
+# Needed to avoid printing an unhelpful message every time we invoke dotnet
+os.environ["DOTNET_NOLOGO"] = "1"
+
+
 _TAG_PLATFORM_MAP = {
     "win32": "Win32",
     "win_amd64": "x64",
     "win_arm64": "ARM64",
     "any": None,
 }
-
-
-def _locate_msbuild():
-    exe = Path(os.getenv("MSBUILD", ""))
-    if exe.is_file():
-        return exe
-    for part in os.getenv("PATH", "").split(os.path.pathsep):
-        p = Path(part)
-        if p.is_dir():
-            exe = p / "msbuild.exe"
-            if exe.is_file():
-                return exe
-    vswhere = Path(os.getenv("ProgramFiles(x86)"), "Microsoft Visual Studio", "Installer", "vswhere.exe")
-    if vswhere.is_file():
-        out = Path(subprocess.check_output([
-            str(vswhere),
-            "-nologo",
-            "-property", "installationPath",
-            "-latest",
-            "-prerelease",
-            "-products", "*",
-            "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-            "-utf8",
-        ], encoding="utf-8", errors="strict").strip())
-        if out.is_dir():
-            exe = out / "MSBuild" / "Current" / "Bin" / "msbuild.exe"
-            if exe.is_file():
-                return exe
-
-    raise RuntimeError("Unable to locate msbuild.exe. Please provide it as %MSBUILD%")
 
 
 def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
@@ -135,10 +115,10 @@ class BuildState:
                     self.config.PACKAGE = self.package
             self.package = self.config.PACKAGE
 
-        self._set_best("msbuild_exe", None, "MSBUILD", None, getenv)
         if self.msbuild_exe is None:
             self.msbuild_exe = _locate_msbuild()
-        self.msbuild_exe = Path(self.msbuild_exe)
+        if isinstance(self.msbuild_exe, str):
+            raise TypeError("msbuild_exe must be a list, not " + repr(self.msbuild_exe))
 
         self._set_best("build_number", None, "BUILD_BUILDNUMBER", None, getenv)
         self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
@@ -204,17 +184,12 @@ class BuildState:
         project = self.generate()
         if self.target is None:
             self.target = "Rebuild" if self.force else "Build"
-        self.log("Compiling", project, "with", self.msbuild_exe, "({})".format(self.target))
+        self.log("Compiling", project, "with", *self.msbuild_exe, "({})".format(self.target))
         if not project.is_file():
             raise FileNotFoundError(project)
         properties.setdefault("Configuration", self.configuration)
         if not properties.get("Platform"):
-            try:
-                properties["Platform"] = _TAG_PLATFORM_MAP[self.platform]
-            except KeyError:
-                raise ValueError("Cannot select MSBuild platform for '{}'".format(
-                    self.platform
-                ))
+            properties["Platform"] = _TAG_PLATFORM_MAP.get(self.platform, self.platform)
         properties.setdefault("PlatformToolset", self.platform_toolset)
         properties.setdefault("HostPython", sys.executable)
         properties.setdefault("_HostPythonPrefix", sys.base_prefix)
@@ -244,7 +219,7 @@ class BuildState:
             self.log()
         _run = subprocess.check_output if self.quiet else subprocess.check_call
         try:
-            _run([str(self.msbuild_exe), "/noAutoResponse", f"@{rsp}"],
+            _run([*self.msbuild_exe, "/noAutoResponse", f"@{rsp}"],
                  stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as ex:
             if self.quiet:

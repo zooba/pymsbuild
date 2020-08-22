@@ -1,5 +1,5 @@
 from importlib.machinery import EXTENSION_SUFFIXES as _EXTENSION_SUFFIXES
-from pathlib import WindowsPath as Path, PureWindowsPath as PurePath
+from pathlib import Path, PurePath
 
 __all__ = [
     "Package",

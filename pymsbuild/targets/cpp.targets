@@ -1,0 +1,4 @@
+<Project>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" Condition="$(VCTargetsPath) != ''" />
+  <Import Project="cpp-none.targets" Condition="$(VCTargetsPath) == ''" />
+</Project>
