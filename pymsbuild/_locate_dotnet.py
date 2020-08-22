@@ -13,7 +13,7 @@ def _locate_msbuild():
     
     try:
         out = subprocess.check_output(
-            "dotnet build -version -nologo",
+            ["dotnet", "build", "-version", "-nologo"],
             encoding="ascii",
             errors="replace",
         )
