@@ -15,6 +15,9 @@ from pymsbuild._build import _locate_msbuild, BuildState
 # Avoid calling locate() for each test
 if not os.getenv("MSBUILD"):
     os.environ["MSBUILD"] = " ".join(_locate_msbuild())
+    if os.environ["MSBUILD"] != " ".join(_locate_msbuild()):
+        # We can't avoid it for some reason...
+        del os.environ["MSBUILD"]
 
 
 @pytest.fixture
