@@ -368,6 +368,26 @@ $env:PYTHON_PREFIX = $pyarm64
 $env:PLATFORMTOOLSET = "Intel C++ Compiler 19.1"
 ```
 
+Note that compiled modules typically include an ABI tag in the filename
+that will require overriding. To do this based on the already-specified
+wheel tag, use an `init_PACKAGE` function that maps to your desired
+suffixes.
+
+```python
+def init_PACKAGE(wheel_tag=None):
+    ext = {
+        "py36-cp36-win_amd64": ".cp36-win_amd64.pyd",
+        "py37-cp37-win_amd64": ".cp37-win_amd64.pyd",
+        "py38-cp38-win_amd64": ".cp38-win_amd64.pyd",
+        "py39-cp39-win_amd64": ".cp39-win_amd64.pyd",
+    }.get(wheel_tag, ".pyd")
+
+    for p in PACKAGE:
+        if isinstance(p, PydFile):
+            p.options["TargetExt"] = ext
+```
+
+
 ## DLL Packing
 
 **Experimental.**

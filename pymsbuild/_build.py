@@ -127,14 +127,6 @@ class BuildState:
                 if hasattr(self.config, "METADATA"):
                     self.metadata = self.config.METADATA
 
-        if self.package is None:
-            if hasattr(self.config, "init_PACKAGE"):
-                self.log("Dynamically initialising PACKAGE")
-                pack = self.config.init_PACKAGE(str(self.wheel_tag))
-                if pack:
-                    self.config.PACKAGE = self.package
-            self.package = self.config.PACKAGE
-
         self._set_best("msbuild_exe", None, "MSBUILD", None, getenv)
         if self.msbuild_exe is None:
             self.msbuild_exe = _locate_msbuild()
@@ -155,6 +147,14 @@ class BuildState:
                 break
         self._set_best("platform_toolset", "PlatformToolset", "PlatformToolset", None, getenv)
         self._set_best("configuration", None, "PYMSBUILD_CONFIGURATION", "Release", getenv)
+
+        if self.package is None:
+            if hasattr(self.config, "init_PACKAGE"):
+                self.log("Dynamically initialising PACKAGE")
+                pack = self.config.init_PACKAGE(str(self.wheel_tag))
+                if pack:
+                    self.config.PACKAGE = self.package
+            self.package = self.config.PACKAGE
 
     def _set_best(self, key, metakey, envkey, default, getenv):
         if getattr(self, key, None):
