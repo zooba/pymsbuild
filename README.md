@@ -388,6 +388,31 @@ def init_PACKAGE(wheel_tag=None):
 ```
 
 
+## Cython
+
+Cython support is available from the `pymsbuild.cython` module.
+
+```python
+from pymsbuild import PydFile, ItemDefinition
+from pymsbuild.cython import CythonIncludeFile, CythonPydFile, PyxFile
+
+PACKAGE = CythonPydFile(
+    "cython_module",
+    ItemDefinition("PyxCompile", IncludeDirs=PYD_INCLUDES),
+    CythonIncludeFile("mod.pxd"),
+    PyxFile("mod.pyx"),
+)
+```
+
+The `CythonPydFile` type derives from the regular `PydFile` and also
+generates a C++ project, so all options that would be available there may
+also be used.
+
+The `PyxCompile.IncludeDirs` metadata specifies search paths for Cython
+headers (`*.pxd`). You may also need to specify
+`ClCompile.AdditionalIncludeDirectories` for any C/C++ headers.
+
+
 ## DLL Packing
 
 **Experimental.**
