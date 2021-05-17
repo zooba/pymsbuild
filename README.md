@@ -337,7 +337,7 @@ libraries. These all use environment variables, to ensure that the
 same setting can flow through a package installer's own process.
 
 It is also possible to permanently override the wheel tag by adding
-a `'WheelTag'` metadata value, or the ABI tag by adding an `'ABITag'`
+a `'WheelTag'` metadata value, or the ABI tag by adding an `'AbiTag'`
 metadata value.
 
 The wheel tag is used for the generated wheel file, and to fill in a
@@ -361,15 +361,15 @@ hard-coded into `pymsbuild` and are currently `Win32`, `x64`, `ARM` and
 `ARM64`. Custom project files may use whatever they like.
 
 ```powershell
-# Directly specify the resulting wheel tags
+# Directly specify the resulting wheel tag
 # This is used for the wheel filename/metadata
 $env:PYMSBUILD_WHEEL_TAG = "py38-cp38-win_arm64"
 
-# Directly set the ABI tag (overrides wheel tag)
+# Directly set the ABI tag (or else taken from wheel tag)
 # This is used for extension module filenames
 $env:PYMSBUILD_ABI_TAG = "cp38-win_arm64"
 
-# Specify the Python platform (overrides ABI tag and wheel tag)
+# Specify the Python platform (or else taken from ABI tag)
 # This is used for MSBuild options
 $env:PYMSBUILD_PLATFORM = "win_arm64"
 
