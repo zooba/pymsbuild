@@ -88,6 +88,7 @@ class BuildState:
         self.config_file = None
         self.targets = Path(__file__).absolute().parent / "targets"
         self.wheel_tag = None
+        self.abi_tag = None
         self.platform = None
         self.platform_toolset = None
         self.build_number = None
@@ -134,17 +135,30 @@ class BuildState:
 
         self._set_best("build_number", None, "BUILD_BUILDNUMBER", None, getenv)
         self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
-        if not self.wheel_tag:
-            for t in packaging.tags.sys_tags():
-                self.wheel_tag = str(t)
-                break
-            else:
-                self.wheel_tag = "py3-none-any"
+        self._set_best("abi_tag", "AbiTag", "PYMSBUILD_ABI_TAG", None, getenv)
         self._set_best("platform", None, "PYMSBUILD_PLATFORM", None, getenv)
-        if not self.platform and self.wheel_tag:
-            for tag in packaging.tags.parse_tag(self.wheel_tag):
-                self.platform = tag.platform
-                break
+
+        if self.wheel_tag:
+            t = next(iter(packaging.tags.parse_tag(self.wheel_tag)), None)
+        else:
+            t = next(iter(packaging.tags.sys_tags()), None)
+        if t and not self.platform:
+            self.platform = t.platform
+        if t and not self.abi_tag:
+            if self.platform:
+                self.abi_tag = f"{t.abi}-{self.platform}"
+            else:
+                self.abi_tag = f"{t.abi}-{t.platform}"
+        if not self.wheel_tag:
+            if t:
+                p1, p2, p3 = t.interpreter, t.abi, t.platform
+            else:
+                p1, p2, p3 = "py3", "none", "any"
+            if self.abi_tag:
+                p2 = self.abi_tag.partition("-")[0]
+            p3 = self.platform or p3
+            self.wheel_tag = f"{p1}-{p2}-{p3}"
+
         self._set_best("platform_toolset", "PlatformToolset", "PlatformToolset", None, getenv)
         self._set_best("configuration", None, "PYMSBUILD_CONFIGURATION", "Release", getenv)
 
@@ -187,6 +201,17 @@ class BuildState:
             self.log("Generating", self.pkginfo)
             G.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
             self.wheel_tag = self.metadata.get("WheelTag", self.wheel_tag)
+            self.abi_tag = self.metadata.get("AbiTag", self.abi_tag)
+
+        ext = ".pyd"
+        if self.abi_tag:
+            ext = f".{self.abi_tag}.pyd"
+
+        self.log("Updating TargetExt to", ext)
+        from . import _types as T
+        for p in self.package:
+            if isinstance(p, T.PydFile):
+                p.options["TargetExt"] = p.options.get("TargetExt") or ext
 
         self.log("Generating projects")
         self.project = Path(G.generate(

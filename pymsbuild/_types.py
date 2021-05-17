@@ -78,7 +78,7 @@ Specify `source` to find sources in a subdirectory.
 
 Other options will be added to the project as properties.
 """
-    options = {"TargetExt": _EXTENSION_SUFFIXES[0]}
+    options = {"TargetExt": None}
 
 
 class LiteralXML:
