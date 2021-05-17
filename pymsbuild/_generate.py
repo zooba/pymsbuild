@@ -102,7 +102,7 @@ def _generate_pyd(project, build_dir, root_dir):
     if project.project_file:
         return Path(project.project_file)
 
-    tpath = project.options.get("TargetName", project.name) + project.options.get("TargetExt", ".pyd")
+    tpath = project.options.get("TargetName", project.name) + (project.options.get("TargetExt") or ".pyd")
     tname, tdot, text = tpath.rpartition(".")
     with ProjectFileWriter(proj, tname, vc_platforms=True, root_namespace=project.name) as f:
         with f.group("PropertyGroup", Label="Globals"):
