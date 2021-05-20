@@ -1,5 +1,44 @@
 <Project>
-  <Target Name="Build">
+  <PropertyGroup>
+    <CC_Cmd Condition="$(CC_Cmd) == ''">cc</CC_Cmd>
+    <CPP_Cmd Condition="$(CPP_Cmd) == ''">cpp</CPP_Cmd>
+    <LD_Cmd Condition="$(LD_Cmd) == ''">ld</LD_Cmd>
+  </PropertyGroup>
+
+  <Target Name="_VerifyCommands">
+    <Exec Command="$(CC_Cmd) --version" />
+    <Exec Command="$(CPP_Cmd) --version" />
+    <Exec Command="$(LD_Cmd) --version" />
+  </Target>
+
+  <Target Name="_PrepareForBuild">
+    <MakeDir Directories="$(IntDir);$(OutDir)" />
+
+    <ItemGroup>
+      <ClCompile>
+        <ObjectFile Condition="%(ClCompile.ObjectFile) == ''">%(Identity).o</ObjectFile>
+      </ClCompile>
+      <ClCompile>
+        <_ResolvedOutput>$([System.IO.Path]::Combine($(IntDir), %(ObjectFile)))</_ResolvedOutput>
+      </ClCompile>
+      <_LinkerInputs Include="@(Link);%(ClCompile._ResolvedOutput)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="ClCompile" Inputs="@(ClCompile)" Outputs="%(ClCompile._ResolvedOutput)">
+    <Message Text="$(CC_Cmd) %(ClCompile.Identity) -fo %(ClCompile._ResolvedOutput)" />
+  </Target>
+
+  <Target Name="Link" Inputs="@(_LinkerInputs)" Outputs="$(TargetPath)">
+    <Message Text="$(LD_Cmd) @(_LinkerInputs,' ') -fo $(TargetPath)" />
+  </Target>
+
+  <Target Name="Build" DependsOnTargets="
+    _VerifyCommands;
+    _PrepareForBuild;
+    ClCompile;
+    Link;
+  ">
     <Error Text="No supported native toolset/toolchain was found" />
   </Target>
 </Project>
