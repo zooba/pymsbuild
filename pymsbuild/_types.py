@@ -216,10 +216,22 @@ class CSourceFile(File):
 These files will be included in the sdist, but will not be copied
 in-place or included in wheels, except as built output.
 
-Incremental rebuilds will be triggered when these files are modified.
+Incremental rebuilds will be triggered when these files are modified,
+and each file is expected to produce a linkable file.
 """
     _ITEMNAME = "ClCompile"
 
+
+class LinkFile(File):
+    r"""Add a linker input file.
+
+These files will be included in the sdist, but will not be copied
+in-place or included in wheels, except as built output.
+
+Incremental rebuilds will be triggered when these files are modified,
+and each file will be linked into the final output.
+"""
+    _ITEMNAME = "Link"
 
 class IncludeFile(File):
     r"""Add a header file.
@@ -228,7 +240,7 @@ These files will be included in the sdist, but will not be copied
 in-place or included in wheels, except as built output.
 
 Incremental rebuilds will be triggered when these files are modified,
-but they do not directly participate in most builds.
+but they do not produce linkable outputs.
 """
     _ITEMNAME = "ClInclude"
 

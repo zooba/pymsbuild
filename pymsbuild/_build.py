@@ -22,6 +22,7 @@ _TAG_PLATFORM_MAP = {
     "win32": "Win32",
     "win_amd64": "x64",
     "win_arm64": "ARM64",
+    "linux_x86_64": "GCC_x64",
     "any": None,
 }
 
@@ -45,6 +46,12 @@ def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
             l,
         )
     return "{},,".format(relpath)
+
+
+def _quote(s, start='"', end='"'):
+    if end and s.endswith("\\"):
+        end = "\\" + end
+    return start + s + end
 
 
 class BuildState:
@@ -72,6 +79,8 @@ class BuildState:
         self.platform = None
         self.platform_toolset = None
         self.build_number = None
+        self.python_includes = None
+        self.python_libs = None
 
     def finalize(self, getenv=os.getenv):
         if self._finalized:
@@ -112,7 +121,11 @@ class BuildState:
         if self.msbuild_exe is None:
             self.msbuild_exe = _locate_msbuild()
         if isinstance(self.msbuild_exe, str):
-            raise TypeError("msbuild_exe must be a list, not " + repr(self.msbuild_exe))
+            if Path(self.msbuild_exe).is_file():
+                self.msbuild_exe = [self.msbuild_exe]
+            else:
+                import shlex
+                self.msbuild_exe = shlex.split(self.msbuild_exe)
 
         self._set_best("build_number", None, "BUILD_BUILDNUMBER", None, getenv)
         self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
@@ -142,6 +155,9 @@ class BuildState:
 
         self._set_best("platform_toolset", "PlatformToolset", "PlatformToolset", None, getenv)
         self._set_best("configuration", None, "PYMSBUILD_CONFIGURATION", "Release", getenv)
+
+        self._set_best("python_includes", None, "PYTHON_INCLUDES", None, getenv)
+        self._set_best("python_libs", None, "PYTHON_LIBS", None, getenv)
 
         if self.package is None:
             if hasattr(self.config, "init_PACKAGE"):
@@ -223,6 +239,8 @@ class BuildState:
         properties.setdefault("_ProjectBuildTarget", self.target)
         properties.setdefault("OutDir", self.build_dir)
         properties.setdefault("IntDir", self.temp_dir)
+        properties.setdefault("PythonIncludes", self.python_includes)
+        properties.setdefault("PythonLibs", self.python_libs)
         rsp = Path(f"{project}.{os.getpid()}.rsp")
         with rsp.open("w", encoding="utf-8-sig") as f:
             print(project, file=f)
@@ -237,8 +255,8 @@ class BuildState:
                 if v is None:
                     continue
                 if k in {"IntDir", "OutDir", "SourceDir"}:
-                    v = str(v).replace("/", "\\").rstrip("\\") + "\\\\"
-                print('"', "/p:", k, "=", v, '"', sep="", file=f)
+                    v = f"{PurePath(v)}{os.path.sep}"
+                print(_quote(f"/p:{k}={v}"), file=f)
         if self.verbose:
             with rsp.open("r", encoding="utf-8-sig") as f:
                 self.log(" ".join(map(str.strip, f)))
