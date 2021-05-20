@@ -331,15 +331,26 @@ building from sdists.
 
 ## Cross-compiling wheels
 
-Cross compilation may be used by overriding the wheel tag or build
-platform, as well as the source for Python's includes and libraries.
-These must all be done using environment variables.
+Cross compilation may be used by overriding the wheel tag, ABI tag,
+or build platform, as well as the source for Python's includes and
+libraries. These all use environment variables, to ensure that the
+same setting can flow through a package installer's own process.
 
-Note that it is also possible to override the wheel tag by adding a
-`'WheelTag'` metadata value. However, while this will attempt to
-update the MSBuild target platform automatically it will not be able to
-select the correct Python libraries. For builds that do not directly
-link to `python##.dll`, this is probably fine.
+It is also possible to permanently override the wheel tag by adding
+a `'WheelTag'` metadata value, or the ABI tag by adding an `'AbiTag'`
+metadata value.
+
+The wheel tag is used for the generated wheel file, and to fill in a
+missing ABI tag and platform.
+
+The ABI tag is used for any native extension modules, and to fill in
+a missing platform.
+
+The platform is used to determine the MSBuild target platform. It
+cannot yet automatically select the correct Python libraries, and so
+you will need to set `PYTHON_INCLUDES` and `PYTHON_LIBS` (or just
+`PYTHON_PREFIX`) environment variables as well to locate the correct
+files.
 
 You can also override the platform toolset with the `'PlatformToolset'`
 metadata value, for scenarios where this information ought to be
@@ -351,11 +362,16 @@ hard-coded into `pymsbuild` and are currently `Win32`, `x64`, `ARM` and
 
 ```powershell
 # Directly specify the resulting wheel tag
+# This is used for the wheel filename/metadata
 $env:PYMSBUILD_WHEEL_TAG = "py38-cp38-win_arm64"
 
-# Directly override the MSBuild platform.
-# In this example, the wheel tag would have been sufficient
-$env:PYMSBUILD_PLATFORM = "ARM64"
+# Directly set the ABI tag (or else taken from wheel tag)
+# This is used for extension module filenames
+$env:PYMSBUILD_ABI_TAG = "cp38-win_arm64"
+
+# Specify the Python platform (or else taken from ABI tag)
+# This is used for MSBuild options
+$env:PYMSBUILD_PLATFORM = "win_arm64"
 
 # Specify the paths to ARM64 headers and libs
 $env:PYTHON_INCLUDES = "$pyarm64\Include"
@@ -367,6 +383,31 @@ $env:PYTHON_PREFIX = $pyarm64
 # If necessary, specify an alternate C++ toolset
 $env:PLATFORMTOOLSET = "Intel C++ Compiler 19.1"
 ```
+
+## Cython
+
+Cython support is available from the `pymsbuild.cython` module.
+
+```python
+from pymsbuild import PydFile, ItemDefinition
+from pymsbuild.cython import CythonIncludeFile, CythonPydFile, PyxFile
+
+PACKAGE = CythonPydFile(
+    "cython_module",
+    ItemDefinition("PyxCompile", IncludeDirs=PYD_INCLUDES),
+    CythonIncludeFile("mod.pxd"),
+    PyxFile("mod.pyx"),
+)
+```
+
+The `CythonPydFile` type derives from the regular `PydFile` and also
+generates a C++ project, so all options that would be available there may
+also be used.
+
+The `PyxCompile.IncludeDirs` metadata specifies search paths for Cython
+headers (`*.pxd`). You may also need to specify
+`ClCompile.AdditionalIncludeDirectories` for any C/C++ headers.
+
 
 ## DLL Packing
 

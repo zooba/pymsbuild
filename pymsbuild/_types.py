@@ -28,6 +28,16 @@ class _Project:
         self.project_file = project_file
         self.members = list(members)
 
+    def __iter__(self):
+        for m in self.members:
+            yield m
+            try:
+                it = iter(m)
+            except TypeError:
+                pass
+            else:
+                yield from it
+
 
 class Package(_Project):
     r"""Represents a Python package.
@@ -68,7 +78,7 @@ Specify `source` to find sources in a subdirectory.
 
 Other options will be added to the project as properties.
 """
-    options = {"TargetExt": _EXTENSION_SUFFIXES[0]}
+    options = {"TargetExt": None}
 
 
 class LiteralXML:
