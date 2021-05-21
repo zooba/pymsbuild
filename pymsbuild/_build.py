@@ -4,16 +4,16 @@ import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 
 from pathlib import PurePath, Path
 
+from . import _generate
 
 if sys.platform == "win32":
     from ._locate_vs import locate_msbuild
 else:
     from ._locate_dotnet import locate_msbuild
-
-from ._load_sysconfig import load_sysconfig
 
 
 # Needed to avoid printing an unhelpful message every time we invoke dotnet
@@ -76,12 +76,13 @@ class BuildState:
         self.source_dir = Path.cwd()
         self.config_file = None
         self.targets = Path(__file__).absolute().parent / "targets"
-        self.sysconfig_data = load_sysconfig(getenv("PYMSBUILD_SYSCONFIG_DATA"))
         self.wheel_tag = None
         self.abi_tag = None
+        self.ext_suffix = None
         self.platform = None
-        self.platform_toolset = None
         self.build_number = None
+        self.python_cflags = None
+        self.python_ldflags = None
         self.python_includes = None
         self.python_libs = None
 
@@ -106,9 +107,8 @@ class BuildState:
 
         if self.metadata is None:
             if self.pkginfo.is_file():
-                from . import _generate as G
                 self.log("Using", self.pkginfo)
-                self.metadata = G.readback_distinfo(self.pkginfo)
+                self.metadata = _generate.readback_distinfo(self.pkginfo)
             else:
                 if hasattr(self.config, "init_METADATA"):
                     self.log("Dynamically initialising METADATA")
@@ -131,34 +131,20 @@ class BuildState:
                 self.msbuild_exe = shlex.split(self.msbuild_exe)
 
         self._set_best("build_number", None, "BUILD_BUILDNUMBER", None, getenv)
-        self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
-        self._set_best("abi_tag", "AbiTag", "PYMSBUILD_ABI_TAG", None, getenv)
-        self._set_best("platform", None, "PYMSBUILD_PLATFORM", None, getenv)
 
-        if self.wheel_tag:
-            t = next(iter(packaging.tags.parse_tag(self.wheel_tag)), None)
-        else:
-            t = next(iter(packaging.tags.sys_tags()), None)
-        if t and not self.platform:
-            self.platform = t.platform
-        if t and not self.abi_tag:
-            if self.platform:
-                self.abi_tag = f"{t.abi}-{self.platform}"
-            else:
-                self.abi_tag = f"{t.abi}-{t.platform}"
-        if not self.wheel_tag:
-            if t:
-                p1, p2, p3 = t.interpreter, t.abi, t.platform
-            else:
-                p1, p2, p3 = "py3", "none", "any"
-            if self.abi_tag:
-                p2 = self.abi_tag.partition("-")[0]
-            p3 = self.platform or p3
-            self.wheel_tag = f"{p1}-{p2}-{p3}"
+        ext = sysconfig.get_config_var("EXT_SUFFIX")
+        default_wheel_tag = str(next(iter(packaging.tags.sys_tags()), None) or "py3-none-any")
+        default_abi_tag = ext.rpartition(".")[0].strip(".")
+        default_ext_suffix = "".join(ext.rpartition(".")[1:])
+        self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", default_wheel_tag, getenv)
+        self._set_best("abi_tag", "AbiTag", "PYMSBUILD_ABI_TAG", default_abi_tag, getenv)
+        self._set_best("ext_suffix", "ExtSuffix", "PYMSBUILD_EXT_SUFFIX", default_ext_suffix, getenv)
 
-        self._set_best("platform_toolset", "PlatformToolset", "PlatformToolset", None, getenv)
+        p = getattr(next(iter(packaging.tags.parse_tag(self.wheel_tag)), None), "platform", None)
+        self._set_best("platform", None, "PYMSBUILD_PLATFORM", p, getenv)
         self._set_best("configuration", None, "PYMSBUILD_CONFIGURATION", "Release", getenv)
 
+        self._set_best("python_config", None, "PYTHON_CONFIG", None, getenv)
         self._set_best("python_includes", None, "PYTHON_INCLUDES", None, getenv)
         self._set_best("python_libs", None, "PYTHON_LIBS", None, getenv)
 
@@ -172,14 +158,23 @@ class BuildState:
 
     def _set_best(self, key, metakey, envkey, default, getenv):
         if getattr(self, key, None):
+            self.log("Build state property", key, "already set to", getattr(self, key))
             return
-        setattr(
-            self,
-            key,
-            (getattr(self.metadata, metakey, None) if metakey else None) or
-            (getenv(envkey) if envkey else None) or
-            default
-        )
+        if metakey:
+            v = getattr(self.metadata, metakey, None)
+            if v:
+                setattr(self, key, v)
+                self.log("Build state property", key, "set to", v, "from metadata item", metakey)
+                return
+        if envkey:
+            v = getenv(envkey)
+            if v:
+                setattr(self, key, v)
+                self.log("Build state property", key, "set to", v, "from environment", envkey)
+                return
+        setattr(self, key, default)
+        if default:
+            self.log("Build state property", key, "set to default value", default)
 
     def log(self, *values, sep=" "):
         if self.verbose:
@@ -194,27 +189,22 @@ class BuildState:
             return self.project
 
         self.finalize()
-        from . import _generate as G
+
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         if self.metadata is not None:
             self.pkginfo = self.temp_dir / "PKG-INFO"
             self.log("Generating", self.pkginfo)
-            G.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
-            self.wheel_tag = self.metadata.get("WheelTag", self.wheel_tag)
-            self.abi_tag = self.metadata.get("AbiTag", self.abi_tag)
+            _generate.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
 
-        ext = ".pyd"
-        if self.abi_tag:
-            ext = f".{self.abi_tag}.pyd"
-
-        self.log("Updating TargetExt to", ext)
+        ext = f".{self.abi_tag}{self.ext_suffix}" if self.abi_tag else self.ext_suffix
+        self.log("Setting missing TargetExt to", ext)
         from . import _types as T
         for p in self.package:
             if isinstance(p, T.PydFile):
                 p.options["TargetExt"] = p.options.get("TargetExt") or ext
 
         self.log("Generating projects")
-        self.project = Path(G.generate(
+        self.project = Path(_generate.generate(
             self.package,
             self.temp_dir,
             self.source_dir,
@@ -235,16 +225,15 @@ class BuildState:
         properties.setdefault("Configuration", self.configuration)
         if not properties.get("Platform"):
             properties["Platform"] = _TAG_PLATFORM_MAP.get(self.platform, self.platform)
-        properties.setdefault("PlatformToolset", self.platform_toolset)
         properties.setdefault("HostPython", sys.executable)
-        properties.setdefault("_HostPythonPrefix", sys.base_prefix)
         properties.setdefault("PyMsbuildTargets", self.targets)
         properties.setdefault("_ProjectBuildTarget", self.target)
         properties.setdefault("OutDir", self.build_dir)
         properties.setdefault("IntDir", self.temp_dir)
+        properties.setdefault("PythonConfig", self.python_config)
         properties.setdefault("PythonIncludes", self.python_includes)
         properties.setdefault("PythonLibs", self.python_libs)
-        rsp = Path(f"{project}.{os.getpid()}.rsp")
+        rsp = self.temp_dir / f"{project}.{os.getpid()}.rsp"
         with rsp.open("w", encoding="utf-8-sig") as f:
             print(project, file=f)
             print("/nologo", file=f)
@@ -266,17 +255,12 @@ class BuildState:
             self.log()
         _run = subprocess.check_output if self.quiet else subprocess.check_call
         try:
-            _run([*self.msbuild_exe, "/noAutoResponse", f"@{rsp}"],
-                 stderr=subprocess.STDOUT)
+            return
+            _run([*self.msbuild_exe, f"@{rsp}"], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as ex:
             if self.quiet:
                 print(ex.stdout.decode("mbcs", "replace"))
             sys.exit(1)
-        else:
-            try:
-                rsp.unlink()
-            except FileNotFoundError:
-                pass
 
     def build_in_place(self):
         self.finalize()
