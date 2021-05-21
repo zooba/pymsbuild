@@ -31,15 +31,7 @@
   <Target Name="_AssignProjectProperties">
     <ItemGroup>
       <Project>
-        <Properties>
-        _ProjectBuildTarget=$(_ProjectBuildTarget);
-        IntDir=$([msbuild]::EnsureTrailingSlash(`%(IntDir)`))\;
-        SourceRootDir=$([msbuild]::EnsureTrailingSlash(`$(SourceRootDir)`))\;
-        SourceDir=$([msbuild]::EnsureTrailingSlash(`$(SourceDir)\$(TargetName)`))\;
-        TargetName=%(TargetName);
-        TargetExt=%(TargetExt);
-        %(Properties)
-        </Properties>
+        <Properties>_ProjectBuildTarget=$(_ProjectBuildTarget);IntDir=$([msbuild]::EnsureTrailingSlash(`%(IntDir)`))\;SourceRootDir=$([msbuild]::EnsureTrailingSlash(`$(SourceRootDir)`))\;SourceDir=$([msbuild]::EnsureTrailingSlash(`$(SourceDir)\$(TargetName)`))\;TargetName=%(TargetName);TargetExt=%(TargetExt);%(Properties)</Properties>
       </Project>
       <Project>
         <Properties Condition="$(_ProjectBuildTarget) != 'BuildSdist'">OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)\%(TargetDir)`))\;%(Properties)</Properties>

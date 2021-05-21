@@ -20,13 +20,19 @@ else:
 os.environ["DOTNET_NOLOGO"] = "1"
 
 
-_TAG_PLATFORM_MAP = {
+class TagPlatformMap(dict):
+    def __missing__(self, key):
+        if re.match(r"manylinux.+x86_64", key):
+            return "GCC_x64"
+        raise KeyError(key)
+
+_TAG_PLATFORM_MAP = TagPlatformMap({
     "win32": "Win32",
     "win_amd64": "x64",
     "win_arm64": "ARM64",
     "linux_x86_64": "GCC_x64",
     "any": None,
-}
+})
 
 
 def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
@@ -255,7 +261,6 @@ class BuildState:
             self.log()
         _run = subprocess.check_output if self.quiet else subprocess.check_call
         try:
-            return
             _run([*self.msbuild_exe, f"@{rsp}"], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as ex:
             if self.quiet:
