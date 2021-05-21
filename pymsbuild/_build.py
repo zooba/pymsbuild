@@ -266,6 +266,11 @@ class BuildState:
             if self.quiet:
                 print(ex.stdout.decode("mbcs", "replace"))
             sys.exit(1)
+        else:
+            try:
+                rsp.unlink()
+            except OSError:
+                pass
 
     def build_in_place(self):
         self.finalize()
