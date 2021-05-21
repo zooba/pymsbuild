@@ -31,7 +31,7 @@ _TAG_PLATFORM_MAP = TagPlatformMap({
     "win_amd64": "x64",
     "win_arm": "ARM",
     "win_arm64": "ARM64",
-    "linux_x86_64": "GCC_x64",
+    "linux_x86_64": "Linux_x64",
     "any": None,
 })
 
