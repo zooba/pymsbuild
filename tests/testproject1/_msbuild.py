@@ -12,7 +12,7 @@ PACKAGE = Package(
 </Target>"""),
 )
 
-DIST_INFO = {
+METADATA = {
     "Name": "testproject1",
     "Version": "1.0.0",
 }

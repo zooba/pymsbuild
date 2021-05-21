@@ -1,7 +1,8 @@
 <Project>
   <PropertyGroup>
-    <CC_Cmd Condition="$(CC_Cmd) == ''">cc</CC_Cmd>
-    <CPP_Cmd Condition="$(CPP_Cmd) == ''">cpp</CPP_Cmd>
-    <LD_Cmd Condition="$(LD_Cmd) == ''">ld</LD_Cmd>
+    <PythonConfig Condition="$(PythonConfig) == ''">$(HostPython)-config</PythonConfig>
+    <CC_Cmd Condition="$(CC_Cmd) == ''">gcc -pthread</CC_Cmd>
+    <CPP_Cmd Condition="$(CPP_Cmd) == ''">g++ -pthread</CPP_Cmd>
+    <Link_Cmd Condition="$(LD_Cmd) == ''">gcc -pthread -shared</Link_Cmd>
   </PropertyGroup>
 </Project>

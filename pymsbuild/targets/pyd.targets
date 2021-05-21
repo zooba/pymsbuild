@@ -1,8 +1,9 @@
 <Project>
   <Target Name="CalculateInPlace" DependsOnTargets="_AssignContentProperties">
     <ItemGroup>
-      <_TargetFiles Include="$(TargetDir)$(TargetName).*" />
-      <InPlace Include="@(_TargetFiles)">
+      <_TargetFiles Include="$(TargetPath)" />
+      <_TargetFiles Include="$([System.IO.Path]::ChangeExtension($(TargetPath), `.pdb`))" />
+      <InPlace Include="@(_TargetFiles)" Condition="Exists(%(FullPath))">
         <Destination>$([msbuild]::EnsureTrailingSlash($(SourceDir)))%(Filename)%(Extension)</Destination>
       </InPlace>
       <InPlace Include="@(Content)">

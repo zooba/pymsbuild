@@ -239,6 +239,7 @@ class BuildState:
         properties.setdefault("HostPython", sys.executable)
         properties.setdefault("PyMsbuildTargets", self.targets)
         properties.setdefault("_ProjectBuildTarget", self.target)
+        properties.setdefault("SourceRootDir", self.source_dir)
         properties.setdefault("OutDir", self.build_dir)
         properties.setdefault("IntDir", self.temp_dir)
         properties.setdefault("PythonConfig", self.python_config)
@@ -359,18 +360,18 @@ class BuildState:
         )
         record = []
         with zipfile.ZipFile(wheel, "w", compression=zipfile.ZIP_DEFLATED) as f:
-            for n in metadata_dir.rglob(r"**\*"):
+            for n in metadata_dir.rglob(r"**/*"):
                 if n.is_file():
                     record.append(_add_and_record(f, n, n.relative_to(metadata_dir)))
-            for n in self.build_dir.rglob(r"**\*"):
+            for n in self.build_dir.rglob(r"**/*"):
                 if n.is_file():
                     record.append(_add_and_record(f, n, n.relative_to(self.build_dir)))
             record_files = []
             for n in metadata_dir.glob("*.dist-info"):
                 if not n.is_dir():
                     continue
-                record_files.append(r"{}\RECORD".format(n.name))
-                record.append(r"{}\RECORD,,".format(n.name))
+                record_files.append(r"{}/RECORD".format(n.name))
+                record.append(r"{}/RECORD,,".format(n.name))
             record_file = "\n".join(record).encode("utf-8")
             for n in record_files:
                 f.writestr(n, record_file)

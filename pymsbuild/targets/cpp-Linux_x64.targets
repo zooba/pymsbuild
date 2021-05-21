@@ -1,16 +1,10 @@
 <Project>
-  <Target Name="_VerifyCommands">
-    <Exec Command="$(CC_Cmd) --version" />
-    <Exec Command="$(CPP_Cmd) --version" />
-    <Exec Command="$(LD_Cmd) --version" />
-  </Target>
-
   <Target Name="_PrepareForBuild">
     <MakeDir Directories="$(IntDir);$(OutDir)" />
 
     <ItemGroup>
       <ClCompile>
-        <ObjectFile Condition="%(ClCompile.ObjectFile) == ''">%(Identity).o</ObjectFile>
+        <ObjectFile Condition="%(ClCompile.ObjectFile) == ''">$([msbuild]::MakeRelative($(SourceRootDir), %(FullPath))).o</ObjectFile>
       </ClCompile>
       <ClCompile>
         <_ResolvedOutput>$([System.IO.Path]::Combine($(IntDir), %(ObjectFile)))</_ResolvedOutput>
@@ -19,20 +13,36 @@
     </ItemGroup>
   </Target>
 
+  <Target Name="_CalculateFlags">
+    <Exec Command="$(PythonConfig) --cflags" ConsoleToMsBuild="true" Condition="$(PythonCFlags) == ''">
+      <Output TaskParameter="ConsoleOutput" PropertyName="PythonCFlags" />
+    </Exec>
+    <Exec Command="$(PythonConfig) --ldflags" ConsoleToMsBuild="true" Condition="$(PythonLDFlags) == ''">
+      <Output TaskParameter="ConsoleOutput" PropertyName="PythonLDFlags" />
+    </Exec>
+    <Message Text="Calculated CFLAGS=$(PythonCFlags)" />
+    <Message Text="Calculated LDFLAGS=$(PythonLDFlags)" />
+  </Target>
+
   <Target Name="ClCompile" Inputs="@(ClCompile)" Outputs="%(ClCompile._ResolvedOutput)">
-    <Message Text="$(CC_Cmd) %(ClCompile.Identity) -fo %(ClCompile._ResolvedOutput)" />
+    <Message Text="%(ClCompile.Identity) -> %(ClCompile.ObjectFile)" Importance="high" />
+    <Exec Command="$(CC_Cmd) -c -o %(ClCompile._ResolvedOutput) %(ClCompile.Identity) $(PythonCFlags)" />
   </Target>
 
   <Target Name="Link" Inputs="@(_LinkerInputs)" Outputs="$(TargetPath)">
-    <Message Text="$(LD_Cmd) @(_LinkerInputs,' ') -fo $(TargetPath)" />
+    <Message Text="-> $([msbuild]::MakeRelative($(OutDir), $(TargetPath)))" Importance="high" />
+    <Exec Command="$(Link_Cmd) -o $(TargetPath) @(_LinkerInputs,' ') $(PythonLDFlags)" />
   </Target>
 
   <Target Name="Build" DependsOnTargets="
-    _VerifyCommands;
+    _CalculateFlags;
     _PrepareForBuild;
     ClCompile;
     Link;
   ">
+  </Target>
 
+  <Target Name="Clean">
+    <RemoveDir Directories="$(IntDir)" />
   </Target>
 </Project>
