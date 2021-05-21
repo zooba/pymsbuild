@@ -9,9 +9,11 @@ from pathlib import PurePath, Path
 
 
 if sys.platform == "win32":
-    from ._locate_vs import _locate_msbuild
+    from ._locate_vs import locate_msbuild
 else:
-    from ._locate_dotnet import _locate_msbuild
+    from ._locate_dotnet import locate_msbuild
+
+from ._load_sysconfig import load_sysconfig
 
 
 # Needed to avoid printing an unhelpful message every time we invoke dotnet
@@ -74,6 +76,7 @@ class BuildState:
         self.source_dir = Path.cwd()
         self.config_file = None
         self.targets = Path(__file__).absolute().parent / "targets"
+        self.sysconfig_data = load_sysconfig(getenv("PYMSBUILD_SYSCONFIG_DATA"))
         self.wheel_tag = None
         self.abi_tag = None
         self.platform = None
@@ -119,7 +122,7 @@ class BuildState:
 
         self._set_best("msbuild_exe", None, "MSBUILD", None, getenv)
         if self.msbuild_exe is None:
-            self.msbuild_exe = _locate_msbuild()
+            self.msbuild_exe = locate_msbuild()
         if isinstance(self.msbuild_exe, str):
             if Path(self.msbuild_exe).is_file():
                 self.msbuild_exe = [self.msbuild_exe]
