@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <CC_Cmd Condition="$(CC_Cmd) == ''">cc</CC_Cmd>
+    <CPP_Cmd Condition="$(CPP_Cmd) == ''">cpp</CPP_Cmd>
+    <LD_Cmd Condition="$(LD_Cmd) == ''">ld</LD_Cmd>
+  </PropertyGroup>
+</Project>

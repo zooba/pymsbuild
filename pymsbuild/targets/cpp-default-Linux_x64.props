@@ -1,0 +1,5 @@
+<Project>
+  <PropertyGroup>
+    <DefaultPlatformToolset>GCC</DefaultPlatformToolset>
+  </PropertyGroup>
+</Project>

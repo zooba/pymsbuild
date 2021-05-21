@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <PlatformToolset Condition="$(PlatformToolset) == ''">$(DefaultPlatformToolset)</PlatformToolset>
+  </PropertyGroup>
+
+  <Import Project="cpp-$(Platform)-$(PlatformToolset).props" />
+</Project>

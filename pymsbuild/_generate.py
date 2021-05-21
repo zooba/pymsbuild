@@ -115,14 +115,14 @@ def _generate_pyd(project, build_dir, root_dir):
             for k, v in project.options.items():
                 if k not in {"ConfigurationType", "TargetExt"}:
                     f.add_property(k, v)
-        f.add_import(f"$(PyMsbuildTargets){SEP}cpp-default.props")
+        f.add_import(f"$(PyMsbuildTargets){SEP}cpp-default-$(Platform).props")
         f.add_import(f"$(PyMsbuildTargets){SEP}common.props")
         with f.group("PropertyGroup", Label="Configuration"):
             f.add_property("ConfigurationType", project.options.get("ConfigurationType", "DynamicLibrary"))
             f.add_property("PlatformToolset", "$(DefaultPlatformToolset)")
             f.add_property("BasePlatformToolset", "$(DefaultPlatformToolset)")
             f.add_property("CharacterSet", "Unicode")
-        f.add_import(f"$(PyMsbuildTargets){SEP}cpp.props")
+        f.add_import(f"$(PyMsbuildTargets){SEP}cpp-$(Platform).props")
         f.add_import(f"$(PyMsbuildTargets){SEP}pyd.props")
 
         _write_members(f, source_dir, _all_members(project, recurse_if=lambda m: m is project))
@@ -134,7 +134,7 @@ def _generate_pyd(project, build_dir, root_dir):
             )
 
         f.add_import(f"$(PyMsbuildTargets){SEP}common.targets")
-        f.add_import(f"$(PyMsbuildTargets){SEP}cpp.targets")
+        f.add_import(f"$(PyMsbuildTargets){SEP}cpp-$(Platform).targets")
         f.add_import(f"$(PyMsbuildTargets){SEP}pyd.targets")
 
     return proj

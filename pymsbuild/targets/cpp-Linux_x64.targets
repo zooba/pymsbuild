@@ -1,10 +1,4 @@
 <Project>
-  <PropertyGroup>
-    <CC_Cmd Condition="$(CC_Cmd) == ''">cc</CC_Cmd>
-    <CPP_Cmd Condition="$(CPP_Cmd) == ''">cpp</CPP_Cmd>
-    <LD_Cmd Condition="$(LD_Cmd) == ''">ld</LD_Cmd>
-  </PropertyGroup>
-
   <Target Name="_VerifyCommands">
     <Exec Command="$(CC_Cmd) --version" />
     <Exec Command="$(CPP_Cmd) --version" />
@@ -39,6 +33,6 @@
     ClCompile;
     Link;
   ">
-    <Error Text="No supported native toolset/toolchain was found" />
+
   </Target>
 </Project>

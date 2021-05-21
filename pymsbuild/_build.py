@@ -24,11 +24,12 @@ class TagPlatformMap(dict):
     def __missing__(self, key):
         if re.match(r"manylinux.+x86_64", key):
             return "GCC_x64"
-        raise KeyError(key)
+        raise KeyError(f"Unsupported platform '{key}'")
 
 _TAG_PLATFORM_MAP = TagPlatformMap({
     "win32": "Win32",
     "win_amd64": "x64",
+    "win_arm": "ARM",
     "win_arm64": "ARM64",
     "linux_x86_64": "GCC_x64",
     "any": None,
@@ -230,7 +231,11 @@ class BuildState:
             raise FileNotFoundError(project)
         properties.setdefault("Configuration", self.configuration)
         if not properties.get("Platform"):
-            properties["Platform"] = _TAG_PLATFORM_MAP.get(self.platform, self.platform)
+            try:
+                properties["Platform"] = _TAG_PLATFORM_MAP[self.platform]
+            except KeyError:
+                self.write("WARNING:", self.platform, "is not a known platform. Projects may not compile")
+                properties["Platform"] = self.platform
         properties.setdefault("HostPython", sys.executable)
         properties.setdefault("PyMsbuildTargets", self.targets)
         properties.setdefault("_ProjectBuildTarget", self.target)
