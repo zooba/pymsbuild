@@ -19,7 +19,7 @@ def _split_args(argv):
     ).split("\0")
 
 
-def _locate_msbuild():
+def locate_msbuild():
     exe = os.getenv("MSBUILD", "")
     if exe:
         if Path(exe).is_file():

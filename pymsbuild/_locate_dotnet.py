@@ -5,7 +5,7 @@ import subprocess
 
 from pathlib import Path
 
-def _locate_msbuild():
+def locate_msbuild():
     exe = os.getenv("MSBUILD", "")
     if exe:
         return shlex.split(exe)

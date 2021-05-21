@@ -10,12 +10,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import pymsbuild
 import pymsbuild._generate as G
 import pymsbuild._types as T
-from pymsbuild._build import _locate_msbuild, BuildState
+from pymsbuild._build import locate_msbuild, BuildState
 
 # Avoid calling locate() for each test
 if not os.getenv("MSBUILD"):
-    os.environ["MSBUILD"] = " ".join(_locate_msbuild())
-    if os.environ["MSBUILD"] != " ".join(_locate_msbuild()):
+    os.environ["MSBUILD"] = " ".join(locate_msbuild())
+    if os.environ["MSBUILD"] != " ".join(locate_msbuild()):
         # We can't avoid it for some reason...
         del os.environ["MSBUILD"]
 
