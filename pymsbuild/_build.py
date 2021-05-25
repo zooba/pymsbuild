@@ -179,7 +179,7 @@ class BuildState:
             self.log("Build state property", key, "already set to", getattr(self, key))
             return
         if metakey:
-            v = getattr(self.metadata, metakey, None)
+            v = self.metadata.get(metakey, None)
             if v:
                 setattr(self, key, v)
                 self.log("Build state property", key, "set to", v, "from metadata item", metakey)
