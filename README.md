@@ -56,13 +56,17 @@ generally easier and faster to use `pymsbuild` directly.
 
 ```
 [build-system]
-requires = ["pymsbuild", "dotnetcore2;sys_platform!='win32'"]
+requires = ["pymsbuild"]
 build-backend = "pymsbuild"
 ```
 
-Installing `dotnetcore2` is optional when using Windows (which requires a
-[Visual Studio](https://www.visualstudio.com) installation) or when the
-`dotnet` command is otherwise available.
+On Windows, a [Visual Studio](https://www.visualstudio.com) installation will be
+required. It will be automatically detected, or the path to MSBuild can be
+provided as the `MSBUILD` environment variable.
+
+On other platforms, the [.NET SDK](https://dotnet.microsoft.com/download) will be
+required. The `dotnet` command must be available on `PATH` or specified as the
+`MSBUILD` environment variable.
 
 # Usage
 
