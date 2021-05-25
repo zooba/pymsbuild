@@ -262,7 +262,7 @@ class BuildState:
             print("/nologo", file=f)
             if self.verbose:
                 print("/p:_Low=Normal", file=f)
-                print("/v:diag", file=f)
+                print("/v:n", file=f)
             else:
                 print("/v:m", file=f)
             print("/t:", self.target, sep="", file=f)

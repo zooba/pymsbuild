@@ -1,6 +1,6 @@
 # pymsbuild
 
-This is a PEP 517 backend for building packages via MSBuild.
+This is a PEP 517 backend for building packages via MSBuild or `dotnet build`.
 
 # Configuration file
 
@@ -46,8 +46,8 @@ nesting of `Package` elements determines the destination path. Otherwise you
 will find all of your files flattened. Recursive wildcards, while partially
 supported, are not going to work!
 
-Also note that if you do not specify the `source=` named argument, all source
-paths are relative to the configuration file.
+Also note that without a `source=` named argument, all source paths are
+relative to the configuration file.
 
 # pyproject.toml file
 
@@ -56,38 +56,49 @@ generally easier and faster to use `pymsbuild` directly.
 
 ```
 [build-system]
-requires = ["pymsbuild"]
+requires = ["pymsbuild", "dotnetcore2;sys_platform!='win32'"]
 build-backend = "pymsbuild"
 ```
 
+Installing `dotnetcore2` is optional when using Windows (which requires a
+[Visual Studio](https://www.visualstudio.com) installation) or when the
+`dotnet` command is otherwise available.
+
 # Usage
 
-Rebuild the current project in-place.
+## Rebuild the current project in-place.
 
 ```
 python -m pymsbuild
 ```
 
-Interactively generate the `_msbuild.py` file with project spec.
+## Interactively generate the `_msbuild.py` file with project spec.
+
 (Or at least, it will, once implemented.)
 
 ```
 python -m pymsbuild init
 ```
 
-Build the project and output an sdist
+## Build the project and output an sdist
 
 ```
 python -m pymsbuild sdist
 ```
 
-Build the project and output a wheel
+Output is put into `dist` by default, but can be overridden with `--dist-dir`
+(`-d`).
+
+## Build the project and output a wheel
 
 ```
 python -m pymsbuild wheel
 ```
 
-Clean any recent builds
+Output is put into `dist` by default, but can be overridden with `--dist-dir`
+(`-d`).
+
+## Clean any recent builds
 
 ```
 python -m pymsbuild clean
