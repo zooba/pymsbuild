@@ -51,7 +51,7 @@ def test_build(build_state, configuration):
     files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*.*")}
     assert files
     assert not (bs.build_dir / "PKG-INFO").is_file()
-    assert files > {Path(p) for p in {"package/__init__.py", "package/mod.pyd"}}
+    assert files >= {Path(p) for p in {"package/__init__.py", "package/mod.pyd"}}
     assert "pyproject.toml" not in files
 
     bs.target = "Clean"
@@ -87,12 +87,14 @@ def test_build_test_project(build_state, proj, configuration):
     bs = build_state
     bs.source_dir = bs.source_dir.parent / proj
     bs.package = None
+    bs.verbose = True
     bs.generate()
     bs.configuration = configuration
     bs.build()
 
 
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
+@pytest.mark.skipif(sys.platform not in {"win32"}, reason="Only supported on Windows")
 def test_dllpack(build_state, configuration):
     bs = build_state
     bs.source_dir = bs.source_dir.parent / "testdllpack"

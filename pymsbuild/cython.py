@@ -8,7 +8,7 @@ class CythonPydFile(PydFile):
             Property("BeforeBuildGenerateSourcesTargets", "Cythonize;$(BeforeBuildGenerateSourcesTargets)"),
             ItemDefinition("PyxCompile", TargetExt=".c", Dependencies=""),
             *self.members,
-            LiteralXML('<Import Project="$(PyMsbuildTargets)\\cython.targets" />'),
+            LiteralXML('<Import Project="$(PyMsbuildTargets)/cython.targets" />'),
         ]
 
 

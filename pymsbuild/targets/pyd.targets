@@ -7,40 +7,10 @@
         <Destination>$([msbuild]::EnsureTrailingSlash($(SourceDir)))%(Filename)%(Extension)</Destination>
       </InPlace>
       <InPlace Include="@(Content)">
-        <Destination>$([msbuild]::EnsureTrailingSlash($(SourceDir)))%(Content.TargetDir)%(Content.TargetName)%(Content.TargetExt)</Destination>
+        <Destination>$([msbuild]::EnsureTrailingSlash($(SourceDir)))%(TargetDir)%(TargetName)%(TargetExt)</Destination>
       </InPlace>
     </ItemGroup>
   </Target>
 
-  <Target Name="_InPlace_Exclude" AfterTargets="CalculateInPlace">
-    <ItemGroup>
-      <_ToRemove Include="@(InPlace)" Condition="%(Extension) == '.exp'" />
-      <InPlace Remove="@(_ToRemove)" />
-    </ItemGroup>
-  </Target>
-
-  <Target Name="_MkdirInPlace">
-    <ItemGroup>
-      <_Outputs Include="%(InPlace.Destination)" />
-    </ItemGroup>
-    <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
-  </Target>
-
-  <Target Name="_CopyInPlace" Inputs="@(InPlace)" Outputs="%(InPlace.Destination)">
-    <ItemGroup>
-      <FileWrites Include="%(InPlace.Destination)" Condition="!Exists(%(InPlace.Destination))" />
-    </ItemGroup>
-    <Copy SourceFiles="%(InPlace.FullPath)" DestinationFiles="%(InPlace.Destination)" />
-  </Target>
-
-  <Target Name="BuildInPlace" DependsOnTargets="Build;CalculateInPlace;_MkdirInPlace;_CopyInPlace">
-    <Message Text="Copied to source tree:" Importance="high" Condition="@(InPlace) != ''" />
-    <Message Text=" - %(InPlace.Destination)" Importance="high" Condition="@(InPlace) != ''" />
-  </Target>
-
   <Target Name="DoLinkOutputFilesMatch" />
-
-  <Target Name="Rebuild" DependsOnTargets="Clean;Build" />
-  <Target Name="RebuildInPlace" DependsOnTargets="Clean;BuildInPlace" />
-  <Target Name="RebuildSdist" DependsOnTargets="Clean;BuildSdist" />
 </Project>
