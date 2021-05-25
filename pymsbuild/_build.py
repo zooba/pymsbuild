@@ -23,7 +23,7 @@ os.environ["DOTNET_NOLOGO"] = "1"
 class TagPlatformMap(dict):
     def __missing__(self, key):
         if re.match(r"manylinux.+x86_64", key):
-            return "Linux_x64"
+            return "POSIX_x64"
         raise KeyError(f"Unsupported platform '{key}'")
 
 _TAG_PLATFORM_MAP = TagPlatformMap({
@@ -31,7 +31,8 @@ _TAG_PLATFORM_MAP = TagPlatformMap({
     "win_amd64": "x64",
     "win_arm": "ARM",
     "win_arm64": "ARM64",
-    "linux_x86_64": "Linux_x64",
+    "linux_x86_64": "POSIX_x64",
+    "macosx_10_15_x86_64": "POSIX_x64",
     "any": None,
 })
 
