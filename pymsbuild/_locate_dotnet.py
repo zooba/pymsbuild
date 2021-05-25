@@ -4,6 +4,7 @@ import shutil
 import subprocess
 
 from pathlib import Path
+from urllib.request import urlretrieve
 
 def _check_build(dotnet):
     try:
@@ -25,16 +26,5 @@ def locate_msbuild():
     exe = os.getenv("MSBUILD", "")
     if exe:
         return shlex.split(exe)
-
-    try:
-        from dotnetcore2.runtime import ensure_dependencies, get_runtime_path
-    except ImportError:
-        pass
-    else:
-        ensure_dependencies()
-        try:
-            return _check_build(get_runtime_path())
-        except RuntimeError:
-            pass
 
     return _check_build("dotnet")
