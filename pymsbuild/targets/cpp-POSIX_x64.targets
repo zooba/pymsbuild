@@ -42,7 +42,7 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="CoreBuild" DependsOnTargets="_CalculateFlags;PrepareForBuild;ClCompile;Link" />
+  <Target Name="CoreBuild" DependsOnTargets="_CalculateFlags;PrepareForBuild;$(BeforeBuildGenerateSourcesTargets);ClCompile;Link" />
   <Target Name="Clean">
     <RemoveDir Directories="$(IntDir)" />
   </Target>

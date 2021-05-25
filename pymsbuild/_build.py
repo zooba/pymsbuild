@@ -11,8 +11,10 @@ from pathlib import PurePath, Path
 from . import _generate
 
 if sys.platform == "win32":
+    _WINDOWS = True
     from ._locate_vs import locate_msbuild
 else:
+    _WINDOWS = False
     from ._locate_dotnet import locate_msbuild
 
 
@@ -156,6 +158,14 @@ class BuildState:
         self._set_best("python_includes", None, "PYTHON_INCLUDES", None, getenv)
         self._set_best("python_libs", None, "PYTHON_LIBS", None, getenv)
 
+        if not self.python_includes:
+            self.python_includes = sysconfig.get_config_var("INCLUDEPY")
+        if not self.python_libs:
+            if _WINDOWS:
+                self.python_libs = PurePath(sysconfig.get_config_var("installed_base")) / "libs"
+            else:
+                self.python_libs = sysconfig.get_config_var("LIBPL")
+
         if self.package is None:
             if hasattr(self.config, "init_PACKAGE"):
                 self.log("Dynamically initialising PACKAGE")
@@ -271,7 +281,10 @@ class BuildState:
             _run([*self.msbuild_exe, f"@{rsp}"], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as ex:
             if self.quiet:
-                print(ex.stdout.decode("mbcs", "replace"))
+                if _WINDOWS:
+                    print(ex.stdout.decode("mbcs", "replace"))
+                else:
+                    print(ex.stdout.decode("utf-8", "replace"))
             sys.exit(1)
         else:
             try:
