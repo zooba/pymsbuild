@@ -33,5 +33,9 @@ jobs:
       run: pip install -r tests/requirements.txt
     - name: Test with pytest
       run: pytest
+      env:
+        PYTHON_CONFIG: python3-config
     - name: Check self builds
       run: python -m pymsbuild sdist wheel
+      env:
+        PYTHON_CONFIG: python3-config
