@@ -16,6 +16,12 @@ _TAG_PLATFORM_MAP = {
 }
 
 
+_REMAP_ABI_TO_EXT = {
+    "cp37m-win32": "cp37-win32",
+    "cp37m-win_amd64": "cp37-win_amd64",
+}
+
+
 def _locate_msbuild():
     exe = Path(os.getenv("MSBUILD", ""))
     if exe.is_file():
@@ -205,7 +211,9 @@ class BuildState:
 
         ext = ".pyd"
         if self.abi_tag:
-            ext = f".{self.abi_tag}.pyd"
+            ext = ".{}.pyd".format(
+                _REMAP_ABI_TO_EXT.get(self.abi_tag, self.abi_tag)
+            )
 
         self.log("Updating TargetExt to", ext)
         from . import _types as T
