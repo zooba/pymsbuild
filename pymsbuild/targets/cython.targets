@@ -33,6 +33,10 @@
       <FileWrites Include="%(_PyxCompileWithOutput.TargetPath)" />
       <_Outputs Include="%(_PyxCompileWithOutput.TargetPath)" />
       <_Defs Include="%(_PyxCompileWithOutput.CythonPreprocessorDefinitions)" />
+      <_PyxCompileWithOutput>
+        <_CPlusOption>--cplus</_CPlusOption>
+        <_CPlusOption Condition="%(TargetExt) == '.c'"></_CPlusOption>
+      </_PyxCompileWithOutput>
     </ItemGroup>
     <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
     <PropertyGroup>
@@ -42,7 +46,7 @@
       <_BuildCmd>$(_BuildCmd) -f -v</_BuildCmd>
       <_BuildCmd Condition="$(Configuration) == 'Debug'">$(_BuildCmd) --line-directives</_BuildCmd>
       <_BuildCmd>$(_BuildCmd) @(_Defs->'-E %(Identity)', ' ')</_BuildCmd>
-      <_BuildCmd>$(_BuildCmd) %(_PyxCompileWithOutput.FullPath)</_BuildCmd>
+      <_BuildCmd>$(_BuildCmd) %(_PyxCompileWithOutput._CPlusOption) %(_PyxCompileWithOutput.FullPath)</_BuildCmd>
     </PropertyGroup>
     <Exec Command="$(_BuildCmd)" />
   </Target>
