@@ -409,6 +409,35 @@ headers (`*.pxd`). You may also need to specify
 `ClCompile.AdditionalIncludeDirectories` for any C/C++ headers.
 
 
+## Two-Step Builds
+
+By default, the `sdist` and `wheel` commands will perform the entire
+process in a single invocation. However, sometimes there are build steps
+that must be manually performed between compilation and packaging.
+
+To run the build in two stages, invoke as normal, but add the
+`--layout-dir` argument followed by a directory. The package will be
+laid out in this directory so that you can perform any extra processing.
+
+Later, use the `pack` command and specify the `--layout-dir` again. If
+you have added new files into the layout directory, specify each with an
+`--add` option (filenames starting with `@` are treated as
+newline-separated, UTF-8 encoded text files listing each new file). These
+paths may be absolute or relative to the layout directory, but only files
+located within the layout directory will be included.
+
+All other options are retained from the original invocation.
+
+```
+python -m pymsbuild sdist --layout-dir tmp
+
+# Generate additional metadata in tmp/EXTRA.txt
+
+python -m pymsbuild pack --layout-dir tmp --add tmp/EXTRA.txt
+```
+
+# Experimental Features
+
 ## DLL Packing
 
 **Experimental.**
