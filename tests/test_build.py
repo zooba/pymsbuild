@@ -77,6 +77,44 @@ def test_build_sdist(build_state, configuration):
     assert not files
 
 
+def test_build_sdist_layout(build_state):
+    bs = build_state
+    bs.layout_dir = bs.temp_dir / "layout"
+    bs.generate()
+    bs.build_sdist()
+
+    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**\\*.*")}
+    assert not files
+
+    bs2 = BuildState()
+    bs2.layout_dir = bs.layout_dir
+    bs2.pack()
+
+    files = {str(p.relative_to(bs2.output_dir)) for p in Path(bs2.output_dir).rglob("**\\*.*")}
+    assert len(files) == 1
+    f = next(iter(files))
+    assert f.endswith(".tar.gz")
+
+
+def test_build_wheel_layout(build_state):
+    bs = build_state
+    bs.layout_dir = bs.temp_dir / "layout"
+    bs.generate()
+    bs.build_wheel()
+
+    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**\\*.*")}
+    assert not files
+
+    bs2 = BuildState()
+    bs2.layout_dir = bs.layout_dir
+    bs2.pack()
+
+    files = {str(p.relative_to(bs2.output_dir)) for p in Path(bs2.output_dir).rglob("**\\*.*")}
+    assert len(files) == 1
+    f = next(iter(files))
+    assert f.endswith(".whl")
+
+
 @pytest.mark.parametrize("proj", ["testcython", "testproject1"])
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
 def test_build_test_project(build_state, proj, configuration):
