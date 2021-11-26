@@ -514,17 +514,18 @@ class BuildState:
                 else:
                     self.log("Property", k, "from layout directory is ignored")
             files = [root / i.strip() for i in f if i.strip()]
-            for i in self.layout_extra_files or ():
-                if not i:
-                    pass
-                elif i.parts[0].startswith("@"):
-                    with Path(str(i)[1:]).open("r", encoding="utf-8-sig") as f2:
-                        for i in f2:
-                            i = i.strip()
-                            if i:
-                                files.append(root / i)
-                else:
-                    files.append(PurePath(i))
+            extra = list(self.layout_extra_files or ())
+            seen = set()
+            while extra:
+                i = (extra.pop(0) or "").strip()
+                if i in seen:
+                    continue
+                seen.add(i)
+                if i.startswith("@"):
+                    with Path(i[1:]).open("r", encoding="utf-8-sig") as f2:
+                        extra.extend(f2)
+                elif i:
+                    files.append(root / i)
         if not outfmt or not outfile:
             print("Layout appears to be corrupted. Please rerun the first stage again.", file=sys.stderr)
             return
