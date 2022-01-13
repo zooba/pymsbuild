@@ -566,9 +566,11 @@ class BuildState:
                         else:
                             self.log("Adding", rn)
                             record.append(_add_and_record(f, n, rn))
-                    elif n.match("*.dist-info"):
-                        record_files.append(r"{}\RECORD".format(n.name))
-                        record.append(r"{}\RECORD,,".format(n.name))
+                    if n.match("*.dist-info/*"):
+                        n2 = r"{}\RECORD".format(n.parent.name)
+                        if n2 not in record_files:
+                            record_files.append(n2)
+                            record.append("{},,".format(n2))
                 record_file = "\n".join(record).encode("utf-8")
                 for n in record_files:
                     f.writestr(n, record_file)

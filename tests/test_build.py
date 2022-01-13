@@ -2,6 +2,7 @@ import os
 import pytest
 import subprocess
 import sys
+import zipfile
 
 from pathlib import Path
 
@@ -105,6 +106,9 @@ def test_build_wheel_layout(build_state):
     files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**\\*.*")}
     assert not files
 
+    files = {p.relative_to(bs.layout_dir) for p in bs.layout_dir.rglob("**\\*.*")}
+    assert not [p for p in files if p.match("*.dist-info/RECORD")]
+
     bs2 = BuildState()
     bs2.layout_dir = bs.layout_dir
     bs2.pack()
@@ -113,6 +117,11 @@ def test_build_wheel_layout(build_state):
     assert len(files) == 1
     f = next(iter(files))
     assert f.endswith(".whl")
+
+    with zipfile.ZipFile(Path(bs2.output_dir) / f, 'r') as zf:
+        files = set(zf.namelist())
+    files = [p for p in files if Path(p).match("*.dist-info/RECORD")]
+    assert len(files) == 1
 
 
 @pytest.mark.parametrize("proj", ["testcython", "testproject1"])
