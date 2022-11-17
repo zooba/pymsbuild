@@ -49,7 +49,7 @@ def test_build(build_state, configuration):
     bs.configuration = configuration
     bs.build()
 
-    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*")}
+    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
     assert files
     assert not (bs.build_dir / "PKG-INFO").is_file()
     assert files >= {Path(p) for p in {"package/__init__.py", "package/mod.pyd"}}
@@ -57,7 +57,7 @@ def test_build(build_state, configuration):
 
     bs.target = "Clean"
     bs.build()
-    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*")}
+    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
     assert not files
 
 
@@ -68,16 +68,16 @@ def test_build_sdist(build_state, configuration):
     bs.configuration = configuration
     bs.build_sdist()
 
-    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*")}
+    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
     assert files == {Path(p) for p in {"PKG-INFO", "empty.py", "mod.c", "pyproject.toml", "_msbuild.py"}}
-    files = {p.relative_to(bs.output_dir) for p in bs.output_dir.rglob("**/*")}
+    files = {p.relative_to(bs.output_dir) for p in bs.output_dir.rglob("**/*") if p.is_file()}
     assert len(files) == 1
     f = next(iter(files))
     assert f.match("*.tar.gz")
 
     bs.target = "Clean"
     bs.build()
-    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*")}
+    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
     assert not files
 
 
@@ -87,14 +87,14 @@ def test_build_sdist_layout(build_state):
     bs.generate()
     bs.build_sdist()
 
-    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**/*")}
+    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**/*") if p.is_file()}
     assert not files
 
     bs2 = BuildState()
     bs2.layout_dir = bs.layout_dir
     bs2.pack()
 
-    files = {str(p.relative_to(bs2.output_dir)) for p in Path(bs2.output_dir).rglob("**/*")}
+    files = {str(p.relative_to(bs2.output_dir)) for p in Path(bs2.output_dir).rglob("**/*") if p.is_file()}
     assert len(files) == 1
     f = next(iter(files))
     assert f.endswith(".tar.gz")
@@ -116,13 +116,14 @@ def test_build_wheel_layout(build_state):
     bs2.layout_dir = bs.layout_dir
     bs2.pack()
 
-    files = {str(p.relative_to(bs2.output_dir)) for p in Path(bs2.output_dir).rglob("**/*")}
+    files = {str(p.relative_to(bs2.output_dir)) for p in Path(bs2.output_dir).rglob("**/*") if p.is_file()}
     assert len(files) == 1
     f = next(iter(files))
     assert f.endswith(".whl")
 
     with zipfile.ZipFile(Path(bs2.output_dir) / f, 'r') as zf:
         files = set(zf.namelist())
+    print("Wheel contents:", *files, sep="\n")
     files = [p for p in files if Path(p).match("*.dist-info/RECORD")]
     assert len(files) == 1
 
