@@ -8,7 +8,7 @@
         <TargetExt Condition="%(TargetExt) == ''">$([System.IO.Path]::GetExtension(%(Name)))</TargetExt>
       </Content>
       <Content>
-        <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir.TrimEnd(`\`)), %(FullPath)))</RelativeSource>
+        <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir.TrimEnd($(_Sep))), %(FullPath)))</RelativeSource>
         <Destination Condition="%(IncludeInWheel)">$([msbuild]::EnsureTrailingSlash($(OutDir)))%(TargetDir)%(TargetName)%(TargetExt)</Destination>
         <Source>$([msbuild]::EnsureTrailingSlash($(OutDir)))%(RelativeSource)</Source>
       </Content>
@@ -30,16 +30,13 @@
 
   <!-- Managing dependencies -->
   <Target Name="_AssignProjectProperties">
-    <PropertyGroup>
-      <_TrailSep Condition="$([msbuild]::EnsureTrailingSlash(`a`)) == 'a\'">\</_TrailSep>
-    </PropertyGroup>
     <ItemGroup>
       <Project>
         <Properties>
         _ProjectBuildTarget=$(_ProjectBuildTarget);
-        IntDir=$([msbuild]::EnsureTrailingSlash(`%(IntDir)`))$(_TrailSep);
-        SourceRootDir=$([msbuild]::EnsureTrailingSlash(`$(SourceRootDir)`))$(_TrailSep);
-        SourceDir=$([msbuild]::EnsureTrailingSlash($(SourceDir)))$([msbuild]::EnsureTrailingSlash(%(TargetDir)))$(_TrailSep);
+        IntDir=$([msbuild]::EnsureTrailingSlash(`%(IntDir)`))$(_EscapeSep);
+        SourceRootDir=$([msbuild]::EnsureTrailingSlash(`$(SourceRootDir)`))$(_EscapeSep);
+        SourceDir=$([msbuild]::EnsureTrailingSlash($(SourceDir)))$([msbuild]::EnsureTrailingSlash(%(TargetDir)))$(_EscapeSep);
         TargetName=%(TargetName);
         TargetExt=%(TargetExt);
         %(Properties)
@@ -47,10 +44,10 @@
       </Project>
       <Project>
         <Properties Condition="$(_ProjectBuildTarget) != 'BuildSdist'">
-        OutDir=$([msbuild]::EnsureTrailingSlash($(OutDir)))$([msbuild]::EnsureTrailingSlash(%(TargetDir)))$(_TrailSep);%(Properties)
+        OutDir=$([msbuild]::EnsureTrailingSlash($(OutDir)))$([msbuild]::EnsureTrailingSlash(%(TargetDir)))$(_EscapeSep);%(Properties)
         </Properties>
         <Properties Condition="$(_ProjectBuildTarget) == 'BuildSdist'">
-        OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)`))$(_TrailSep);%(Properties)
+        OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)`))$(_EscapeSep);%(Properties)
         </Properties>
       </Project>
     </ItemGroup>
@@ -75,8 +72,9 @@
   <!-- In-place builds -->
   <Target Name="CalculateInPlace">
     <ItemGroup>
-      <InPlace Include="@(Content)">
-        <Destination>$([msbuild]::EnsureTrailingSlash($(SourceDir)))%(TargetDir)%(TargetName)%(TargetExt)</Destination>
+      <InPlace Include="@(Content)" />
+      <InPlace>
+        <Destination>$([msbuild]::EnsureTrailingSlash($(SourceDir)))%(Name)</Destination>
       </InPlace>
     </ItemGroup>
   </Target>
@@ -112,7 +110,7 @@
 
   <!-- Clean support -->
   <Target Name="_SaveFileWrites" AfterTargets="Build;BuildSdist;BuildInPlace">
-    <WriteLinesToFile File="$(IntDir)\$(TargetName).writes.txt"
+    <WriteLinesToFile File="$(IntDir)/$(TargetName).writes.txt"
                       Lines="@(FileWrites)"
                       Overwrite="true" />
     <Message Text="Files written:%0A -@(FileWrites, '%0A -')"
@@ -121,7 +119,7 @@
   </Target>
 
   <Target Name="_CleanFileWrites" BeforeTargets="Clean" DependsOnTargets="CleanDependencies">
-    <ReadLinesFromFile File="$(IntDir)\$(TargetName).writes.txt">
+    <ReadLinesFromFile File="$(IntDir)/$(TargetName).writes.txt">
       <Output TaskParameter="Lines" ItemName="FileWrites" />
     </ReadLinesFromFile>
     <Delete Files="@(FileWrites)" />
