@@ -4,6 +4,7 @@ from pymsbuild.cython import *
 PACKAGE = Package(
     "testcython",
     CythonPydFile("mod1",
+        IncludeFile("my_header.h"),
         CythonIncludeFile("header.pxd"),
         PyxFile(
             "src.pyx",

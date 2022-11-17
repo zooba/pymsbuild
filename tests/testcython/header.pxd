@@ -3,3 +3,6 @@
 
 cdef extern from "":
     const char *value
+
+cdef extern from "my_header.h":
+    pass
