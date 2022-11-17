@@ -4,7 +4,7 @@
       <Sdist Include="@(None);@(Content);@(ClCompile);@(ClInclude)" Condition="Exists(%(FullPath))" />
       <Sdist>
         <IncludeInSdist Condition="%(Sdist.IncludeInSdist) != 'False'">True</IncludeInSdist>
-        <RelativeSource Condition="%(Sdist.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd(`\`)), %(FullPath)))</RelativeSource>
+        <RelativeSource Condition="%(Sdist.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd($(_Sep))), %(FullPath)))</RelativeSource>
       </Sdist>
       <_ToRemove Include="@(Sdist)" Condition="!%(IncludeInSdist)" />
       <Sdist Remove="@(_ToRemove)" />

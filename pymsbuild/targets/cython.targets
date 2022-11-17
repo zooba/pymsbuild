@@ -7,7 +7,7 @@
     <_PyxCompileWithOutput Include="@(PyxCompile)">
       <IncludeDirs>%(IncludeDirs)</IncludeDirs>
       <RelativeSource Condition="%(RelativeSource) != ''">%(RelativeSource)</RelativeSource>
-      <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd(`\`)), %(FullPath)))</RelativeSource>
+      <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd($(_Sep))), %(FullPath)))</RelativeSource>
       <RelativeOutput>$([System.IO.Path]::ChangeExtension(%(RelativeSource), %(TargetExt)))</RelativeOutput>
       <TargetPath>$([System.IO.Path]::Combine($(IntDir), %(RelativeOutput)))</TargetPath>
     </_PyxCompileWithOutput>
@@ -69,7 +69,7 @@
       </Sdist>
       <Sdist Include="@(CythonInclude)">
         <RelativeSource Condition="%(CythonInclude.RelativeSource) != ''">%(CythonInclude.RelativeSource)</RelativeSource>
-        <RelativeSource Condition="%(CythonInclude.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd(`\`)), %(FullPath)))</RelativeSource>
+        <RelativeSource Condition="%(CythonInclude.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd($(_Sep))), %(FullPath)))</RelativeSource>
       </Sdist>
     </ItemGroup>
   </Target>

@@ -153,10 +153,12 @@ class BuildState:
         ext = sysconfig.get_config_var("EXT_SUFFIX")
         default_wheel_tag = str(next(iter(packaging.tags.sys_tags()), None) or "py3-none-any")
         default_abi_tag = ext.rpartition(".")[0].strip(".")
-        default_ext_suffix = "".join(ext.rpartition(".")[1:])
+        default_ext_suffix = ext.rpartition(".")[2]
         self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", default_wheel_tag, getenv)
         self._set_best("abi_tag", "AbiTag", "PYMSBUILD_ABI_TAG", default_abi_tag, getenv)
         self._set_best("ext_suffix", "ExtSuffix", "PYMSBUILD_EXT_SUFFIX", default_ext_suffix, getenv)
+        if not self.ext_suffix.startswith("."):
+            self.ext_suffix = ".{}".format(self.ext_suffix)
 
         p = getattr(next(iter(packaging.tags.parse_tag(self.wheel_tag)), None), "platform", None)
         self._set_best("platform", None, "PYMSBUILD_PLATFORM", p, getenv)
@@ -222,9 +224,9 @@ class BuildState:
             self.log("Generating", self.pkginfo)
             _generate.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
 
-        ext = f".{self.ext_suffix}"
+        ext = self.ext_suffix
         if self.abi_tag:
-            ext = ".{}.{}".format(
+            ext = ".{}{}".format(
                 _REMAP_ABI_TO_EXT.get(self.abi_tag, self.abi_tag),
                 self.ext_suffix
             )

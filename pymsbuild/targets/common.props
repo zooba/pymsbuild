@@ -1,6 +1,10 @@
 <Project>
   <PropertyGroup>
     <_Low>low</_Low>
+    <_Sep>\</_Sep>
+    <_Sep Condition="$([msbuild]::IsOSUnixLike())">/</_Sep>
+    <!-- Use EscapeSep after an EnsureTrailingSlash to double the backslash when needed -->
+    <_EscapeSep Condition="$([msbuild]::EnsureTrailingSlash(`a`)) == 'a\'">\</_EscapeSep>
     <BuildInPlaceDependsOn>$(BuildInPlaceDependsOn);Build;CalculateInPlace;_MkdirInPlace;_CopyInPlace</BuildInPlaceDependsOn>
     <BuildSdistDependsOn>$(BuildSdistDependsOn);BuildDependencies</BuildSdistDependsOn>
   </PropertyGroup>
