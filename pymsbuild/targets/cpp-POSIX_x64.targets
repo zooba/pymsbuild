@@ -30,9 +30,7 @@
     <Message Text="%(ClCompile.Identity) -> %(ClCompile.ObjectFile)" Importance="high" />
     <ItemGroup>
       <_IncludeSpec Remove="@(_IncludeSpec)" />
-      <_IncludeSpec Include="%(ClCompile.AdditionalIncludeDirectories)">
-        <Spec>-I%(Identity)</Spec>
-      </_IncludeSpec>
+      <_IncludeSpec Include="%(ClCompile.AdditionalIncludeDirectories)" />
     </ItemGroup>
     <PropertyGroup>
       <!-- Base command -->
@@ -42,7 +40,8 @@
       <!-- Source file -->
       <_Cmd>$(_Cmd) %(ClCompile.Identity)</_Cmd>
       <!-- Include directories -->
-      <_Cmd>$(_Cmd) @(_IncludeSpec->'%(Spec)',' ')</_Cmd>
+      <_IncludeSpec>@(_IncludeSpec, ' -I')</_IncludeSpec>
+      <_Cmd Condition="$(_IncludeSpec) != ''">$(_Cmd) -I$(_IncludeSpec)</_Cmd>
       <!-- Python flags -->
       <_Cmd>$(_Cmd) $(PythonCFlags)</_Cmd>
     </PropertyGroup>
@@ -57,9 +56,7 @@
     <Message Text="-> $([msbuild]::MakeRelative($(OutDir), $(TargetPath)))" Importance="high" />
     <ItemGroup>
       <_LibSpec Remove="@(_LibSpec)" />
-      <_LibSpec Include="%(_LinkerInputs.AdditionalLibraryDirectories)">
-        <Spec>-L%(Identity)</Spec>
-      </_LibSpec>
+      <_LibSpec Include="%(_LinkerInputs.AdditionalLibraryDirectories)" />
     </ItemGroup>
     <PropertyGroup>
       <!-- Base command -->
@@ -67,7 +64,8 @@
       <!-- Output file -->
       <_Cmd>$(_Cmd) -o $(TargetPath)</_Cmd>
       <!-- Lib directories -->
-      <_Cmd>$(_Cmd) @(_LibSpec->'%(Spec)',' ')</_Cmd>
+      <_LibSpec>@(_LibSpec, ' -L')</_LibSpec>
+      <_Cmd Condition="$(_LibSpec) != ''">$(_Cmd) -L$(_LibSpec)</_Cmd>
       <!-- Source files -->
       <_Cmd>$(_Cmd) @(_LinkerInputs, ' ')</_Cmd>
       <!-- Python flags -->
