@@ -2,6 +2,7 @@
   <PropertyGroup>
     <BeforeBuildGenerateSourcesTargets>GenerateDllPack;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
   </PropertyGroup>
+
   <Target Name="GenerateDllPack">
     <Message Text="WARNING: DLL packing is experimental and may change. Send feedback at https://github.com/zooba/pymsbuild"
              Importance="high" />

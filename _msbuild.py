@@ -23,19 +23,20 @@ METADATA = {
     "Keywords": "build,pep-517,msbuild,packaging",
     "Classifier": [
         "Development Status :: 3 - Alpha",
-        "Environment :: Win32 (MS Windows)",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Operating System :: Microsoft :: Windows",
+        "Operating System :: POSIX :: Linux",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Topic :: Software Development :: Build Tools",
         "Topic :: Software Development :: Compilers",
         "Topic :: Utilities",
     ],
     "Requires-Python": ">=3.7",
-    "Requires-External": "msbuild",
+    "Requires-External": "msbuild,dotnet",
     "Requires-Dist": [
         "packaging",
     ],
@@ -44,6 +45,6 @@ METADATA = {
 
 PACKAGE = Package(
     "pymsbuild",
-    PyFile("pymsbuild\\*.py"),
-    File("pymsbuild\\targets\\*", name="targets\\*"),
+    PyFile("pymsbuild/*.py"),
+    File("pymsbuild/targets/*", name="targets/*"),
 )

@@ -1,4 +1,5 @@
 <Project>
+  <!-- Managing content files -->
   <Target Name="_AssignContentProperties">
     <ItemGroup>
       <Content>
@@ -27,14 +28,30 @@
     </Copy>
   </Target>
 
+  <!-- Managing dependencies -->
   <Target Name="_AssignProjectProperties">
+    <PropertyGroup>
+      <_TrailSep Condition="$([msbuild]::EnsureTrailingSlash(`a`)) == 'a\'">\</_TrailSep>
+    </PropertyGroup>
     <ItemGroup>
       <Project>
-        <Properties>_ProjectBuildTarget=$(_ProjectBuildTarget);IntDir=$([msbuild]::EnsureTrailingSlash(`%(IntDir)`))\;SourceRootDir=$([msbuild]::EnsureTrailingSlash(`$(SourceRootDir)`))\;SourceDir=$([msbuild]::EnsureTrailingSlash(`$(SourceDir)\$(TargetName)`))\;TargetName=%(TargetName);TargetExt=%(TargetExt);%(Properties)</Properties>
+        <Properties>
+        _ProjectBuildTarget=$(_ProjectBuildTarget);
+        IntDir=$([msbuild]::EnsureTrailingSlash(`%(IntDir)`))$(_TrailSep);
+        SourceRootDir=$([msbuild]::EnsureTrailingSlash(`$(SourceRootDir)`))$(_TrailSep);
+        SourceDir=$([msbuild]::EnsureTrailingSlash($(SourceDir)))$([msbuild]::EnsureTrailingSlash(%(TargetDir)))$(_TrailSep);
+        TargetName=%(TargetName);
+        TargetExt=%(TargetExt);
+        %(Properties)
+        </Properties>
       </Project>
       <Project>
-        <Properties Condition="$(_ProjectBuildTarget) != 'BuildSdist'">OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)\%(TargetDir)`))\;%(Properties)</Properties>
-        <Properties Condition="$(_ProjectBuildTarget) == 'BuildSdist'">OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)`))\;%(Properties)</Properties>
+        <Properties Condition="$(_ProjectBuildTarget) != 'BuildSdist'">
+        OutDir=$([msbuild]::EnsureTrailingSlash($(OutDir)))$([msbuild]::EnsureTrailingSlash(%(TargetDir)))$(_TrailSep);%(Properties)
+        </Properties>
+        <Properties Condition="$(_ProjectBuildTarget) == 'BuildSdist'">
+        OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)`))$(_TrailSep);%(Properties)
+        </Properties>
       </Project>
     </ItemGroup>
   </Target>
@@ -48,9 +65,50 @@
     <MSBuild Projects="@(Project)" Targets="Clean" Properties="%(Project.Properties)" />
   </Target>
 
-  <PropertyGroup>
-    <BuildSdistDependsOn>$(BuildSdistDependsOn);BuildDependencies</BuildSdistDependsOn>
-  </PropertyGroup>
+  <!-- Standard builds -->
+  <Target Name="PrepareForBuild" />
+  <Target Name="CoreBuild" />
+  <Target Name="Build" DependsOnTargets="PrepareForBuild;_AssignContentProperties;BuildDependencies;CoreBuild;_CopyContent" />
+  <Target Name="Clean" />
+  <Target Name="Rebuild" DependsOnTargets="Clean;Build" />
+
+  <!-- In-place builds -->
+  <Target Name="CalculateInPlace">
+    <ItemGroup>
+      <InPlace Include="@(Content)">
+        <Destination>$([msbuild]::EnsureTrailingSlash($(SourceDir)))%(TargetDir)%(TargetName)%(TargetExt)</Destination>
+      </InPlace>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_InPlace_Exclude" AfterTargets="CalculateInPlace">
+    <ItemGroup>
+      <_ToRemove Include="@(InPlace)" Condition="%(Extension) == '.exp'" />
+      <InPlace Remove="@(_ToRemove)" />
+    </ItemGroup>
+  </Target> 
+
+  <Target Name="_MkdirInPlace">
+    <ItemGroup>
+      <_Outputs Include="%(InPlace.Destination)" />
+    </ItemGroup>
+    <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
+  </Target>
+
+  <Target Name="_CopyInPlace" Inputs="@(InPlace)" Outputs="%(InPlace.Destination)">
+    <ItemGroup>
+      <FileWrites Include="%(InPlace.Destination)" Condition="!Exists(%(InPlace.Destination))" />
+    </ItemGroup>
+    <Copy SourceFiles="%(InPlace.FullPath)" DestinationFiles="%(InPlace.Destination)" />
+  </Target>
+
+  <Target Name="BuildInPlace" DependsOnTargets="$(BuildInPlaceDependsOn)">
+    <Message Text="Copied to source tree:" Importance="high" Condition="@(InPlace) != ''" />
+    <Message Text=" - %(InPlace.Destination)" Importance="high" Condition="@(InPlace) != ''" />
+  </Target>
+
+  <Target Name="RebuildInPlace" DependsOnTargets="Clean;BuildInPlace" />
+
 
   <!-- Clean support -->
   <Target Name="_SaveFileWrites" AfterTargets="Build;BuildSdist;BuildInPlace">

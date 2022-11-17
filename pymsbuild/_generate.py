@@ -1,12 +1,13 @@
+import os
 import sys
 
-from pathlib import PureWindowsPath as PurePath, WindowsPath as Path
+from pathlib import PurePath, Path
 from ._types import Package, PydFile, File, LiteralXML, Property, ItemDefinition, ConditionalValue
 from ._writer import ProjectFileWriter
 
 LIBPATH = Path(sys.base_prefix) / "libs"
 INCPATH = Path(sys.base_prefix) / "include"
-
+SEP = os.path.sep
 
 class GroupSwitcher:
     def __init__(self, project):
@@ -117,21 +118,21 @@ def _generate_pyd(project, build_dir, root_dir):
         with f.group("PropertyGroup", Label="Globals"):
             f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
             f.add_property("SourceRootDir", ConditionalValue(root_dir, if_empty=True))
-            f.add_property("OutDir", "layout\\")
-            f.add_property("IntDir", ConditionalValue("build\\", if_empty=True))
+            f.add_property("OutDir", f"layout{SEP}")
+            f.add_property("IntDir", ConditionalValue(f"build{SEP}", if_empty=True))
             f.add_property("__TargetExt", tdot + text)
             for k, v in project.options.items():
                 if k not in {"ConfigurationType", "TargetExt"}:
                     f.add_property(k, v)
-        f.add_import(r"$(VCTargetsPath)\Microsoft.Cpp.Default.props")
-        f.add_import(r"$(PyMsbuildTargets)\common.props")
+        f.add_import(f"$(PyMsbuildTargets){SEP}cpp-default-$(Platform).props")
+        f.add_import(f"$(PyMsbuildTargets){SEP}common.props")
         with f.group("PropertyGroup", Label="Configuration"):
             f.add_property("ConfigurationType", project.options.get("ConfigurationType", "DynamicLibrary"))
             f.add_property("PlatformToolset", "$(DefaultPlatformToolset)")
             f.add_property("BasePlatformToolset", "$(DefaultPlatformToolset)")
             f.add_property("CharacterSet", "Unicode")
-        f.add_import(r"$(VCTargetsPath)\Microsoft.Cpp.props")
-        f.add_import(r"$(PyMsbuildTargets)\pyd.props")
+        f.add_import(f"$(PyMsbuildTargets){SEP}cpp-$(Platform).props")
+        f.add_import(f"$(PyMsbuildTargets){SEP}pyd.props")
 
         _write_members(f, source_dir, _all_members(project, recurse_if=lambda m: m is project))
         for n, p in _all_members(project, recurse_if=lambda m: m is project, return_if=lambda m: isinstance(m, Package)):
@@ -141,9 +142,9 @@ def _generate_pyd(project, build_dir, root_dir):
                 _all_members(p, recurse_if=lambda m: not isinstance(m, PydFile), prefix=f"{project.name}/")
             )
 
-        f.add_import(r"$(PyMsbuildTargets)\common.targets")
-        f.add_import(r"$(VCTargetsPath)\Microsoft.Cpp.targets")
-        f.add_import(r"$(PyMsbuildTargets)\pyd.targets")
+        f.add_import(f"$(PyMsbuildTargets){SEP}common.targets")
+        f.add_import(f"$(PyMsbuildTargets){SEP}cpp-$(Platform).targets")
+        f.add_import(f"$(PyMsbuildTargets){SEP}pyd.targets")
 
     return proj
 
@@ -182,11 +183,11 @@ def generate(project, build_dir, source_dir, config_file=None):
         with f.group("PropertyGroup"):
             f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
             f.add_property("SourceRootDir", ConditionalValue(root_dir, if_empty=True))
-            f.add_property("OutDir", ConditionalValue("layout\\", if_empty=True))
-            f.add_property("IntDir", ConditionalValue("build\\", if_empty=True))
+            f.add_property("OutDir", ConditionalValue(f"layout{SEP}", if_empty=True))
+            f.add_property("IntDir", ConditionalValue(f"build{SEP}", if_empty=True))
             for k, v in project.options.items():
                 f.add_property(k, v)
-        f.add_import(r"$(PyMsbuildTargets)\common.props")
+        f.add_import(f"$(PyMsbuildTargets){SEP}common.props")
         with f.group("ItemGroup", Label="ProjectReferences"):
             for n, p in _all_members(project, return_if=lambda m: m is not project and isinstance(m, PydFile)):
                 fn = PurePath(n)
@@ -209,8 +210,8 @@ def generate(project, build_dir, source_dir, config_file=None):
             project,
             recurse_if=lambda m: not isinstance(m, PydFile),
         ))
-        f.add_import(r"$(PyMsbuildTargets)\common.targets")
-        f.add_import(r"$(PyMsbuildTargets)\package.targets")
+        f.add_import(f"$(PyMsbuildTargets){SEP}common.targets")
+        f.add_import(f"$(PyMsbuildTargets){SEP}package.targets")
 
     return proj
 

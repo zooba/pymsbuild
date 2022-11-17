@@ -1,0 +1,3 @@
+<Project>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" Condition="$(VCTargetsPath) != ''" />
+</Project>

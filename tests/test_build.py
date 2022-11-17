@@ -11,10 +11,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import pymsbuild
 import pymsbuild._generate as G
 import pymsbuild._types as T
-from pymsbuild._build import _locate_msbuild, BuildState
+from pymsbuild._build import locate_msbuild, BuildState
 
 # Avoid calling locate() for each test
-os.environ["MSBUILD"] = str(_locate_msbuild())
+if not os.getenv("MSBUILD"):
+    os.environ["MSBUILD"] = " ".join(locate_msbuild())
+    if os.environ["MSBUILD"] != " ".join(locate_msbuild()):
+        # We can't avoid it for some reason...
+        del os.environ["MSBUILD"]
 
 
 @pytest.fixture
@@ -45,15 +49,15 @@ def test_build(build_state, configuration):
     bs.configuration = configuration
     bs.build()
 
-    files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
+    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
     assert files
     assert not (bs.build_dir / "PKG-INFO").is_file()
-    assert files > {"package\\__init__.py", "package\\mod.pyd"}
+    assert files >= {Path(p) for p in {"package/__init__.py", "package/mod.pyd"}}
     assert "pyproject.toml" not in files
 
     bs.target = "Clean"
     bs.build()
-    files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
+    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
     assert not files
 
 
@@ -64,17 +68,16 @@ def test_build_sdist(build_state, configuration):
     bs.configuration = configuration
     bs.build_sdist()
 
-    files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
-    assert files == {"empty.py", "mod.c", "pyproject.toml", "_msbuild.py"}
-    assert (bs.build_dir / "PKG-INFO").is_file()
-    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**\\*.*")}
+    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
+    assert files == {Path(p) for p in {"PKG-INFO", "empty.py", "mod.c", "pyproject.toml", "_msbuild.py"}}
+    files = {p.relative_to(bs.output_dir) for p in bs.output_dir.rglob("**/*") if p.is_file()}
     assert len(files) == 1
     f = next(iter(files))
-    assert f.endswith(".tar.gz")
+    assert f.match("*.tar.gz")
 
     bs.target = "Clean"
     bs.build()
-    files = {str(p.relative_to(bs.build_dir)) for p in bs.build_dir.rglob("**\\*.*")}
+    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
     assert not files
 
 
@@ -84,14 +87,14 @@ def test_build_sdist_layout(build_state):
     bs.generate()
     bs.build_sdist()
 
-    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**\\*.*")}
+    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**/*") if p.is_file()}
     assert not files
 
     bs2 = BuildState()
     bs2.layout_dir = bs.layout_dir
     bs2.pack()
 
-    files = {str(p.relative_to(bs2.output_dir)) for p in Path(bs2.output_dir).rglob("**\\*.*")}
+    files = {str(p.relative_to(bs2.output_dir)) for p in Path(bs2.output_dir).rglob("**/*") if p.is_file()}
     assert len(files) == 1
     f = next(iter(files))
     assert f.endswith(".tar.gz")
@@ -103,39 +106,42 @@ def test_build_wheel_layout(build_state):
     bs.generate()
     bs.build_wheel()
 
-    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**\\*.*")}
+    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**/*")}
     assert not files
 
-    files = {p.relative_to(bs.layout_dir) for p in bs.layout_dir.rglob("**\\*.*")}
+    files = {p.relative_to(bs.layout_dir) for p in bs.layout_dir.rglob("**/*")}
     assert not [p for p in files if p.match("*.dist-info/RECORD")]
 
     bs2 = BuildState()
     bs2.layout_dir = bs.layout_dir
     bs2.pack()
 
-    files = {str(p.relative_to(bs2.output_dir)) for p in Path(bs2.output_dir).rglob("**\\*.*")}
+    files = {str(p.relative_to(bs2.output_dir)) for p in Path(bs2.output_dir).rglob("**/*") if p.is_file()}
     assert len(files) == 1
     f = next(iter(files))
     assert f.endswith(".whl")
 
     with zipfile.ZipFile(Path(bs2.output_dir) / f, 'r') as zf:
         files = set(zf.namelist())
+    print("Wheel contents:", *files, sep="\n")
     files = [p for p in files if Path(p).match("*.dist-info/RECORD")]
     assert len(files) == 1
 
 
-@pytest.mark.parametrize("proj", ["testcython", "testproject1"])
+@pytest.mark.parametrize("proj", ["testcython", "testproject1", "testpurepy"])
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
 def test_build_test_project(build_state, proj, configuration):
     bs = build_state
     bs.source_dir = bs.source_dir.parent / proj
     bs.package = None
+    bs.verbose = True
     bs.generate()
     bs.configuration = configuration
     bs.build()
 
 
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
+@pytest.mark.skipif(sys.platform not in {"win32"}, reason="Only supported on Windows")
 def test_dllpack(build_state, configuration):
     bs = build_state
     bs.source_dir = bs.source_dir.parent / "testdllpack"

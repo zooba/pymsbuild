@@ -2,9 +2,8 @@ from pymsbuild import *
 
 PACKAGE = Package(
     "testproject1",
-    PydFile("mod1", CSourceFile("mod.c")),
+    PyFile("sub_init.py", "__init__.py"),
     Package("sub",
-        PydFile("mod2", CSourceFile("mod.c")),
         PyFile("sub_init.py", "__init__.py"),
     ),
     LiteralXML("""<Target Name="ShowMessage" AfterTargets="Build">
@@ -12,7 +11,7 @@ PACKAGE = Package(
 </Target>"""),
 )
 
-METADATA = {
-    "Name": "testproject1",
+DIST_INFO = {
+    "Name": "testpurepy",
     "Version": "1.0.0",
 }

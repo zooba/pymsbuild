@@ -38,6 +38,6 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="BuildSdist" DependsOnTargets="_SetSdist;$(BuildSdistDependsOn);CalculateSdist;_MkdirSdist;_CopySdist">
-  </Target>
+  <Target Name="BuildSdist" DependsOnTargets="_SetSdist;$(BuildSdistDependsOn);CalculateSdist;_MkdirSdist;_CopySdist" />
+  <Target Name="RebuildSdist" DependsOnTargets="Clean;BuildSdist" />
 </Project>

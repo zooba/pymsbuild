@@ -1,4 +1,8 @@
 <Project>
+  <PropertyGroup>
+    <BeforeBuildGenerateSourcesTargets>_BuildCythonSdist;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
+  </PropertyGroup>
+
   <ItemGroup>
     <_PyxCompileWithOutput Include="@(PyxCompile)">
       <IncludeDirs>%(IncludeDirs)</IncludeDirs>
@@ -12,6 +16,7 @@
     <ClCompile Include="@(_PyxCompileWithOutput->'%(TargetPath)')">
       <RelativeSource>%(RelativeOutput)</RelativeSource>
       <PreprocessorDefinitions Condition="%(ClPreprocessorDefinitions) != ''">%(ClPreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFile>$([msbuild]::MakeRelative($(IntDir), %(FullPath))).o</ObjectFile>
     </ClCompile>
   </ItemGroup>
 
@@ -48,7 +53,7 @@
       <_BuildCmd>$(_BuildCmd) @(_Defs->'-E %(Identity)', ' ')</_BuildCmd>
       <_BuildCmd>$(_BuildCmd) %(_PyxCompileWithOutput._CPlusOption) %(_PyxCompileWithOutput.FullPath)</_BuildCmd>
     </PropertyGroup>
-    <Exec Command="$(_BuildCmd)" />
+    <Exec Command="$(_BuildCmd)" StandardOutputImportance="low" />
   </Target>
 
   <Target Name="Cythonize" DependsOnTargets="PrepareForBuild;_ForceCythonize;_CythonizeAll">
@@ -68,8 +73,4 @@
       </Sdist>
     </ItemGroup>
   </Target>
-
-  <PropertyGroup>
-    <BuildSdistDependsOn>$(BuildSdistDependsOn);_BuildCythonSdist</BuildSdistDependsOn>
-  </PropertyGroup>
 </Project>

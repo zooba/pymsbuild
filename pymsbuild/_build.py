@@ -4,52 +4,45 @@ import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 
 from pathlib import PurePath, Path
 
+from . import _generate
 
-_TAG_PLATFORM_MAP = {
+if sys.platform == "win32":
+    _WINDOWS = True
+    from ._locate_vs import locate_msbuild
+else:
+    _WINDOWS = False
+    from ._locate_dotnet import locate_msbuild
+
+
+# Needed to avoid printing an unhelpful message every time we invoke dotnet
+os.environ["DOTNET_NOLOGO"] = "1"
+
+
+class TagPlatformMap(dict):
+    def __missing__(self, key):
+        if re.match(r"manylinux.+x86_64", key):
+            return "POSIX_x64"
+        raise KeyError(f"Unsupported platform '{key}'")
+
+_TAG_PLATFORM_MAP = TagPlatformMap({
     "win32": "Win32",
     "win_amd64": "x64",
+    "win_arm": "ARM",
     "win_arm64": "ARM64",
+    "linux_x86_64": "POSIX_x64",
+    "macosx_10_15_x86_64": "POSIX_x64",
     "any": None,
-}
+})
 
 
 _REMAP_ABI_TO_EXT = {
     "cp37m-win32": "cp37-win32",
     "cp37m-win_amd64": "cp37-win_amd64",
 }
-
-
-def _locate_msbuild():
-    exe = Path(os.getenv("MSBUILD", ""))
-    if exe.is_file():
-        return exe
-    for part in os.getenv("PATH", "").split(os.path.pathsep):
-        p = Path(part)
-        if p.is_dir():
-            exe = p / "msbuild.exe"
-            if exe.is_file():
-                return exe
-    vswhere = Path(os.getenv("ProgramFiles(x86)"), "Microsoft Visual Studio", "Installer", "vswhere.exe")
-    if vswhere.is_file():
-        out = Path(subprocess.check_output([
-            str(vswhere),
-            "-nologo",
-            "-property", "installationPath",
-            "-latest",
-            "-prerelease",
-            "-products", "*",
-            "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-            "-utf8",
-        ], encoding="utf-8", errors="strict").strip())
-        if out.is_dir():
-            exe = out / "MSBuild" / "Current" / "Bin" / "msbuild.exe"
-            if exe.is_file():
-                return exe
-
-    raise RuntimeError("Unable to locate msbuild.exe. Please provide it as %MSBUILD%")
 
 
 def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
@@ -71,6 +64,12 @@ def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
             l,
         )
     return "{},,".format(relpath)
+
+
+def _quote(s, start='"', end='"'):
+    if end and s.endswith("\\"):
+        end = "\\" + end
+    return start + s + end
 
 
 class BuildState:
@@ -97,9 +96,13 @@ class BuildState:
         self.targets = Path(__file__).absolute().parent / "targets"
         self.wheel_tag = None
         self.abi_tag = None
+        self.ext_suffix = None
         self.platform = None
-        self.platform_toolset = None
         self.build_number = None
+        self.python_cflags = None
+        self.python_ldflags = None
+        self.python_includes = None
+        self.python_libs = None
 
     def finalize(self, getenv=os.getenv):
         if self._finalized:
@@ -122,9 +125,8 @@ class BuildState:
 
         if self.metadata is None:
             if self.pkginfo.is_file():
-                from . import _generate as G
                 self.log("Using", self.pkginfo)
-                self.metadata = G.readback_distinfo(self.pkginfo)
+                self.metadata = _generate.readback_distinfo(self.pkginfo)
             else:
                 if hasattr(self.config, "init_METADATA"):
                     self.log("Dynamically initialising METADATA")
@@ -138,37 +140,39 @@ class BuildState:
 
         self._set_best("msbuild_exe", None, "MSBUILD", None, getenv)
         if self.msbuild_exe is None:
-            self.msbuild_exe = _locate_msbuild()
-        self.msbuild_exe = Path(self.msbuild_exe)
+            self.msbuild_exe = locate_msbuild()
+        if isinstance(self.msbuild_exe, str):
+            if Path(self.msbuild_exe).is_file():
+                self.msbuild_exe = [self.msbuild_exe]
+            else:
+                import shlex
+                self.msbuild_exe = shlex.split(self.msbuild_exe)
 
         self._set_best("build_number", None, "BUILD_BUILDNUMBER", None, getenv)
-        self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
-        self._set_best("abi_tag", "AbiTag", "PYMSBUILD_ABI_TAG", None, getenv)
-        self._set_best("platform", None, "PYMSBUILD_PLATFORM", None, getenv)
 
-        if self.wheel_tag:
-            t = next(iter(packaging.tags.parse_tag(self.wheel_tag)), None)
-        else:
-            t = next(iter(packaging.tags.sys_tags()), None)
-        if t and not self.platform:
-            self.platform = t.platform
-        if t and not self.abi_tag:
-            if self.platform:
-                self.abi_tag = f"{t.abi}-{self.platform}"
-            else:
-                self.abi_tag = f"{t.abi}-{t.platform}"
-        if not self.wheel_tag:
-            if t:
-                p1, p2, p3 = t.interpreter, t.abi, t.platform
-            else:
-                p1, p2, p3 = "py3", "none", "any"
-            if self.abi_tag:
-                p2 = self.abi_tag.partition("-")[0]
-            p3 = self.platform or p3
-            self.wheel_tag = f"{p1}-{p2}-{p3}"
+        ext = sysconfig.get_config_var("EXT_SUFFIX")
+        default_wheel_tag = str(next(iter(packaging.tags.sys_tags()), None) or "py3-none-any")
+        default_abi_tag = ext.rpartition(".")[0].strip(".")
+        default_ext_suffix = "".join(ext.rpartition(".")[1:])
+        self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", default_wheel_tag, getenv)
+        self._set_best("abi_tag", "AbiTag", "PYMSBUILD_ABI_TAG", default_abi_tag, getenv)
+        self._set_best("ext_suffix", "ExtSuffix", "PYMSBUILD_EXT_SUFFIX", default_ext_suffix, getenv)
 
-        self._set_best("platform_toolset", "PlatformToolset", "PlatformToolset", None, getenv)
+        p = getattr(next(iter(packaging.tags.parse_tag(self.wheel_tag)), None), "platform", None)
+        self._set_best("platform", None, "PYMSBUILD_PLATFORM", p, getenv)
         self._set_best("configuration", None, "PYMSBUILD_CONFIGURATION", "Release", getenv)
+
+        self._set_best("python_config", None, "PYTHON_CONFIG", None, getenv)
+        self._set_best("python_includes", None, "PYTHON_INCLUDES", None, getenv)
+        self._set_best("python_libs", None, "PYTHON_LIBS", None, getenv)
+
+        if not self.python_includes:
+            self.python_includes = sysconfig.get_config_var("INCLUDEPY")
+        if not self.python_libs:
+            if _WINDOWS:
+                self.python_libs = PurePath(sysconfig.get_config_var("installed_base")) / "libs"
+            else:
+                self.python_libs = sysconfig.get_config_var("LIBPL")
 
         if self.package is None:
             if hasattr(self.config, "init_PACKAGE"):
@@ -180,14 +184,23 @@ class BuildState:
 
     def _set_best(self, key, metakey, envkey, default, getenv):
         if getattr(self, key, None):
+            self.log("Build state property", key, "already set to", getattr(self, key))
             return
-        setattr(
-            self,
-            key,
-            (getattr(self.metadata, metakey, None) if metakey else None) or
-            (getenv(envkey) if envkey else None) or
-            default
-        )
+        if metakey:
+            v = self.metadata.get(metakey, None)
+            if v:
+                setattr(self, key, v)
+                self.log("Build state property", key, "set to", v, "from metadata item", metakey)
+                return
+        if envkey:
+            v = getenv(envkey)
+            if v:
+                setattr(self, key, v)
+                self.log("Build state property", key, "set to", v, "from environment", envkey)
+                return
+        setattr(self, key, default)
+        if default:
+            self.log("Build state property", key, "set to default value", default)
 
     def log(self, *values, sep=" "):
         if self.verbose:
@@ -202,29 +215,28 @@ class BuildState:
             return self.project
 
         self.finalize()
-        from . import _generate as G
+
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         if self.metadata is not None:
             self.pkginfo = self.temp_dir / "PKG-INFO"
             self.log("Generating", self.pkginfo)
-            G.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
-            self.wheel_tag = self.metadata.get("WheelTag", self.wheel_tag)
-            self.abi_tag = self.metadata.get("AbiTag", self.abi_tag)
+            _generate.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
 
-        ext = ".pyd"
+        ext = f".{self.ext_suffix}"
         if self.abi_tag:
-            ext = ".{}.pyd".format(
-                _REMAP_ABI_TO_EXT.get(self.abi_tag, self.abi_tag)
+            ext = ".{}.{}".format(
+                _REMAP_ABI_TO_EXT.get(self.abi_tag, self.abi_tag),
+                self.ext_suffix
             )
+        self.log("Setting missing TargetExt to", ext)
 
-        self.log("Updating TargetExt to", ext)
         from . import _types as T
         for p in self.package:
             if isinstance(p, T.PydFile):
                 p.options["TargetExt"] = p.options.get("TargetExt") or ext
 
         self.log("Generating projects")
-        self.project = Path(G.generate(
+        self.project = Path(_generate.generate(
             self.package,
             self.temp_dir,
             self.source_dir,
@@ -239,7 +251,7 @@ class BuildState:
         project = self.generate()
         if self.target is None:
             self.target = "Rebuild" if self.force else "Build"
-        self.log("Compiling", project, "with", self.msbuild_exe, "({})".format(self.target))
+        self.log("Compiling", project, "with", *self.msbuild_exe, "({})".format(self.target))
         if not project.is_file():
             raise FileNotFoundError(project)
         properties.setdefault("Configuration", self.configuration)
@@ -247,17 +259,18 @@ class BuildState:
             try:
                 properties["Platform"] = _TAG_PLATFORM_MAP[self.platform]
             except KeyError:
-                raise ValueError("Cannot select MSBuild platform for '{}'".format(
-                    self.platform
-                ))
-        properties.setdefault("PlatformToolset", self.platform_toolset)
+                self.write("WARNING:", self.platform, "is not a known platform. Projects may not compile")
+                properties["Platform"] = self.platform
         properties.setdefault("HostPython", sys.executable)
-        properties.setdefault("_HostPythonPrefix", sys.base_prefix)
         properties.setdefault("PyMsbuildTargets", self.targets)
         properties.setdefault("_ProjectBuildTarget", self.target)
+        properties.setdefault("SourceRootDir", self.source_dir)
         properties.setdefault("OutDir", self.build_dir)
         properties.setdefault("IntDir", self.temp_dir)
-        rsp = Path(f"{project}.{os.getpid()}.rsp")
+        properties.setdefault("PythonConfig", self.python_config)
+        properties.setdefault("PythonIncludes", self.python_includes)
+        properties.setdefault("PythonLibs", self.python_libs)
+        rsp = self.temp_dir / f"{project}.{os.getpid()}.rsp"
         with rsp.open("w", encoding="utf-8-sig") as f:
             print(project, file=f)
             print("/nologo", file=f)
@@ -271,24 +284,26 @@ class BuildState:
                 if v is None:
                     continue
                 if k in {"IntDir", "OutDir", "SourceDir"}:
-                    v = str(v).replace("/", "\\").rstrip("\\") + "\\\\"
-                print('"', "/p:", k, "=", v, '"', sep="", file=f)
+                    v = f"{PurePath(v)}{os.path.sep}"
+                print(_quote(f"/p:{k}={v}"), file=f)
         if self.verbose:
             with rsp.open("r", encoding="utf-8-sig") as f:
                 self.log(" ".join(map(str.strip, f)))
             self.log()
         _run = subprocess.check_output if self.quiet else subprocess.check_call
         try:
-            _run([str(self.msbuild_exe), "/noAutoResponse", f"@{rsp}"],
-                 stderr=subprocess.STDOUT)
+            _run([*self.msbuild_exe, f"@{rsp}"], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as ex:
             if self.quiet:
-                print(ex.stdout.decode("mbcs", "replace"))
+                if _WINDOWS:
+                    print(ex.stdout.decode("mbcs", "replace"))
+                else:
+                    print(ex.stdout.decode("utf-8", "replace"))
             sys.exit(1)
         else:
             try:
                 rsp.unlink()
-            except FileNotFoundError:
+            except OSError:
                 pass
 
     def build_in_place(self):
@@ -377,18 +392,18 @@ class BuildState:
         )
         record = []
         with zipfile.ZipFile(wheel, "w", compression=zipfile.ZIP_DEFLATED) as f:
-            for n in metadata_dir.rglob(r"**\*"):
+            for n in metadata_dir.rglob(r"**/*"):
                 if n.is_file():
                     record.append(_add_and_record(f, n, n.relative_to(metadata_dir)))
-            for n in self.build_dir.rglob(r"**\*"):
+            for n in self.build_dir.rglob(r"**/*"):
                 if n.is_file():
                     record.append(_add_and_record(f, n, n.relative_to(self.build_dir)))
             record_files = []
             for n in metadata_dir.glob("*.dist-info"):
                 if not n.is_dir():
                     continue
-                record_files.append(r"{}\RECORD".format(n.name))
-                record.append(r"{}\RECORD,,".format(n.name))
+                record_files.append(r"{}/RECORD".format(n.name))
+                record.append(r"{}/RECORD,,".format(n.name))
             record_file = "\n".join(record).encode("utf-8")
             for n in record_files:
                 f.writestr(n, record_file)
@@ -446,7 +461,7 @@ class BuildState:
         sdist = self.output_dir / (sdist_basename + ".tar.gz")
         with (root / "__state.txt").open("w", encoding="utf-8") as f:
             self._write_state(f, sdist, "targz")
-            for n in self.build_dir.rglob(r"**\*"):
+            for n in self.build_dir.rglob("**/*"):
                 if n.is_file():
                     rn = root / n.relative_to(self.build_dir)
                     rn.parent.mkdir(parents=True, exist_ok=True)
@@ -474,13 +489,13 @@ class BuildState:
         )
         with (root / "__state.txt").open("w", encoding="utf-8") as f:
             self._write_state(f, wheel, "whl")
-            for n in metadata_dir.rglob(r"**\*"):
+            for n in metadata_dir.rglob("**/*"):
                 if n.is_file():
                     rn = root / n.relative_to(metadata_dir)
                     rn.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy(n, rn)
                     print(rn, file=f)
-            for n in self.build_dir.rglob(r"**\*"):
+            for n in self.build_dir.rglob("**/*"):
                 if n.is_file():
                     rn = root / n.relative_to(self.build_dir)
                     rn.parent.mkdir(parents=True, exist_ok=True)
@@ -567,7 +582,7 @@ class BuildState:
                             self.log("Adding", rn)
                             record.append(_add_and_record(f, n, rn))
                     if n.match("*.dist-info/*"):
-                        n2 = r"{}\RECORD".format(n.parent.name)
+                        n2 = "{}{}RECORD".format(n.parent.name, os.path.sep)
                         if n2 not in record_files:
                             record_files.append(n2)
                             record.append("{},,".format(n2))

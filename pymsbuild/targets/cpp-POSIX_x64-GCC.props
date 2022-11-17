@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <PythonConfig Condition="$(PythonConfig) == ''">$(HostPython)-config</PythonConfig>
+    <CC_Cmd Condition="$(CC_Cmd) == ''">gcc -pthread -fPIC</CC_Cmd>
+    <CPP_Cmd Condition="$(CPP_Cmd) == ''">g++ -pthread -fPIC</CPP_Cmd>
+    <Link_Cmd Condition="$(LD_Cmd) == ''">gcc -pthread -shared</Link_Cmd>
+  </PropertyGroup>
+</Project>

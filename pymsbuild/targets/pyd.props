@@ -1,16 +1,8 @@
 <Project>
   <PropertyGroup>
     <TargetExt Condition="$(__TargetExt) != ''">$(__TargetExt)</TargetExt>
-    <TargetPath>$([System.IO.Path]::Combine($(ProjectDir),$(OutDir)$(TargetName)$(TargetExt)))</TargetPath>
+    <TargetPath>$([System.IO.Path]::Combine($(ProjectDir),$(OutDir),$(TargetName)$(TargetExt)))</TargetPath>
     <LinkIncremental>false</LinkIncremental>
-  </PropertyGroup>
-  <PropertyGroup>
-    <PythonIncludes>$(PYTHON_INCLUDES)</PythonIncludes>
-    <PythonIncludes Condition="$(PythonIncludes) == '' and $(PYTHON_PREFIX) != ''">$([msbuild]::EnsureTrailingSlash($(PYTHON_PREFIX)))Include</PythonIncludes>
-    <PythonIncludes Condition="$(PythonIncludes) == ''">$([msbuild]::EnsureTrailingSlash($(_HostPythonPrefix)))Include</PythonIncludes>
-    <PythonLibs>$(PYTHON_LIBS)</PythonLibs>
-    <PythonLibs Condition="$(PythonLibs) == '' and $(PYTHON_PREFIX) != ''">$([msbuild]::EnsureTrailingSlash($(PYTHON_PREFIX)))libs</PythonLibs>
-    <PythonLibs Condition="$(PythonLibs) == ''">$([msbuild]::EnsureTrailingSlash($(_HostPythonPrefix)))libs</PythonLibs>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -21,7 +13,7 @@
       <GenerateDebugInformation>True</GenerateDebugInformation>
     </Link>
     <Lib>
-      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <OutputFile>$(TargetPath)</OutputFile>
     </Lib>
   </ItemDefinitionGroup>
 </Project>
