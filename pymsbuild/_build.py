@@ -106,7 +106,10 @@ class BuildState:
             if self.pkginfo.is_file():
                 self.log("Using", self.pkginfo)
                 self.metadata = _generate.readback_distinfo(self.pkginfo)
-                self.config.METADATA = self.metadata
+                try:
+                    self.config.METADATA.update(self.metadata)
+                except AttributeError:
+                    self.config.METADATA = self.metadata
             else:
                 if hasattr(self.config, "init_METADATA"):
                     self.log("Dynamically initialising METADATA")
