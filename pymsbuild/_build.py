@@ -582,7 +582,7 @@ class BuildState:
                             self.log("Adding", rn)
                             record.append(_add_and_record(f, n, rn))
                     if n.match("*.dist-info/*"):
-                        n2 = r"{}\RECORD".format(n.parent.name)
+                        n2 = "{}{}RECORD".format(n.parent.name, os.path.sep)
                         if n2 not in record_files:
                             record_files.append(n2)
                             record.append("{},,".format(n2))
