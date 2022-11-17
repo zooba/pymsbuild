@@ -96,3 +96,13 @@ def test_choose_best_tags_from_wheel_no_abi():
         ext_suffix = ".cp399-win_amd64.ext",
         wheel_tag = "py311-cp399-win_amd64",
     )
+
+def test_choose_py37_tags_windows():
+    # Special tests to ensure we handle the changing 'm' suffix
+    r = T.choose_best_tags("py37-cp37m-win32", ".pyd", wheel_tag="py37-*-win32")
+    assert tags_as_dict(r) == dict(
+        abi_tag = "cp37m-win32",
+        platform_tag = "win32",
+        ext_suffix = ".pyd",
+        wheel_tag = "py37-cp37m-win32",
+    )

@@ -65,13 +65,14 @@ def choose_best_tags(
 ):
     if not sys_wheel_tag:
         sys_wheel_tag = next(iter(sys_tags()), None) or "py3-none-any"
+
     if not sys_ext_suffix:
         sys_ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
         if not sys_ext_suffix:
             import importlib.machinery
             sys_ext_suffix = importlib.machinery.EXTENSION_SUFFIXES[0]
 
-    if not isinstance(sys_wheel_tag, Tag):
+    if sys_wheel_tag and not isinstance(sys_wheel_tag, Tag):
         sys_wheel_tag = next(iter(parse_tag(sys_wheel_tag)), None)
 
     if wheel_tag and not isinstance(wheel_tag, Tag):
@@ -98,12 +99,13 @@ def choose_best_tags(
             abi_tag = remap_ext_to_abi(ext_suffix.rpartition('.')[0].strip('.'))
         else:
             abi_tag = remap_ext_to_abi(sys_ext_suffix.rpartition('.')[0].strip('.'))
-            if platform_tag:
+            if abi_tag and platform_tag:
                 abi_tag = "{}-{}".format(abi_tag.partition('-')[0], platform_tag)
-        if abi_only:
-            abi_tag = "{}-{}".format(abi_only, abi_tag.partition('-')[2])
-        else:
-            abi_only = abi_tag.partition('-')[0]
+        if abi_tag:
+            if abi_only:
+                abi_tag = "{}-{}".format(abi_only, abi_tag.partition('-')[2])
+            else:
+                abi_only = abi_tag.partition('-')[0]
 
     # Infer the platform from the ABI tag or default wheel tag
     if not platform_tag:
@@ -125,7 +127,13 @@ def choose_best_tags(
     # Infer the ABI portion from the default wheel tag
     if not abi_only:
         abi_only = sys_wheel_tag.abi
-    assert abi_tag.startswith(abi_only)
+
+    # Final chance for ABI
+    if not abi_tag:
+        abi_tag = f"{abi_only}-{platform_tag}"
+
+    if not abi_tag.startswith(abi_only):
+        raise ValueError(f"Expected '{abi_tag}' to start with '{abi_only}'")
 
     # Infer any missing parts of the wheel tag
     if not wheel_tag:
