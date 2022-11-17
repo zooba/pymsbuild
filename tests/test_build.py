@@ -2,6 +2,7 @@ import os
 import pytest
 import subprocess
 import sys
+import zipfile
 
 from pathlib import Path
 
@@ -79,6 +80,52 @@ def test_build_sdist(build_state, configuration):
     bs.build()
     files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*.*")}
     assert not files
+
+
+def test_build_sdist_layout(build_state):
+    bs = build_state
+    bs.layout_dir = bs.temp_dir / "layout"
+    bs.generate()
+    bs.build_sdist()
+
+    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**\\*.*")}
+    assert not files
+
+    bs2 = BuildState()
+    bs2.layout_dir = bs.layout_dir
+    bs2.pack()
+
+    files = {str(p.relative_to(bs2.output_dir)) for p in Path(bs2.output_dir).rglob("**\\*.*")}
+    assert len(files) == 1
+    f = next(iter(files))
+    assert f.endswith(".tar.gz")
+
+
+def test_build_wheel_layout(build_state):
+    bs = build_state
+    bs.layout_dir = bs.temp_dir / "layout"
+    bs.generate()
+    bs.build_wheel()
+
+    files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**\\*.*")}
+    assert not files
+
+    files = {p.relative_to(bs.layout_dir) for p in bs.layout_dir.rglob("**\\*.*")}
+    assert not [p for p in files if p.match("*.dist-info/RECORD")]
+
+    bs2 = BuildState()
+    bs2.layout_dir = bs.layout_dir
+    bs2.pack()
+
+    files = {str(p.relative_to(bs2.output_dir)) for p in Path(bs2.output_dir).rglob("**\\*.*")}
+    assert len(files) == 1
+    f = next(iter(files))
+    assert f.endswith(".whl")
+
+    with zipfile.ZipFile(Path(bs2.output_dir) / f, 'r') as zf:
+        files = set(zf.namelist())
+    files = [p for p in files if Path(p).match("*.dist-info/RECORD")]
+    assert len(files) == 1
 
 
 @pytest.mark.parametrize("proj", ["testcython", "testproject1", "testpurepy"])

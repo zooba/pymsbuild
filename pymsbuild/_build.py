@@ -39,6 +39,12 @@ _TAG_PLATFORM_MAP = TagPlatformMap({
 })
 
 
+_REMAP_ABI_TO_EXT = {
+    "cp37m-win32": "cp37-win32",
+    "cp37m-win_amd64": "cp37-win_amd64",
+}
+
+
 def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
     import base64, hashlib
     hasher = getattr(hashlib, hashalg)() if hashalg else None
@@ -82,6 +88,8 @@ class BuildState:
         self.output_dir = Path(output_dir) if output_dir else None
         self.build_dir = None
         self.temp_dir = None
+        self.layout_dir = None
+        self.layout_extra_files = []
         self.pkginfo = None
         self.source_dir = Path.cwd()
         self.config_file = None
@@ -214,8 +222,14 @@ class BuildState:
             self.log("Generating", self.pkginfo)
             _generate.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
 
-        ext = f".{self.abi_tag}{self.ext_suffix}" if self.abi_tag else self.ext_suffix
+        ext = f".{self.ext_suffix}"
+        if self.abi_tag:
+            ext = ".{}.{}".format(
+                _REMAP_ABI_TO_EXT.get(self.abi_tag, self.abi_tag),
+                self.ext_suffix
+            )
         self.log("Setting missing TargetExt to", ext)
+
         from . import _types as T
         for p in self.package:
             if isinstance(p, T.PydFile):
@@ -315,6 +329,8 @@ class BuildState:
             self.build_dir.mkdir(parents=True, exist_ok=True)
         self.generate()
         self.build()
+        if self.layout_dir:
+            return self.layout_sdist()
         return self.pack_sdist()
 
     def pack_sdist(self):
@@ -359,6 +375,8 @@ class BuildState:
             self.prepare_wheel_distinfo(metadata_dir)
 
         self.build()
+        if self.layout_dir:
+            return self.layout_wheel(metadata_dir)
         return self.pack_wheel(metadata_dir)
 
     def pack_wheel(self, metadata_dir):
@@ -413,3 +431,169 @@ class BuildState:
                 print("Build:", self.build_number, file=f)
         shutil.copy(self.pkginfo, outdir / "METADATA")
         return outdir.name
+
+    def _write_state(self, state_file, outfile, outfmt):
+        print("output-format=", outfmt, sep="", file=state_file)
+        print("output-file=", outfile, sep="", file=state_file)
+        for k in dir(self):
+            if not k.startswith("_") and not hasattr(type(self), k):
+                v = getattr(self, k)
+                if isinstance(v, (str, PurePath)):
+                    print(k, "=", getattr(self, k), sep="", file=state_file)
+        print("# BEGIN FILES", file=state_file)
+
+    def layout_sdist(self):
+        self.finalize()
+        import zipfile
+        root = Path(self.layout_dir).absolute()
+        assert root
+        try:
+            shutil.rmtree(root)
+        except OSError:
+            pass
+        root.mkdir(parents=True, exist_ok=True)
+
+        name, version = self.metadata["Name"], self.metadata["Version"]
+        sdist_basename = "{}-{}".format(
+            re.sub(r"[^\w\d.]+", "_", name, re.UNICODE),
+            re.sub(r"[^\w\d.]+", "_", version, re.UNICODE),
+        )
+        sdist = self.output_dir / (sdist_basename + ".tar.gz")
+        with (root / "__state.txt").open("w", encoding="utf-8") as f:
+            self._write_state(f, sdist, "targz")
+            for n in self.build_dir.rglob(r"**\*"):
+                if n.is_file():
+                    rn = root / n.relative_to(self.build_dir)
+                    rn.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy(n, rn)
+                    print(rn, file=f)
+        self.write("Wrote layout to", root)
+        return sdist.name
+
+    def layout_wheel(self, metadata_dir):
+        self.finalize()
+        import zipfile
+        root = Path(self.layout_dir).absolute()
+        assert root
+        try:
+            shutil.rmtree(root)
+        except OSError:
+            pass
+        root.mkdir(parents=True, exist_ok=True)
+
+        name, version = self.metadata["Name"], self.metadata["Version"]
+        wheel = self.output_dir / "{}-{}-{}.whl".format(
+            re.sub(r"[^\w\d.]+", "_", name, re.UNICODE),
+            re.sub(r"[^\w\d.]+", "_", version, re.UNICODE),
+            self.wheel_tag,
+        )
+        with (root / "__state.txt").open("w", encoding="utf-8") as f:
+            self._write_state(f, wheel, "whl")
+            for n in metadata_dir.rglob(r"**\*"):
+                if n.is_file():
+                    rn = root / n.relative_to(metadata_dir)
+                    rn.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy(n, rn)
+                    print(rn, file=f)
+            for n in self.build_dir.rglob(r"**\*"):
+                if n.is_file():
+                    rn = root / n.relative_to(self.build_dir)
+                    rn.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy(n, rn)
+                    print(rn, file=f)
+        self.write("Wrote layout to", root)
+        return wheel.name
+
+    def pack(self):
+        root = Path(self.layout_dir)
+        if not root:
+            print(
+                "'--layout-dir' argument is required when invoking the 'pack' command",
+                file=sys.stderr
+            )
+            return
+        root = root.absolute()
+        outfile = None
+        outfmt = None
+        with (root / "__state.txt").open("r", encoding="utf-8-sig") as f:
+            for i in f:
+                k, sep, v = i.strip().partition("=")
+                if not sep:
+                    break
+                if k == "output-file":
+                    outfile = Path(v)
+                elif k == "output-format":
+                    outfmt = v
+                elif not k.startswith("_") and hasattr(self, k) and not hasattr(type(self), k):
+                    setattr(self, k, v)
+                else:
+                    self.log("Property", k, "from layout directory is ignored")
+            files = [root / i.strip() for i in f if i.strip()]
+            extra = list(self.layout_extra_files or ())
+            seen = set()
+            while extra:
+                i = (extra.pop(0) or "").strip()
+                if i in seen:
+                    continue
+                seen.add(i)
+                if i.startswith("@"):
+                    with Path(i[1:]).open("r", encoding="utf-8-sig") as f2:
+                        extra.extend(f2)
+                elif i:
+                    files.append(root / i)
+        if not outfmt or not outfile:
+            print("Layout appears to be corrupted. Please rerun the first stage again.", file=sys.stderr)
+            return
+        if outfmt == "targz":
+            import gzip, tarfile
+            outfile.parent.mkdir(parents=True, exist_ok=True)
+            self.log("Writing .tar.gz to", outfile)
+            with gzip.open(outfile, "w") as f_gz:
+                with tarfile.TarFile.open(
+                    PurePath(outfile).with_suffix(""),
+                    "w",
+                    fileobj=f_gz,
+                    format=tarfile.PAX_FORMAT
+                ) as f:
+                    for n in files:
+                        if n.is_file():
+                            try:
+                                rn = n.relative_to(root)
+                            except ValueError:
+                                self.write("Not including", n, "from outside of layout directory")
+                            else:
+                                self.log("Adding", rn)
+                                f.add(n, arcname=rn)
+            self.write("Wrote sdist to", outfile)
+        elif outfmt == "whl":
+            import zipfile
+            record = []
+            record_files = []
+            outfile.parent.mkdir(parents=True, exist_ok=True)
+            self.log("Writing .whl to", outfile)
+            with zipfile.ZipFile(outfile, "w", compression=zipfile.ZIP_DEFLATED) as f:
+                for n in files:
+                    if n.is_file():
+                        try:
+                            rn = n.relative_to(root)
+                        except ValueError:
+                            self.write("Not including", n, "from outside of layout directory")
+                        else:
+                            self.log("Adding", rn)
+                            record.append(_add_and_record(f, n, rn))
+                    if n.match("*.dist-info/*"):
+                        n2 = r"{}\RECORD".format(n.parent.name)
+                        if n2 not in record_files:
+                            record_files.append(n2)
+                            record.append("{},,".format(n2))
+                record_file = "\n".join(record).encode("utf-8")
+                for n in record_files:
+                    f.writestr(n, record_file)
+            self.write("Wrote wheel to", outfile)
+        else:
+            print(
+                "Unsupported output format '{}'. Please do not modify the state file".format(
+                    outfmt,
+                ),
+                file=sys.stderr,
+            )

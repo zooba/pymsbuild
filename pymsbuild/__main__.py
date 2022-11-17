@@ -14,6 +14,13 @@ def _env(var, default=None):
     return v
 
 
+def _envp(var, default=None):
+    v = getenv(var)
+    if not v:
+        return default
+    return PurePath(v)
+
+
 def _envbool(var, default=None, is_true=True, is_false=False):
     v = getenv(var)
     if not v:
@@ -39,40 +46,53 @@ def parse_args():
         "--source-dir",
         "-s",
         type=PurePath,
-        default=_env("PYMSBUILD_SOURCE_DIR"),
+        default=_envp("PYMSBUILD_SOURCE_DIR"),
         help="Specify the source directory",
     )
     parser.add_argument(
         "--dist-dir",
         "-d",
         type=PurePath,
-        default=_env("PYMSBUILD_DIST_DIR"),
-        help="Set the temporary directory",
+        default=_envp("PYMSBUILD_DIST_DIR"),
+        help="Set the packaged outputs directory",
     )
     parser.add_argument(
         "--temp-dir",
         "-t",
         type=PurePath,
-        default=_env("PYMSBUILD_TEMP_DIR"),
-        help="Set the build artifacts directory",
+        default=_envp("PYMSBUILD_TEMP_DIR"),
+        help="Set the temporary working directory",
+    )
+    parser.add_argument(
+        "--layout-dir",
+        type=PurePath,
+        default=_envp("PYMSBUILD_LAYOUT_DIR"),
+        help="Set the layout directory and enable two-step build",
     )
     parser.add_argument(
         "--config",
         "-c",
         type=PurePath,
-        default=_env("PYMSBUILD_CONFIG"),
+        default=_envp("PYMSBUILD_CONFIG"),
         help="Override the path to _msbuild.py",
+    )
+    parser.add_argument(
+        "--add",
+        type=str,
+        nargs="*",
+        help="Specify additional file(s) to package when using the 'pack' command."
     )
     parser.add_argument(
         "command",
         type=str,
         nargs="*",
-        help="""one or more of 'init', 'generate', 'sdist', 'wheel', 'distinfo', 'clean'
+        help="""one or more of 'init', 'generate', 'sdist', 'wheel', 'pack', 'distinfo', 'clean'
 
 init: Initialise a new _msbuild.py file.
 generate: Generate the build files without building.
 sdist: Build an sdist.
 wheel: Build a wheel.
+pack: Perform the second step of a two-step build.
 distinfo: Build just the wheel metadata.
 clean: Clean any builds.
 """,
@@ -106,6 +126,8 @@ bs.config_file = ns.config
 root_dir = bs.source_dir / (ns.temp_dir or "build")
 bs.build_dir = root_dir / "layout"
 bs.temp_dir = root_dir / "temp"
+bs.layout_dir = ns.layout_dir
+bs.layout_extra_files = ns.add
 bs.verbose = ns.verbose
 bs.quiet = ns.quiet
 bs.force = ns.force
