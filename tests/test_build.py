@@ -69,8 +69,7 @@ def test_build_sdist(build_state, configuration):
     bs.build_sdist()
 
     files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*")}
-    assert files == {Path(p) for p in {"empty.py", "mod.c", "pyproject.toml", "_msbuild.py"}}
-    assert (bs.build_dir / "PKG-INFO").is_file()
+    assert files == {Path(p) for p in {"PKG-INFO", "empty.py", "mod.c", "pyproject.toml", "_msbuild.py"}}
     files = {p.relative_to(bs.output_dir) for p in bs.output_dir.rglob("**/*")}
     assert len(files) == 1
     f = next(iter(files))
