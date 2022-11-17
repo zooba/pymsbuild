@@ -34,20 +34,29 @@ class GroupSwitcher:
             return self._cm.__exit__(*exc_info)
 
 
-def _resolve_wildcards(basename, source):
+def _resolve_wildcards(basename, source, include_dirs=True):
     if source.parent.name == "**":
-        for d in source.parent.parent.rglob("*"):
-            if d.is_dir():
-                yield from _resolve_wildcards(basename, d / source.name)
+        name = PurePath(basename).parent
+        root = source.parent.parent
+        for p in root.iterdir():
+            if p.is_dir():
+                yield from _resolve_wildcards(
+                    name / p.relative_to(root) / source.name,
+                    p / "**" / source.name,
+                    include_dirs=False,
+                )
+            else:
+                yield name / p.name, p
     elif "**" in source.parts:
         raise ValueError("Unsupported wildcard pattern" + str(source))
     elif "*" in source.name or "?" in source.name:
-        name = PurePath(basename)
+        name = PurePath(basename).parent
         for p in source.parent.glob(source.name):
-            yield name.parent / p.name, p
+            if not p.is_dir():
+                yield name / p.name, p
     elif any("*" in p or "?" in p for p in source.parts):
         raise ValueError("Unsupported wildcard pattern " + str(source))
-    else:
+    elif include_dirs or not source.is_dir():
         yield basename, source
 
 
