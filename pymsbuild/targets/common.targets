@@ -22,10 +22,9 @@
   </Target>
 
   <Target Name="_CopyContent" Inputs="@(Content)" Outputs="%(Content.Destination)" DependsOnTargets="_MkdirContent">
-    <Copy SourceFiles="%(Content.FullPath)" DestinationFiles="%(Content.Destination)" Condition="%(Content.Destination) != ''" />
-    <ItemGroup>
-      <FileWrites Include="%(Content.Destination)" />
-    </ItemGroup>
+    <Copy SourceFiles="%(Content.FullPath)" DestinationFiles="%(Content.Destination)" Condition="%(Content.Destination) != ''">
+      <Output TaskParameter="CopiedFiles" ItemGroup="FileWrites" />
+    </Copy>
   </Target>
 
   <Target Name="_AssignProjectProperties">
