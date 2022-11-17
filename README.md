@@ -179,21 +179,22 @@ generate binaries), `tag` will be `None`. Otherwise, it will be a
 string like `cp38-cp38-win32`.
 
 ```python
-X64_ACCELERATOR = PydFile(
-    "_my_package",
-    CSourceFile(r"win32\*.c"),
-    IncludeFile(r"win32\*.h"),
-)
-
 PACKAGE = Package(
     "my_package",
     PyFile(r"my_package\*.py"),
 )
 
 def init_PACKAGE(tag=None):
-    if tag.endswith("-win_amd64"):
-        PACKAGE.members.append(X64_ACCELERATOR)
+    if tag and tag.endswith("-win_amd64"):
+        data_file = generate_data_amd64()
+        PACKAGE.members.add(File(data_file))
 ```
+
+Note that all files to be included in an sdist must be referenced when
+`tag` is `None`. Conditional compilation is best performed using conditions
+in the package elements, rather than using `init_PACKAGE`. However, if you
+are going to use `init_PACKAGE`, you should _remove_ elements rather than
+adding them if they should be included in your sdist.
 
 ## Source offsets
 
@@ -344,6 +345,10 @@ Generated sdists will rename the configuration file back to
 There is no need to override the configuration file path when
 building from sdists.
 
+Note that this is different from the `PYMSBUILD_CONFIGURATION`
+variable, which is used to select debug/release settings for compiled
+modules.
+
 ## Cross-compiling wheels
 
 Cross compilation may be used by overriding the wheel tag, ABI tag,
@@ -361,19 +366,26 @@ missing ABI tag and platform.
 The ABI tag is used for any native extension modules, and to fill in
 a missing platform.
 
+Any `*` elements in the wheel tag are filled in from other locations.
+For example, specifying `*-none-any` will infer the interpreter field
+from the current runtime, whil `py3-none-*` will infer the platform
+from the currnet system (or a specific ABI tag).
+
 The platform is used to determine the MSBuild target platform. It
 cannot yet automatically select the correct Python libraries, and so
-you will need to set `PYTHON_INCLUDES` and `PYTHON_LIBS` (or just
-`PYTHON_PREFIX`) environment variables as well to locate the correct
-files.
+you will need to set `PYTHON_INCLUDES` and `PYTHON_LIBS` (or with a
+`PYMSBULID_` prefix) environment variables as well to locate the
+correct files.
 
-You can also override the platform toolset with the `'PlatformToolset'`
+You can override the platform toolset with the `'PlatformToolset'`
 metadata value, for scenarios where this information ought to be
 included in an sdist.
 
 The set of valid platforms for auto-generated `.pyd` project files are
 hard-coded into `pymsbuild` and are currently `Win32`, `x64`, `ARM` and
-`ARM64`. Custom project files may use whatever they like.
+`ARM64`. Custom project files may use whatever they like. These
+platforms should behave properly cross-platform, though in general only
+`x64` and `ARM64` are supported.
 
 ```powershell
 # Directly specify the resulting wheel tag
@@ -391,9 +403,6 @@ $env:PYMSBUILD_PLATFORM = "win_arm64"
 # Specify the paths to ARM64 headers and libs
 $env:PYTHON_INCLUDES = "$pyarm64\Include"
 $env:PYTHON_LIBS = "$pyarm64\libs"
-
-# Alternatively, just specify the prefix directory
-$env:PYTHON_PREFIX = $pyarm64
 
 # If necessary, specify an alternate C++ toolset
 $env:PLATFORMTOOLSET = "Intel C++ Compiler 19.1"
@@ -455,7 +464,7 @@ python -m pymsbuild pack --layout-dir tmp --add tmp/EXTRA.txt
 
 ## DLL Packing
 
-**Experimental.**
+**Experimental. Windows only.**
 
 DLL Packing is a way to compile a complete Python package (`.py` source
 and resource files) into a Windows DLL. It is fundamentally equivalent
@@ -499,3 +508,23 @@ PACKAGE = DllPackage(
     ...
 )
 ```
+
+## Cross-platform builds
+
+**Experimental.**
+
+With the [.NET SDK](https://dotnet.microsoft.com/download) installed,
+`pymsbuild` is able to run builds on platforms other than Windows.
+The `dotnet` command must be available on `PATH` or specified as the
+`MSBUILD` environment variable.
+
+In general, no platform-specific modifications to a build script are
+required. Cython and pyd builds are transparently mapped to the target
+system. To run build-time actions for specific platforms, add them to
+`init_PACKAGE` and check the tag argument to determine the target
+platform.
+
+When building native components on POSIX, a `python3-config` script is
+needed to determine compilation options. By default, only the location
+adjacent to the running interpreter is checked. This may be overridden
+by setting the `PYTHON_CONFIG` variable to the preferred command.
