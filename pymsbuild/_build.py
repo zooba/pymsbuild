@@ -9,6 +9,7 @@ import sysconfig
 from pathlib import PurePath, Path
 
 from . import _generate
+from . import _tags
 
 if sys.platform == "win32":
     _WINDOWS = True
@@ -20,29 +21,6 @@ else:
 
 # Needed to avoid printing an unhelpful message every time we invoke dotnet
 os.environ["DOTNET_NOLOGO"] = "1"
-
-
-class TagPlatformMap(dict):
-    def __missing__(self, key):
-        if re.match(r"manylinux.+x86_64", key):
-            return "POSIX_x64"
-        raise KeyError(f"Unsupported platform '{key}'")
-
-_TAG_PLATFORM_MAP = TagPlatformMap({
-    "win32": "Win32",
-    "win_amd64": "x64",
-    "win_arm": "ARM",
-    "win_arm64": "ARM64",
-    "linux_x86_64": "POSIX_x64",
-    "macosx_10_15_x86_64": "POSIX_x64",
-    "any": None,
-})
-
-
-_REMAP_ABI_TO_EXT = {
-    "cp37m-win32": "cp37-win32",
-    "cp37m-win_amd64": "cp37-win_amd64",
-}
 
 
 def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
@@ -75,6 +53,7 @@ def _quote(s, start='"', end='"'):
 class BuildState:
     def __init__(self, output_dir=None):
         self._finalized = False
+        self._is_sdist = False
         self.verbose = False
         self.quiet = False
         self.force = False
@@ -127,6 +106,7 @@ class BuildState:
             if self.pkginfo.is_file():
                 self.log("Using", self.pkginfo)
                 self.metadata = _generate.readback_distinfo(self.pkginfo)
+                self.config.METADATA = self.metadata
             else:
                 if hasattr(self.config, "init_METADATA"):
                     self.log("Dynamically initialising METADATA")
@@ -150,23 +130,26 @@ class BuildState:
 
         self._set_best("build_number", None, "BUILD_BUILDNUMBER", None, getenv)
 
-        ext = sysconfig.get_config_var("EXT_SUFFIX")
-        default_wheel_tag = str(next(iter(packaging.tags.sys_tags()), None) or "py3-none-any")
-        default_abi_tag = ext.rpartition(".")[0].strip(".")
-        default_ext_suffix = ext.rpartition(".")[2]
-        self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", default_wheel_tag, getenv)
-        self._set_best("abi_tag", "AbiTag", "PYMSBUILD_ABI_TAG", default_abi_tag, getenv)
-        self._set_best("ext_suffix", "ExtSuffix", "PYMSBUILD_EXT_SUFFIX", default_ext_suffix, getenv)
-        if not self.ext_suffix.startswith("."):
-            self.ext_suffix = ".{}".format(self.ext_suffix)
-
-        p = getattr(next(iter(packaging.tags.parse_tag(self.wheel_tag)), None), "platform", None)
-        self._set_best("platform", None, "PYMSBUILD_PLATFORM", p, getenv)
+        self._set_best("ext_suffix", "ExtSuffix", "PYMSBUILD_EXT_SUFFIX", None, getenv)
+        self._set_best("abi_tag", "AbiTag", "PYMSBUILD_ABI_TAG", None, getenv)
+        self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
+        self._set_best("platform", None, "PYMSBUILD_PLATFORM", None, getenv)
         self._set_best("configuration", None, "PYMSBUILD_CONFIGURATION", "Release", getenv)
 
+        tags = _tags.choose_best_tags(
+            ext_suffix = self.ext_suffix,
+            abi_tag = self.abi_tag,
+            wheel_tag = self.wheel_tag,
+            platform_tag = self.platform,
+        )
+        self.ext_suffix = tags.ext_suffix
+        self.abi_tag = tags.abi_tag
+        self.wheel_tag = tags.wheel_tag
+        self.platform = tags.platform_tag
+
         self._set_best("python_config", None, "PYTHON_CONFIG", None, getenv)
-        self._set_best("python_includes", None, "PYTHON_INCLUDES", None, getenv)
-        self._set_best("python_libs", None, "PYTHON_LIBS", None, getenv)
+        self._set_best("python_includes", None, "PYTHON_INCLUDES", getenv("PYMSBUILD_PYTHON_INCLUDES"), getenv)
+        self._set_best("python_libs", None, "PYTHON_LIBS", getenv("PYMSBUILD_PYTHON_LIBS"), getenv)
 
         if not self.python_includes:
             self.python_includes = sysconfig.get_config_var("INCLUDEPY")
@@ -179,7 +162,10 @@ class BuildState:
         if self.package is None:
             if hasattr(self.config, "init_PACKAGE"):
                 self.log("Dynamically initialising PACKAGE")
-                pack = self.config.init_PACKAGE(str(self.wheel_tag))
+                if self._is_sdist:
+                    pack = self.config.init_PACKAGE(None)
+                else:
+                    pack = self.config.init_PACKAGE(str(self.wheel_tag))
                 if pack:
                     self.config.PACKAGE = self.package
             self.package = self.config.PACKAGE
@@ -225,11 +211,6 @@ class BuildState:
             _generate.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
 
         ext = self.ext_suffix
-        if self.abi_tag:
-            ext = ".{}{}".format(
-                _REMAP_ABI_TO_EXT.get(self.abi_tag, self.abi_tag),
-                self.ext_suffix
-            )
         self.log("Setting missing TargetExt to", ext)
 
         from . import _types as T
@@ -259,8 +240,8 @@ class BuildState:
         properties.setdefault("Configuration", self.configuration)
         if not properties.get("Platform"):
             try:
-                properties["Platform"] = _TAG_PLATFORM_MAP[self.platform]
-            except KeyError:
+                properties["Platform"] = _tags.remap_platform_to_msbuild(self.platform)
+            except LookupError:
                 self.write("WARNING:", self.platform, "is not a known platform. Projects may not compile")
                 properties["Platform"] = self.platform
         properties.setdefault("HostPython", sys.executable)
@@ -324,6 +305,7 @@ class BuildState:
             self.build()
 
     def build_sdist(self):
+        self._is_sdist = True
         self.finalize()
         self.target = "RebuildSdist" if self.force else "BuildSdist"
         if self.build_dir.is_dir():
@@ -336,6 +318,7 @@ class BuildState:
         return self.pack_sdist()
 
     def pack_sdist(self):
+        self._is_sdist = True
         self.finalize()
         import gzip, tarfile
         self.output_dir.mkdir(parents=True, exist_ok=True)
