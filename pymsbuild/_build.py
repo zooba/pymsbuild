@@ -461,7 +461,7 @@ class BuildState:
         sdist = self.output_dir / (sdist_basename + ".tar.gz")
         with (root / "__state.txt").open("w", encoding="utf-8") as f:
             self._write_state(f, sdist, "targz")
-            for n in self.build_dir.rglob(r"**\*"):
+            for n in self.build_dir.rglob("**/*"):
                 if n.is_file():
                     rn = root / n.relative_to(self.build_dir)
                     rn.parent.mkdir(parents=True, exist_ok=True)
@@ -489,13 +489,13 @@ class BuildState:
         )
         with (root / "__state.txt").open("w", encoding="utf-8") as f:
             self._write_state(f, wheel, "whl")
-            for n in metadata_dir.rglob(r"**\*"):
+            for n in metadata_dir.rglob("**/*"):
                 if n.is_file():
                     rn = root / n.relative_to(metadata_dir)
                     rn.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy(n, rn)
                     print(rn, file=f)
-            for n in self.build_dir.rglob(r"**\*"):
+            for n in self.build_dir.rglob("**/*"):
                 if n.is_file():
                     rn = root / n.relative_to(self.build_dir)
                     rn.parent.mkdir(parents=True, exist_ok=True)
