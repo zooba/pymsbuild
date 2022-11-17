@@ -63,7 +63,7 @@ def _init():
     DllPackFinder.__name__ += "_" + _NAME
     DllPackFinder.__qualname__ = "<generated>." + DllPackFinder.__name__
 
-    FINDER = next((m.__name__ == DllPackFinder.__name__ for m in sys.meta_path), None)
+    FINDER = next((getattr(m, "__name__", None) == DllPackFinder.__name__ for m in sys.meta_path), None)
     if not FINDER:
         FINDER = DllPackFinder()
         sys.meta_path.append(FINDER)
