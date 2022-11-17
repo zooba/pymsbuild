@@ -28,7 +28,26 @@
 
   <Target Name="ClCompile" Inputs="@(ClCompile)" Outputs="%(ClCompile._ResolvedOutput)">
     <Message Text="%(ClCompile.Identity) -> %(ClCompile.ObjectFile)" Importance="high" />
-    <Exec Command="$(CC_Cmd) -c -o %(ClCompile._ResolvedOutput) %(ClCompile.Identity) $(PythonCFlags)" />
+    <ItemGroup>
+      <_IncludeSpec Remove="@(_IncludeSpec)" />
+      <_IncludeSpec Include="%(ClCompile.AdditionalIncludeDirectories)">
+        <Spec>-I%(Identity)</Spec>
+      </_IncludeSpec>
+    </ItemGroup>
+    <PropertyGroup>
+      <!-- Base command -->
+      <_Cmd>$(CC_Cmd) -c</_Cmd>
+      <!-- Output file -->
+      <_Cmd>$(_Cmd) -o %(ClCompile._ResolvedOutput)</_Cmd>
+      <!-- Source file -->
+      <_Cmd>$(_Cmd) %(ClCompile.Identity)</_Cmd>
+      <!-- Include directories -->
+      <_Cmd>$(_Cmd) @(_IncludeSpec->'%(Spec)',' ')</_Cmd>
+      <!-- Python flags -->
+      <_Cmd>$(_Cmd) $(PythonCFlags)</_Cmd>
+    </PropertyGroup>
+    <Message Importance="Normal" Text="Executing $(_Cmd)" />
+    <Exec Command="$(_Cmd)" />
     <ItemGroup>
       <FileWrites Include="%(ClCompile._ResolvedOutput)" />
     </ItemGroup>
@@ -36,7 +55,26 @@
 
   <Target Name="Link" Inputs="@(_LinkerInputs)" Outputs="$(TargetPath)">
     <Message Text="-> $([msbuild]::MakeRelative($(OutDir), $(TargetPath)))" Importance="high" />
-    <Exec Command="$(Link_Cmd) -o $(TargetPath) @(_LinkerInputs,' ') $(PythonLDFlags)" />
+    <ItemGroup>
+      <_LibSpec Remove="@(_LibSpec)" />
+      <_LibSpec Include="%(_LinkerInputs.AdditionalLibraryDirectories)">
+        <Spec>-L%(Identity)</Spec>
+      </_LibSpec>
+    </ItemGroup>
+    <PropertyGroup>
+      <!-- Base command -->
+      <_Cmd>$(Link_Cmd)</_Cmd>
+      <!-- Output file -->
+      <_Cmd>$(_Cmd) -o $(TargetPath)</_Cmd>
+      <!-- Lib directories -->
+      <_Cmd>$(_Cmd) @(_LibSpec->'%(Spec)',' ')</_Cmd>
+      <!-- Source files -->
+      <_Cmd>$(_Cmd) @(_LinkerInputs, ' ')</_Cmd>
+      <!-- Python flags -->
+      <_Cmd>$(_Cmd) $(PythonLDFlags)</_Cmd>
+    </PropertyGroup>
+    <Message Importance="Normal" Text="Executing $(_Cmd)" />
+    <Exec Command="$(_Cmd)" />
     <ItemGroup>
       <FileWrites Include="$(TargetPath)" />
     </ItemGroup>
