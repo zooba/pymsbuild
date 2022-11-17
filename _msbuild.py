@@ -20,7 +20,7 @@ METADATA = {
     "Summary": "The pymsbuild build backend.",
     "Description": File("README.md"),
     "Description-Content-Type": "text/markdown",
-    "Keywords": "build,pep-517,msbuild,packaging",
+    "Keywords": "build,pep-517,msbuild,packaging,cython",
     "Classifier": [
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
@@ -31,6 +31,7 @@ METADATA = {
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Software Development :: Build Tools",
         "Topic :: Software Development :: Compilers",
         "Topic :: Utilities",
