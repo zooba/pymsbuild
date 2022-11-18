@@ -76,20 +76,25 @@ def choose_best_tags(
         sys_wheel_tag = next(iter(parse_tag(sys_wheel_tag)), None)
 
     if wheel_tag and not isinstance(wheel_tag, Tag):
-        wheel_tag = next(iter(parse_tag(wheel_tag)), None)
+        # Ensure we can correctly parse the tag, but then just split
+        # We don't want to expand out compressed fields
+        if next(iter(parse_tag(wheel_tag)), None):
+            wheel_tag = Tag(*wheel_tag.split('-', 3))
 
     # Extract the ABI portion from an explicit ABI tag or wheel tag
     abi_only = None
     if abi_tag:
         abi_only = abi_tag.partition('-')[0]
-    elif wheel_tag and wheel_tag.abi != "*":
+    elif wheel_tag and wheel_tag.abi != "*" and "." not in wheel_tag.abi:
         abi_only = wheel_tag.abi
 
     # Overwrite the ABI tag and platform tag from an explicit wheel tag
     if wheel_tag:
         if not abi_tag and "*" not in (wheel_tag.abi, wheel_tag.platform):
             abi_tag = f"{wheel_tag.abi}-{wheel_tag.platform}"
-        if not platform_tag and wheel_tag.platform != "*":
+            if "." in abi_tag:
+                abi_tag = None
+        if not platform_tag and wheel_tag.platform != "*" and "." not in wheel_tag.platform:
             platform_tag = wheel_tag.platform
 
     # Infer the ABI tag from explicit or default ext_suffix, and update the ABI

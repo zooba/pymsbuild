@@ -20,3 +20,13 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
 def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None):
     bs = _BuildState(metadata_directory)
     return bs.prepare_wheel_distinfo(bs.output_dir)
+
+
+def get_requires_for_build_sdist(config_settings=None):
+    bs = _BuildState()
+    return bs.get_requires_for_build_sdist()
+
+
+def get_requires_for_build_wheel(config_settings=None):
+    bs = _BuildState()
+    return bs.get_requires_for_build_wheel()

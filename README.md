@@ -68,6 +68,11 @@ On other platforms, the [.NET SDK](https://dotnet.microsoft.com/download) will b
 required. The `dotnet` command must be available on `PATH` or specified as the
 `MSBUILD` environment variable.
 
+If you have additional requirements for building either sdist or wheels, add
+them as `BuildSdistRequires` or `BuildWheelRequires` values in `METADATA`. They
+will be parsed after `init_METADATA` and/or `init_PACKAGE` have been called, so
+may be modified by these functions.
+
 # Usage
 
 ## Rebuild the current project in-place.

@@ -116,8 +116,9 @@ if not getattr(ns, "command", None):
     ns.command = ["build_in_place"]
 
 if "init" in ns.command:
-    print("TODO: Generate workflow")
-    sys.exit(2)
+    from . import _init
+    _init.run(Path.cwd(), ns.config)
+    sys.exit(0)
 
 bs = BuildState()
 bs.source_dir = Path.cwd() / (ns.source_dir or "")

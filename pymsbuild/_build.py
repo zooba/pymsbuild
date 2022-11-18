@@ -307,6 +307,11 @@ class BuildState:
             self.target = "Clean"
             self.build()
 
+    def get_requires_for_build_sdist(self):
+        self._is_sdist = True
+        self.finalize()
+        return self.metadata.get("BuildSdistRequires", [])
+
     def build_sdist(self):
         self._is_sdist = True
         self.finalize()
@@ -345,6 +350,11 @@ class BuildState:
                 )
         self.write("Wrote sdist to", sdist)
         return sdist.name
+
+    def get_requires_for_build_wheel(self):
+        self._is_sdist = True
+        self.finalize()
+        return self.metadata.get("BuildWheelRequires", [])
 
     def build_wheel(self, metadata_dir=None):
         self.finalize()

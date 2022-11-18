@@ -70,6 +70,15 @@ def test_choose_best_tags_from_wheel():
         wheel_tag = "py311-cp311-win_amd64",
     )
 
+def test_choose_best_tags_from_wheel_compressed():
+    r = T.choose_best_tags("py399-cp399-plat", ".cp399-plat.ext", wheel_tag="py311-cp310.cp311-win32.win_amd64")
+    assert tags_as_dict(r) == dict(
+        abi_tag = "cp399-plat",
+        platform_tag = "plat",
+        ext_suffix = ".cp399-plat.ext",
+        wheel_tag = "py311-cp310.cp311-win32.win_amd64",
+    )
+
 def test_choose_best_tags_from_wheel_no_interpreter():
     r = T.choose_best_tags("py399-cp399-plat", ".cp399-plat.ext", wheel_tag="*-cp311-win_amd64")
     assert tags_as_dict(r) == dict(
