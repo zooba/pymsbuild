@@ -192,7 +192,7 @@ PACKAGE = Package(
 def init_PACKAGE(tag=None):
     if tag and tag.endswith("-win_amd64"):
         data_file = generate_data_amd64()
-        PACKAGE.members.add(File(data_file))
+        PACKAGE.members.append(File(data_file))
 ```
 
 Note that all files to be included in an sdist must be referenced when
@@ -200,6 +200,43 @@ Note that all files to be included in an sdist must be referenced when
 in the package elements, rather than using `init_PACKAGE`. However, if you
 are going to use `init_PACKAGE`, you should _remove_ elements rather than
 adding them if they should be included in your sdist.
+
+Files added as part of a wildcard can be removed by adding a `RemoveFile`
+element. These may be added dynamically during `init_PACKAGE`, and must
+appear after the element that included the files.
+
+```python
+PACKAGE = Package(
+    "my_package",
+    PyFile(r"my_package\*.py"),
+    RemoveFile(PyFile, r"my_package\_internal.py"),
+)
+```
+
+To exclude files from a wildcard in the first place, chain the `.excluding`
+method on the original element. The pattern will be evaluated in exactly the
+same way as the inclusion pattern, and any paths that match will be omitted.
+
+```python
+PACKAGE = Package(
+    "my_package",
+    PyFile(r"my_package\*.py").excluding("my_package\internal*.py"),
+)
+```
+
+Alternatively, a condition may be added to the file pattern to only include
+files matching MSBuild style conditions. Because these will be applied to
+item groups, the `%()` metadata syntax should be used to access information
+for the element being added. Either the `.if_` method or the
+`ConditionalValue` wrapper may be used.
+
+```python
+PACKAGE = Package(
+    "my_package",
+    PyFile(r"my_package\*.py").if_("%(Filename) != '_internal'"),
+    File(ConditionalValue("*.txt", condition="%(Filename.StartsWith(`internal`))")),
+)
+```
 
 ## Source offsets
 
@@ -296,15 +333,29 @@ arguments for file elements.
         AdditionalIncludeDirectories=
             ConditionalValue(INCLUDES + ";", prepend=True),
         ProprocessorDefinitions=
-            ConditionalValue(";Py_LIMETED_API", append=True),
+            ConditionalValue(";Py_LIMITED_API", append=True),
     ),
     ...
 ```
 
+The `Prepend` shortcut may be used to reduce the amount of text for
+property values. Remember to include the appropriate separator.
+
+```python
+    ...
+    ItemDefinition(
+        "ClCompile",
+        AdditionalIncludeDirectories=Prepend(INCLUDES + ";"),
+        ProprocessorDefinitions=Prepend("Py_LIMITED_API;"),
+    ),
+    ...
+```
 `ConditionalValue` may also be used to dynamically update values in the
 `init_PACKAGE` function, allowing you to keep the structure mostly
 static but insert values from the current `METADATA` (which is fully
-evaluated by the time `init_PACKAGE` is called).
+evaluated by the time `init_PACKAGE` is called). This saves having to
+access internal members of other types in order to replace literal
+values.
 
 ```python
 VER = ConditionalValue("1.0.0")

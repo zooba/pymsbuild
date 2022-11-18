@@ -1,16 +1,10 @@
 import os
 from pymsbuild import *
 
-VERSION = os.getenv("BUILD_BUILDNUMBER", "0.0.1")
-
-GHREF = os.getenv("GITHUB_REF")
-if GHREF:
-    VERSION = GHREF.rpartition("/")[2]
-
 METADATA = {
     "Metadata-Version": "2.1",
     "Name": "pymsbuild",
-    "Version": VERSION,
+    "Version": "0.0.1",
     "Author": "Steve Dower",
     "Author-email": "steve.dower@python.org",
     "Home-page": "https://github.com/zooba/pymsbuild",
@@ -49,3 +43,22 @@ PACKAGE = Package(
     PyFile("pymsbuild/*.py"),
     File("pymsbuild/targets/*", name="targets/*"),
 )
+
+def init_METADATA():
+    version = os.getenv("BUILD_BUILDNUMBER")
+    ghref = os.getenv("GITHUB_REF")
+    if ghref:
+        version = ghref.rpartition("/")[2]
+    if version:
+        METADATA["Version"] = version
+
+def init_PACKAGE(tag=None):
+    if tag is None:
+        return
+    with open("pymsbuild/__init__.py", "r", encoding="utf-8") as f:
+        content = f.read()
+    content = content.replace("%VERSION%", METADATA["Version"])
+    with open("pymsbuild/__init__.py.ver", "w", encoding="utf-8") as f:
+        f.write(content)
+    PACKAGE.members.append(RemoveFile(PyFile, "pymsbuild/__init__.py"))
+    PACKAGE.members.append(PyFile("pymsbuild/__init__.py.ver", name="__init__.py"))

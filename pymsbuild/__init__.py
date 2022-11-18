@@ -1,10 +1,16 @@
 """The pymsbuild build backend.
 """
 
-__version__ = "0.0.1"
+__version__ = "%VERSION%"
+
+PYMSBUILD_REQUIRES_SPEC = f"pymsbuild>={__version__},<1.0"
 
 from pymsbuild._build import BuildState as _BuildState
 from pymsbuild._types import *
+
+
+def get_current_build_state():
+    return _BuildState.current
 
 
 def build_sdist(sdist_directory, config_settings=None):
