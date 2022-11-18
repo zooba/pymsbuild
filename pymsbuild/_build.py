@@ -51,6 +51,9 @@ def _quote(s, start='"', end='"'):
 
 
 class BuildState:
+    # Updated around init_METADATA and init_PACKAGE calls
+    current = None
+
     def __init__(self, output_dir=None):
         self._finalized = False
         self._is_sdist = False
@@ -94,6 +97,8 @@ class BuildState:
         self.pkginfo = self.source_dir / (self.pkginfo or "PKG-INFO")
 
         self._set_best("config_file", None, "PYMSBUILD_CONFIG", "_msbuild.py", getenv)
+
+        type(self).current = self
 
         if self.config is None:
             import importlib.util
@@ -172,6 +177,8 @@ class BuildState:
                 if pack:
                     self.config.PACKAGE = self.package
             self.package = self.config.PACKAGE
+
+        type(self).current = None
 
     def _set_best(self, key, metakey, envkey, default, getenv):
         if getattr(self, key, None):
@@ -307,6 +314,11 @@ class BuildState:
             self.target = "Clean"
             self.build()
 
+    def get_requires_for_build_sdist(self):
+        self._is_sdist = True
+        self.finalize()
+        return self.metadata.get("BuildSdistRequires", [])
+
     def build_sdist(self):
         self._is_sdist = True
         self.finalize()
@@ -345,6 +357,11 @@ class BuildState:
                 )
         self.write("Wrote sdist to", sdist)
         return sdist.name
+
+    def get_requires_for_build_wheel(self):
+        self._is_sdist = True
+        self.finalize()
+        return self.metadata.get("BuildWheelRequires", [])
 
     def build_wheel(self, metadata_dir=None):
         self.finalize()

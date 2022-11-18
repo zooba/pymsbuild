@@ -1,0 +1,57 @@
+import os
+from pymsbuild import *
+
+# See https://packaging.python.org/en/latest/specifications/core-metadata/ for fields
+METADATA = {
+    "Metadata-Version": "2.1",
+    "Name": "<NAME>",
+    "Version": "1.0",
+    "Author": "TODO",
+    "Author-email": "TODO",
+    "Home-page": "TODO",
+    "Project-url": [
+        "Bug Tracker, TODO",
+    ],
+    "Summary": "TODO",
+    "Description": File("README.md"),
+    "Description-Content-Type": "text/markdown",
+    "Keywords": "your,keywords,go,here",
+    "Classifier": [
+        # See https://pypi.org/classifiers/ for the full list
+    ],
+    "Requires-Dist": [
+        # https://packaging.python.org/en/latest/specifications/dependency-specifiers/
+    ],
+
+    # Universal wheel? Uncomment this to target all Python 3 installs.
+    #"WheelTag": "py3-none-any",
+
+    # Limited ABI wheel? Uncomment this for abi3 on the target platform.
+    #"WheelTag": "py3-abi3-*",
+
+    # Additional build dependencies? If they can't go in pyproject.toml, they go here.
+    #"BuildSdistRequires": [],
+    #"BuildWheelRequires": [],
+}
+
+
+<PACKAGE>
+
+
+# OPTIONAL: Update METADATA entries while building an sdist
+# These are kept in the sdist, and sdist builds will not call this again
+def init_METADATA():
+    # EXAMPLE: Extract version-like tags from GitHub Actions builds
+    import os, re
+    _, sep, version = os.getenv("GITHUB_REF", "").rpartition("/")
+    if sep and re.match(r"\d+(\.\d+)+$", version):
+        # Looks like a version tag
+        METADATA["Version"] = version
+
+
+# OPTIONAL: Update PACKAGE entries while building an sdist or wheel.
+# 'tag' will be the wheel tag, or 'None' for an sdist.
+# In general, you  want all entries to be present for sdist builds, but might remove
+# or modify some for wheels. See https://pypi.org/project/pymsbuild for examples.
+#def init_PACKAGE(tag=None):
+#    pass

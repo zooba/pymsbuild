@@ -101,25 +101,27 @@ class ProjectFileWriter:
         self._write_value(name, value, "$")
 
     def add_item(self, kind, name, **metadata):
-        n = str(name)
         c = None
+        excl = None
+        remove = None
         if getattr(name, "has_condition", False):
             c = name.condition
+            excl = getattr(name, "exclude", None)
+            remove = getattr(name, "remove", None)
             if getattr(name, "if_empty", False):
                 c = "@({}) == ''".format(kind)
             if getattr(name, "append", False) or getattr(name, "prepend", False):
                 raise ValueError("'append' and 'prepend' are not supported on '{}'".format(name))
 
+        attrs = dict(Include=str(name), Condition=c, Exclude=excl, Remove=remove)
+        attrs = {k: v for k, v in attrs.items() if v}
         if metadata:
-            with self.group(kind, Include=n, Condition=c):
+            with self.group(kind, **attrs):
                 for k, v in metadata.items():
                     if v is not None:
                         self._write_value(k, v, "%")
         else:
-            if c:
-                self.write("<", kind, ' Include="', n, '" Condition="', c, '" />')
-            else:
-                self.write("<", kind, ' Include="', n, '" />')
+            self.write("<", kind, *[f' {k}="{v}"' for k, v in attrs.items()], " />")
 
     def add_item_property(self, kind, name, value):
         self._write_value(name, value, "%")

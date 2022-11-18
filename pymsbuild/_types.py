@@ -14,6 +14,7 @@ __all__ = [
     "CSourceFile",
     "IncludeFile",
     "File",
+    "RemoveFile",
 ]
 
 
@@ -104,7 +105,8 @@ Specify `condition` to directly control the test, or `if_empty` to
 check for an existing value.
 
 Specify either `prepend` or `append` (or both, if you have a reason)
-to concatenate the existing property value.
+to concatenate the existing property value. Remember to include the
+appropriate separator character in your value.
 """
     has_condition = True
 
@@ -126,6 +128,15 @@ to concatenate the existing property value.
 
     def __str__(self):
         return str(self.value)
+
+
+def Prepend(value):
+    r"""Add a value that will prepend any existing value.
+
+This is a helper function for ConditionalValue that sets `prepend` to True.
+Remember to include the appropriate separator character in your value.
+"""
+    return ConditionalValue(value, prepend=True)
 
 
 class Property:
@@ -173,12 +184,24 @@ project treats "Content" elements.
 """
     _ITEMNAME = "Content"
     options = {}
+    has_condition = False
+    condition = None
 
     def __init__(self, source, name=None, **metadata):
         self.source = PurePath(source)
         self.name = name or self.source.name
         self.members = []
         self.options = {**self.options, **metadata}
+
+    def excluding(self, pattern):
+        self.has_condition = True
+        self.exclude = pattern
+        return self
+
+    def if_(self, condition):
+        self.has_condition = True
+        self.condition = condition
+        return self
 
 
 class PyFile(File):
@@ -244,3 +267,25 @@ but they do not produce linkable outputs.
 """
     _ITEMNAME = "ClInclude"
 
+class RemoveFile:
+    r"""Removes a file that has already been added.
+
+This must appear after the files that were added, and must specify the
+same kind (either the class used to create it, or the string literal
+matching the MSBuild item name).
+"""
+    _ITEMNAME = None
+    name = None
+    members = ()
+    has_condition = True
+    condition = None
+
+    def __init__(self, kind, pattern):
+        self._ITEMNAME = getattr(kind, "_ITEMNAME", None) or str(kind)
+        self.exclude = pattern
+
+    def if_(self, condition):
+        self.condition = condition
+
+    def __str__(self):
+        return ""

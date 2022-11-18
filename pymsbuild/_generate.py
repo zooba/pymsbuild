@@ -79,10 +79,21 @@ def _write_members(f, source_dir, members):
             if isinstance(p, File):
                 g.switch_to("ItemGroup")
                 wrote_any = False
+                exclude = ()
+                condition = None
+                if getattr(p, "has_condition", False):
+                    condition = getattr(p, "condition", None)
+                    pattern = getattr(p, "exclude", None)
+                    if pattern:
+                        exclude = {p2 for n2, p2 in _resolve_wildcards(n, source_dir / pattern)}
                 for n2, p2 in _resolve_wildcards(n, source_dir / p.source):
+                    if p2 in exclude:
+                        continue
                     options = dict(p.options)
                     options.setdefault("SourceDir", source_dir)
                     options.setdefault("Name", n2)
+                    if condition:
+                        p2 = ConditionalValue(p2, condition=condition)
                     f.add_item(p._ITEMNAME, p2, **options)
                     wrote_any = True
                 if not wrote_any:
