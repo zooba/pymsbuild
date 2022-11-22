@@ -1,8 +1,4 @@
 <Project>
-  <PropertyGroup>
-    <BeforeBuildGenerateSourcesTargets>_BuildCythonSdist;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
-  </PropertyGroup>
-
   <ItemGroup>
     <_PyxCompileWithOutput Include="@(PyxCompile)">
       <IncludeDirs>%(IncludeDirs)</IncludeDirs>
@@ -62,7 +58,7 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="_BuildCythonSdist" DependsOnTargets="Cythonize">
+  <Target Name="_BuildCythonSdist" DependsOnTargets="Cythonize" BeforeTargets="CalculateSdist">
     <ItemGroup>
       <Sdist Include="@(_PyxCompileWithOutput)">
         <RelativeSource>%(RelativeSource)</RelativeSource>
