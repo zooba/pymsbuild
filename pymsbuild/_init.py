@@ -72,6 +72,8 @@ def _generate_module(root, offset=None, build_requires=None, _indent="    ", _ro
 
 
 def run(root, config_name="_msbuild.py"):
+    if not config_name:
+        config_name = "_msbuild.py"
     if (root / config_name).is_file():
         print(config_name, "already exists. Delete the file before using 'init'", file=sys.stderr)
         return
