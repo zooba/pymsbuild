@@ -40,6 +40,7 @@ METADATA = {
 PACKAGE = Package(
     "pymsbuild",
     PyFile("pymsbuild/*.py"),
+    File("pymsbuild/_msbuild.py.in"),
     File("pymsbuild/targets/*", name="targets/*"),
 )
 
