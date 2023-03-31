@@ -7,6 +7,7 @@ __all__ = [
     "PydFile",
     "LiteralXML",
     "ConditionalValue",
+    "Prepend",
     "Property",
     "ItemDefinition",
     "PyFile",
