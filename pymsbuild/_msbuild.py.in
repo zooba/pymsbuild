@@ -27,6 +27,7 @@ METADATA = {
     #"WheelTag": "py3-none-any",
 
     # Limited ABI wheel? Uncomment this for abi3 on the target platform.
+    # (Remember to also specify the build variables to actually enable it)
     #"WheelTag": "py3-abi3-*",
 
     # Additional build dependencies? If they can't go in pyproject.toml, they go here.
@@ -44,7 +45,7 @@ def init_METADATA():
     # EXAMPLE: Extract version-like tags from GitHub Actions builds
     import os, re
     _, sep, version = os.getenv("GITHUB_REF", "").rpartition("/")
-    if sep and re.match(r"\d+(\.\d+)+$", version):
+    if sep and re.match(r"(\d+!)?\d+(\.\d+)+((a|b|rc)\d+)?(\.post\d+)?(\.dev\d+)?$", version):
         # Looks like a version tag
         METADATA["Version"] = version
 
