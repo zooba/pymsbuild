@@ -135,11 +135,21 @@ bs.force = ns.force
 if ns.debug:
     bs.configuration = "Debug"
 
-for cmd in ns.command:
-    cmd = {
+if ns.layout_dir:
+    COMMANDS = {
+        "sdist": "layout_sdist",
+        "wheel": "layout_wheel",
+        "distinfo": "prepare_wheel_distinfo",
+    }
+else:
+    COMMANDS = {
         "sdist": "build_sdist",
         "wheel": "build_wheel",
         "distinfo": "prepare_wheel_distinfo",
-    }.get(cmd, cmd)
+    }
+
+
+for cmd in ns.command:
+    cmd = COMMANDS.get(cmd, cmd)
     f = getattr(bs, cmd)
     f()

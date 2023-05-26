@@ -43,6 +43,7 @@ def build_state(tmp_path, testdata):
 def test_build(build_state, configuration):
     os.environ["BUILD_BUILDNUMBER"] = "1"
     bs = build_state
+    bs.finalize(in_place=True)
     bs.generate()
     del os.environ["BUILD_BUILDNUMBER"]
     bs.target = "Build"
@@ -64,6 +65,7 @@ def test_build(build_state, configuration):
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
 def test_build_sdist(build_state, configuration):
     bs = build_state
+    bs.finalize(sdist=True)
     bs.generate()
     bs.configuration = configuration
     bs.build_sdist()
@@ -84,8 +86,9 @@ def test_build_sdist(build_state, configuration):
 def test_build_sdist_layout(build_state):
     bs = build_state
     bs.layout_dir = bs.temp_dir / "layout"
+    bs.finalize(sdist=True)
     bs.generate()
-    bs.build_sdist()
+    bs.layout_sdist()
 
     files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**/*") if p.is_file()}
     assert not files
@@ -103,8 +106,9 @@ def test_build_sdist_layout(build_state):
 def test_build_wheel_layout(build_state):
     bs = build_state
     bs.layout_dir = bs.temp_dir / "layout"
+    bs.finalize(sdist=True)
     bs.generate()
-    bs.build_wheel()
+    bs.layout_wheel()
 
     files = {str(p.relative_to(bs.output_dir)) for p in bs.output_dir.rglob("**/*")}
     assert not files
@@ -135,6 +139,7 @@ def test_build_test_project(build_state, proj, configuration):
     bs.source_dir = bs.source_dir.parent / proj
     bs.package = None
     bs.verbose = True
+    bs.finalize()
     bs.generate()
     bs.configuration = configuration
     bs.build()
@@ -146,6 +151,7 @@ def test_dllpack(build_state, configuration):
     bs = build_state
     bs.source_dir = bs.source_dir.parent / "testdllpack"
     bs.package = None
+    bs.finalize()
     bs.generate()
     bs.configuration = configuration
     bs.build()
