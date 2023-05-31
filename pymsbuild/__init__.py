@@ -2,8 +2,12 @@
 """
 
 __version__ = "%VERSION%"
+try:
+    NEXT_INCOMPATIBLE_VERSION = "{}.0".format(int(__version__.partition(".")[0]) + 1)
+    PYMSBUILD_REQUIRES_SPEC = f"pymsbuild>={__version__},<{NEXT_INCOMPATIBLE_VERSION}"
+except ValueError:
+    PYMSBUILD_REQUIRES_SPEC = "pymsbuild"
 
-PYMSBUILD_REQUIRES_SPEC = f"pymsbuild>={__version__},<1.0"
 
 from pymsbuild._build import BuildState as _BuildState
 from pymsbuild._types import *

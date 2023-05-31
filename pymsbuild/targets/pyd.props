@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <TargetExt Condition="$(__TargetExt) != ''">$(__TargetExt)</TargetExt>
-    <TargetPath>$([System.IO.Path]::Combine($(ProjectDir),$(OutDir),$(TargetName)$(TargetExt)))</TargetPath>
+    <TargetPath>$([System.IO.Path]::Combine(`$(ProjectDir)`,`$(OutDir)`,`$(TargetName)$(TargetExt)`))</TargetPath>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <ItemDefinitionGroup>

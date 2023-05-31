@@ -85,10 +85,11 @@ class BuildState:
         self.temp_dir = None
         self.layout_dir = None
         self.layout_extra_files = []
-        self._metadata_dir = None
+        self.metadata_dir = None
         self.pkginfo = None
         self.source_dir = Path.cwd()
         self.config_file = None
+        self.state_file = None
         self.targets = Path(__file__).absolute().parent / "targets"
         self.wheel_tag = None
         self.abi_tag = None
@@ -110,9 +111,12 @@ class BuildState:
         self.layout_dir = self.source_dir / (self.layout_dir or "build/layout")
         self.temp_dir = self.source_dir / (self.temp_dir or "build/temp")
         self.pkginfo = self.source_dir / (self.pkginfo or "PKG-INFO")
-        self._metadata_dir = self.temp_dir / (self._metadata_dir or "metadata")
+        self.metadata_dir = self.temp_dir / (self.metadata_dir or "metadata")
 
         self._set_best("config_file", None, "PYMSBUILD_CONFIG", "_msbuild.py", getenv)
+        self._set_best("state_file", None, "PYMSBUILD_STATE_FILE", (self.layout_dir / "__state.txt"), getenv)
+        if self.state_file:
+            self.state_file = Path(self.state_file)
 
         type(self).current = self
 
@@ -141,6 +145,8 @@ class BuildState:
                         self.metadata = self.config.METADATA
                 if hasattr(self.config, "METADATA"):
                     self.metadata = self.config.METADATA
+        if self.metadata is None:
+            raise RuntimeError("failed to locate METADATA")
 
         self._set_best("msbuild_exe", None, "MSBUILD", None, getenv)
         if self.msbuild_exe is None:
@@ -159,10 +165,14 @@ class BuildState:
         self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
         self._set_best("platform", None, "PYMSBUILD_PLATFORM", None, getenv)
         self._set_best("configuration", None, "PYMSBUILD_CONFIGURATION", "Release", getenv)
-        self._set_best("target", None, "PYMSBUILD_TARGET", "{}{}".format(
-            "Rebuild" if self.force else "Build",
-            "Sdist" if sdist else "InPlace" if in_place else "",
-        ), getenv)
+
+        if in_place:
+            default_target = "RelayoutInPlace" if self.force else "LayoutInPlace"
+        elif sdist:
+            default_target = "RelayoutSdist" if self.force else "LayoutSdist"
+        else:
+            default_target = "Relayout" if self.force else "Layout"
+        self._set_best("target", None, "PYMSBUILD_TARGET", default_target, getenv)
 
         tags = _tags.choose_best_tags(
             ext_suffix = self.ext_suffix,
@@ -374,9 +384,13 @@ class BuildState:
         import gzip, tarfile
         with gzip.open(sdist, "w") as f_gz:
             with tarfile.TarFile.open(tar_name, "w", fileobj=f_gz, format=tarfile.PAX_FORMAT) as f:
+                self.log("Packing files into", sdist)
                 for n, rn in rel_files:
-                    self.log("Adding", rn)
+                    if n == self.state_file:
+                        continue
+                    self.log("-", rn)
                     f.add(n, arcname=rn)
+                self.log()
         self.write("Wrote sdist to", sdist)
         return sdist.name
 
@@ -392,9 +406,12 @@ class BuildState:
         if not self.layout_dir.is_dir():
             raise RuntimeError(f"Build failed to create {self.layout_dir}")
 
+        if not self.metadata_dir.is_dir():
+            self.prepare_wheel_distinfo()
+
         # Copy metadata_dir into layout_dir
-        if self._metadata_dir != self.layout_dir:
-            for n, rn in _relative_to_layout(None, self._metadata_dir):
+        if self.metadata_dir != self.layout_dir:
+            for n, rn in _relative_to_layout(None, self.metadata_dir):
                 n2 = self.layout_dir / rn
                 n2.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy(n, n2)
@@ -406,8 +423,8 @@ class BuildState:
     def build_wheel(self, metadata_dir=None):
         self.finalize()
         if metadata_dir:
-            self._metadata_dir = Path(metadata_dir)
-            if not self._metadata_dir.is_dir():
+            self.metadata_dir = Path(metadata_dir)
+            if not self.metadata_dir.is_dir():
                 self.prepare_wheel_distinfo()
         else:
             self.prepare_wheel_distinfo()
@@ -425,23 +442,28 @@ class BuildState:
 
         import zipfile
         with zipfile.ZipFile(wheel, "w", compression=zipfile.ZIP_DEFLATED) as f:
+            self.log("Packing files into", wheel)
             for n, rn in rel_files:
-                self.log("Adding", rn)
+                if n == self.state_file:
+                    continue
+                self.log("-", rn)
                 record.append(_add_and_record(f, n, rn))
-            for n in self._metadata_dir.glob("*.dist-info"):
+            for n in self.metadata_dir.glob("*.dist-info"):
                 if n.is_dir():
                     record_files.append(rf"{n.name}/RECORD")
                     record.append(rf"{n.name}/RECORD,,")
             record_file = "\n".join(record).encode("utf-8")
             for n in record_files:
+                self.log("-", n)
                 f.writestr(n, record_file)
+            self.log()
         self.write("Wrote wheel to", wheel)
         return wheel.name
 
     def prepare_wheel_distinfo(self):
         self.finalize()
         self.generate()
-        outdir = self._metadata_dir / self.distinfo_name
+        outdir = self.metadata_dir / self.distinfo_name
         outdir.mkdir(parents=True, exist_ok=True)
         from pymsbuild import __version__
         with open(outdir / "WHEEL", "w", encoding="utf-8") as f:
@@ -456,10 +478,10 @@ class BuildState:
         return outdir.name
 
     def _write_state(self, cmd):
-        with (self.layout_dir / "__state.txt").open("w", encoding="utf-8") as f:
+        with self.state_file.open("w", encoding="utf-8") as f:
             print("pack-command=", cmd, sep="", file=f)
             for k in dir(self):
-                if not k.startswith("_") and not hasattr(type(self), k):
+                if not k.startswith("_") and not hasattr(type(self), k) and k not in {"layout_dir"}:
                     v = getattr(self, k)
                     if isinstance(v, (str, PurePath)):
                         print(k, "=", getattr(self, k), sep="", file=f)
@@ -469,15 +491,14 @@ class BuildState:
 
     def pack(self):
         self.finalize()
-        root = self.layout_dir
-        if not root or not (root / "__state.txt").is_file():
+        if not self.state_file or not self.state_file.is_file():
             print(
                 "'--layout-dir' argument is required when invoking the 'pack' command",
                 file=sys.stderr
             )
             return
         cmd = None
-        with (root / "__state.txt").open("r", encoding="utf-8-sig") as f:
+        with self.state_file.open("r", encoding="utf-8-sig") as f:
             for i in f:
                 k, sep, v = i.strip().partition("=")
                 if not sep:
@@ -488,7 +509,11 @@ class BuildState:
                     setattr(self, k, v)
                 else:
                     self.log("Property", k, "from layout directory is ignored")
-            files = [root / i.strip() for i in f if i.strip()]
+            for k in ["layout_dir", "output_dir", "build_dir", "temp_dir", "metadata_dir"]:
+                v = getattr(self, k, None)
+                if v:
+                    setattr(self, k, Path(v))
+            files = [self.layout_dir / i.strip() for i in f if i.strip()]
         extra = list(self.layout_extra_files or ())
         seen = set()
         while extra:
@@ -500,7 +525,7 @@ class BuildState:
                 with Path(i[1:]).open("r", encoding="utf-8-sig") as f:
                     extra.extend(f)
             elif i:
-                files.append(root / i)
+                files.append(self.layout_dir / i)
         if not cmd or cmd not in {'pack_sdist', 'pack_wheel'}:
             self.write("Layout appears to be corrupted. Please rerun the first stage again.")
             return

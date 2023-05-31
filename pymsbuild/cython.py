@@ -1,3 +1,5 @@
+import os
+
 from pathlib import Path
 from pymsbuild._types import *
 
@@ -8,14 +10,22 @@ class CythonPydFile(PydFile):
             Property("BeforeBuildGenerateSourcesTargets", "Cythonize;$(BeforeBuildGenerateSourcesTargets)"),
             ItemDefinition("PyxCompile", TargetExt=".c", Dependencies=""),
             *self.members,
-            LiteralXML('<Import Project="$(PyMsbuildTargets)/cython.targets" />'),
+            LiteralXML(f'<Import Project="$(PyMsbuildTargets){os.path.sep}cython.targets" />'),
         ]
 
 
 class PyxFile(File):
     _ITEMNAME = "PyxCompile"
-    options = {"TargetExt": ".c"}
+    options = {
+        "TargetExt": ".c",
+        "IncludeInSdist": True,
+        "IncludeInWheel": False,
+    }
 
 
 class CythonIncludeFile(File):
     _ITEMNAME = "CythonInclude"
+    options = {
+        "IncludeInSdist": True,
+        "IncludeInWheel": False,
+    }

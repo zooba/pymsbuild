@@ -27,6 +27,7 @@ def build_state(tmp_path, testdata):
     bs.source_dir = testdata
     bs.output_dir = tmp_path / "out"
     bs.build_dir = tmp_path / "build"
+    bs.layout_dir = tmp_path / "layout"
     bs.temp_dir = tmp_path / "temp"
     bs.package = T.Package("package",
         T.PyFile(testdata / "empty.py", "__init__.py"),
@@ -53,13 +54,21 @@ def test_build(build_state, configuration):
     files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
     assert files
     assert not (bs.build_dir / "PKG-INFO").is_file()
-    assert files >= {Path(p) for p in {"package/__init__.py", "package/mod.pyd"}}
+    assert files >= {Path(p) for p in {"package/mod.pdb", "package/mod.pyd"}}
     assert "pyproject.toml" not in files
+    assert "package/__init__.py" not in files
+    
+    files = {p.relative_to(bs.source_dir) for p in bs.source_dir.rglob("**/*") if p.is_file()}
+    assert files
+    assert files >= {Path(p) for p in {"package/__init__.py", "package/mod.pyd"}}
 
     bs.target = "Clean"
     bs.build()
     files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
     assert not files
+    files = {p.relative_to(bs.source_dir) for p in bs.source_dir.rglob("**/*") if p.is_file()}
+    assert files >= {Path(p) for p in {"empty.py"}}
+    assert not files & {Path(p) for p in {"package/__init__.py", "package/mod.pyd"}}
 
 
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
@@ -70,7 +79,7 @@ def test_build_sdist(build_state, configuration):
     bs.configuration = configuration
     bs.build_sdist()
 
-    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
+    files = {p.relative_to(bs.layout_dir) for p in bs.layout_dir.rglob("**/*") if p.is_file()}
     assert files == {Path(p) for p in {"PKG-INFO", "empty.py", "mod.c", "pyproject.toml", "_msbuild.py"}}
     files = {p.relative_to(bs.output_dir) for p in bs.output_dir.rglob("**/*") if p.is_file()}
     assert len(files) == 1
@@ -79,13 +88,12 @@ def test_build_sdist(build_state, configuration):
 
     bs.target = "Clean"
     bs.build()
-    files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
+    files = {p.relative_to(bs.layout_dir) for p in bs.layout_dir.rglob("**/*") if p.is_file()}
     assert not files
 
 
 def test_build_sdist_layout(build_state):
     bs = build_state
-    bs.layout_dir = bs.temp_dir / "layout"
     bs.finalize(sdist=True)
     bs.generate()
     bs.layout_sdist()
@@ -105,8 +113,8 @@ def test_build_sdist_layout(build_state):
 
 def test_build_wheel_layout(build_state):
     bs = build_state
-    bs.layout_dir = bs.temp_dir / "layout"
-    bs.finalize(sdist=True)
+    bs.verbose = True
+    bs.finalize()
     bs.generate()
     bs.layout_wheel()
 
@@ -116,7 +124,9 @@ def test_build_wheel_layout(build_state):
     files = {p.relative_to(bs.layout_dir) for p in bs.layout_dir.rglob("**/*")}
     assert not [p for p in files if p.match("*.dist-info/RECORD")]
 
+    print("*" * 80)
     bs2 = BuildState()
+    bs2.verbose = True
     bs2.layout_dir = bs.layout_dir
     bs2.pack()
 
@@ -155,9 +165,9 @@ def test_dllpack(build_state, configuration):
     bs.generate()
     bs.configuration = configuration
     bs.build()
-    print(bs.build_dir)
-    print(list(bs.build_dir.glob("*")))
+    print(bs.layout_dir)
+    print(list(bs.layout_dir.glob("*")))
     subprocess.check_call(
         [sys.executable, str(bs.source_dir / "test-dllpack.py")],
-        env={**os.environ, "PYTHONPATH": str(bs.build_dir)}
+        env={**os.environ, "PYTHONPATH": str(bs.layout_dir)}
     )

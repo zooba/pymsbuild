@@ -15,7 +15,7 @@ PACKAGE = Package(
     ),
 )
 
-DIST_INFO = {
+METADATA = {
     "Name": "testcython",
     "Version": "1.0.0",
 }
