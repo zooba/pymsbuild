@@ -54,7 +54,10 @@ def test_build(build_state, configuration):
     files = {p.relative_to(bs.build_dir) for p in bs.build_dir.rglob("**/*") if p.is_file()}
     assert files
     assert not (bs.build_dir / "PKG-INFO").is_file()
-    assert files >= {Path(p) for p in {"package/mod.pdb", "package/mod.pyd"}}
+    if sys.platform == "win32":
+        assert files >= {Path(p) for p in {"package/mod.pdb", "package/mod.pyd"}}
+    else:
+        assert files >= {Path(p) for p in {"package/mod.pyd"}}
     assert "pyproject.toml" not in files
     assert "package/__init__.py" not in files
     
