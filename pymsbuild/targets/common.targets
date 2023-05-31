@@ -65,4 +65,27 @@
       <PyMSBuild_SdistFiles Include="@(_WithMetadata)" Condition="%(IncludeInSdist)" />
     </ItemGroup>
   </Target>
+
+  <!-- Clean support -->
+  <Target Name="_SaveFileWrites">
+    <ItemGroup>
+      <FileWrites Include="$(IntDir)/$(TargetName).writes.txt" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(IntDir)/$(TargetName).writes.txt"
+                      Lines="@(FileWrites)"
+                      Overwrite="true" />
+    <Message Text="Files written:%0A -@(FileWrites, '%0A -')"
+             Importance="$(_Low)"
+             Condition="@(FileWrites) != ''" />
+  </Target>
+
+  <Target Name="_CleanFileWrites">
+    <ReadLinesFromFile File="$(IntDir)/$(TargetName).writes.txt">
+      <Output TaskParameter="Lines" ItemName="FileWrites" />
+    </ReadLinesFromFile>
+    <Delete Files="@(FileWrites)" />
+    <ItemGroup>
+      <FileWrites Remove="@(FileWrites)" />
+    </ItemGroup>
+  </Target>
 </Project>

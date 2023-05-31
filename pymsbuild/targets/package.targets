@@ -117,25 +117,5 @@
   <Target Name="RelayoutSdist" DependsOnTargets="Clean;LayoutSdist" />
   <Target Name="RelayoutInPlace" DependsOnTargets="Clean;LayoutInPlace" />
 
-  <!-- Clean support -->
-  <Target Name="_SaveFileWrites">
-    <WriteLinesToFile File="$(IntDir)/$(TargetName).writes.txt"
-                      Lines="@(FileWrites)"
-                      Overwrite="true" />
-    <Message Text="Files written:%0A -@(FileWrites, '%0A -')"
-             Importance="$(_Low)"
-             Condition="@(FileWrites) != ''" />
-  </Target>
-
-  <Target Name="_CleanFileWrites" BeforeTargets="Clean" DependsOnTargets="CleanDependencies">
-    <ReadLinesFromFile File="$(IntDir)/$(TargetName).writes.txt">
-      <Output TaskParameter="Lines" ItemName="FileWrites" />
-    </ReadLinesFromFile>
-    <Delete Files="@(FileWrites)" />
-    <ItemGroup>
-      <FileWrites Remove="@(FileWrites)" />
-    </ItemGroup>
-  </Target>
-
   <Import Project="$(MSBuildThisFileDirectory)package.override.targets" Condition="$(SuppressBasicTargetOverrides) != 'true'" />
 </Project>
