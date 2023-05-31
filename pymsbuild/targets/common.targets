@@ -37,7 +37,7 @@
       <AllSourceFiles Include="@(Content);@(None)" />
 
       <AllSourceFiles Remove="@(_ExcludeFile)" />
-      <_WithMetadata Include="@(AllSourceFiles)" Condition="%(IncludeInWheel) == 'true'">
+      <_WithMetadata Include="@(AllSourceFiles)" Condition="%(AllSourceFiles.IncludeInWheel) == 'true'">
         <Name Condition="%(AllSourceFiles.Name) == ''">%(Filename)%(Extension)</Name>
       </_WithMetadata>
       <_WithMetadata>

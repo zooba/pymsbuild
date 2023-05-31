@@ -161,6 +161,7 @@ def test_dllpack(build_state, configuration):
     bs = build_state
     bs.source_dir = bs.source_dir.parent / "testdllpack"
     bs.package = None
+    bs.verbose = True
     bs.finalize()
     bs.generate()
     bs.configuration = configuration

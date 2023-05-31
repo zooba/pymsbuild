@@ -32,13 +32,6 @@
     <MSBuild Projects="@(Project)" Targets="Clean" Properties="%(Project.Properties)" />
   </Target>
 
-  <!-- Standard builds -->
-  <Target Name="PrepareForBuild" />
-  <Target Name="CoreBuild" />
-  <Target Name="Clean" />
-  <Target Name="Build" DependsOnTargets="LayoutInPlace" />
-  <Target Name="Rebuild" DependsOnTargets="Clean;Build" />
-
   <!-- Layout support -->
   <Target Name="_Layout_Calculate">
     <ItemGroup>
@@ -86,9 +79,13 @@
     </Copy>
   </Target>
 
+  <PropertyGroup>
+    <CoreBuildTargetName Condition="$(CoreBuildTargetName) == ''">CoreBuild</CoreBuildTargetName>
+  </PropertyGroup>
+
   <Target Name="Layout"
           DependsOnTargets="
-            PrepareForBuild;BuildDependencies;CoreBuild;GetPackageFiles;
+            PrepareForBuild;BuildDependencies;$(CoreBuildTargetName);GetPackageFiles;
             _Layout_Calculate;
             _Layout_Mkdir;_Layout_Copy;_SaveFileWrites">
     <Message Text="Copied to layout:" Importance="high" Condition="@(_CopiedDistFiles) != ''" />
@@ -97,7 +94,7 @@
 
   <Target Name="LayoutSdist"
           DependsOnTargets="
-            PrepareForBuild;BuildDependencies;CoreBuild;GetSdistFiles;
+            PrepareForBuild;BuildDependencies;$(CoreBuildTargetName);GetSdistFiles;
             _LayoutSdist_Calculate;
             _Layout_Mkdir;_Layout_Copy;_SaveFileWrites">
     <Message Text="Copied to layout:" Importance="high" Condition="@(_CopiedDistFiles) != ''" />
@@ -106,7 +103,7 @@
 
   <Target Name="LayoutInPlace"
           DependsOnTargets="
-            PrepareForBuild;BuildDependencies;CoreBuild;GetPackageFiles;
+            PrepareForBuild;BuildDependencies;$(CoreBuildTargetName);GetPackageFiles;
             _LayoutInPlace_Calculate;
             _Layout_Mkdir;_Layout_Copy;_SaveFileWrites">
     <Message Text="Copied to source tree:" Importance="high" Condition="@(_CopiedDistFiles) != ''" />
@@ -136,4 +133,6 @@
       <FileWrites Remove="@(FileWrites)" />
     </ItemGroup>
   </Target>
+
+  <Import Project="$(MSBuildThisFileDirectory)package.override.targets" Condition="$(SuppressBasicTargetOverrides) != 'true'" />
 </Project>
