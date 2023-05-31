@@ -15,7 +15,7 @@
         <IncludeInWheel>true</IncludeInWheel>
         <IncludeInSdist>false</IncludeInSdist>
       </AllSourceFiles>
-      <AllSourceFiles Include="$(OutDir)$(TargetName).pdb">
+      <AllSourceFiles Include="$(OutDir)$(TargetName).pdb" Condition="$(Configuration) == 'Debug'">
         <TargetDir></TargetDir>
         <TargetName>$(TargetName)</TargetName>
         <TargetExt>.pdb</TargetExt>
