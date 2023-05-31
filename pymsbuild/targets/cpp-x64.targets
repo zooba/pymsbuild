@@ -1,3 +1,19 @@
 <Project>
+  <Target Name="_GetPdbPackageFiles">
+    <ItemGroup>
+      <AllSourceFiles Include="$(OutDir)$(TargetName).pdb" Condition="$(Configuration) == 'Debug'">
+        <TargetDir></TargetDir>
+        <TargetName>$(TargetName)</TargetName>
+        <TargetExt>.pdb</TargetExt>
+        <IncludeInWheel>true</IncludeInWheel>
+        <IncludeInSdist>false</IncludeInSdist>
+      </AllSourceFiles>
+    </ItemGroup>
+  </Target>
+
+  <PropertyGroup>
+    <GetPackageFilesTargets>_GetPdbPackageFiles;$(GetPackageFilesTargets)</GetPackageFilesTargets>
+  </PropertyGroup>
+
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" Condition="$(VCTargetsPath) != ''" />
 </Project>

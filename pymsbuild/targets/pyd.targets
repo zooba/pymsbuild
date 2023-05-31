@@ -15,15 +15,7 @@
         <IncludeInWheel>true</IncludeInWheel>
         <IncludeInSdist>false</IncludeInSdist>
       </AllSourceFiles>
-      <AllSourceFiles Include="$(OutDir)$(TargetName).pdb" Condition="$(Configuration) == 'Debug'">
-        <TargetDir></TargetDir>
-        <TargetName>$(TargetName)</TargetName>
-        <TargetExt>.pdb</TargetExt>
-        <IncludeInWheel>true</IncludeInWheel>
-        <IncludeInSdist>false</IncludeInSdist>
-      </AllSourceFiles>
     </ItemGroup>
-    <Message Text="Getting Pyd Package files @(AllSourceFiles)" />
   </Target>
 
   <Target Name="_GetPydSdistFiles">
