@@ -1,11 +1,26 @@
 <Project>
-  <Target Name="_CalculatePydInPlace" BeforeTargets="CalculateInPlace" DependsOnTargets="_AssignContentProperties">
+  <PropertyGroup>
+    <GetPackageFilesTargets>_GetPydPackageFiles;$(GetPackageFilesTargets)</GetPackageFilesTargets>
+    <GetSdistFilesTargets>_GetPydSdistFiles;$(GetSdistFilesTargets)</GetSdistFilesTargets>
+  </PropertyGroup>
+
+  <Target Name="_GetPydPackageFiles">
     <ItemGroup>
-      <_TargetFiles Include="$(TargetPath)" />
-      <_TargetFiles Include="$([System.IO.Path]::ChangeExtension($(TargetPath), `.pdb`))" />
-      <Content Include="@(_TargetFiles)" Condition="Exists(%(FullPath))">
-        <Name>%(Filename)%(Extension)</Name>
-      </Content>
+      <AllSourceFiles Include="@(ClCompile);@(ClInclude)" />
+
+      <AllSourceFiles Include="$(OutDir)$(TargetName)$(TargetExt)">
+        <TargetDir></TargetDir>
+        <TargetName>$(TargetName)</TargetName>
+        <TargetExt>$(TargetExt)</TargetExt>
+        <IncludeInWheel>true</IncludeInWheel>
+        <IncludeInSdist>false</IncludeInSdist>
+      </AllSourceFiles>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_GetPydSdistFiles">
+    <ItemGroup>
+      <AllSourceFiles Include="@(ClCompile);@(ClInclude)" />
     </ItemGroup>
   </Target>
 

@@ -1,115 +1,76 @@
 <Project>
-  <!-- Managing content files -->
-  <Target Name="_AssignContentProperties">
+  <Target Name="_GetPackageFilesFromProjects" Condition="@(Project) != ''">
     <ItemGroup>
-      <Content>
-        <TargetDir Condition="%(TargetDir) == ''">$([msbuild]::EnsureTrailingSlash($([System.IO.Path]::GetDirectoryName(%(Name)))))</TargetDir>
-        <TargetName Condition="%(TargetName) == ''">$([System.IO.Path]::GetFileNameWithoutExtension(%(Name)))</TargetName>
-        <TargetExt Condition="%(TargetExt) == ''">$([System.IO.Path]::GetExtension(%(Name)))</TargetExt>
-      </Content>
-      <Content>
-        <RelativeSource Condition="%(RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceDir.TrimEnd($(_Sep))), %(FullPath)))</RelativeSource>
-        <Destination Condition="%(IncludeInWheel)">$([msbuild]::EnsureTrailingSlash($(OutDir)))%(TargetDir)%(TargetName)%(TargetExt)</Destination>
-        <Source>$([msbuild]::EnsureTrailingSlash($(OutDir)))%(RelativeSource)</Source>
-      </Content>
+      <_PackageFiles Remove="@(_PackageFiles)" />
+    </ItemGroup>
+    <Message Text="Getting package files from %(Project.Name)" />
+    <MSBuild Projects="%(Project.Identity)" Properties="%(Project.Properties)" Targets="GetPackageFiles">
+      <Output TaskParameter="TargetOutputs" ItemName="_PackageFiles" />
+    </MSBuild>
+    <ItemGroup>
+      <PyMSBuild_PackageFiles Include="@(_PackageFiles)">
+        <TargetDir>$([msbuild]::EnsureTrailingSlash($(TargetName)))%(_PackageFiles.TargetDir)</TargetDir>
+      </PyMSBuild_PackageFiles>
+      <_PackageFiles Remove="@(_PackageFiles)" />
     </ItemGroup>
   </Target>
 
-  <Target Name="_MkdirContent" DependsOnTargets="_AssignContentProperties">
+  <Target Name="_GetSdistFilesFromProjects" Condition="@(Project) != ''">
     <ItemGroup>
-      <_Outputs Include="%(Content.Destination)" />
+      <_PackageFiles Remove="@(_PackageFiles)" />
     </ItemGroup>
-    <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
-  </Target>
-
-  <Target Name="_CopyContent" Inputs="@(Content)" Outputs="%(Content.Destination)" DependsOnTargets="_MkdirContent">
-    <Copy SourceFiles="%(Content.FullPath)" DestinationFiles="%(Content.Destination)" Condition="%(Content.Destination) != ''">
-      <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
-    </Copy>
-  </Target>
-
-  <!-- Managing dependencies -->
-  <Target Name="_AssignProjectProperties">
+    <Message Text="Getting sdist files from %(Project.FullName)" />
+    <MSBuild Projects="%(Project.Identity)" Properties="%(Project.Properties)" Targets="GetSdistFiles">
+      <Output TaskParameter="TargetOutputs" ItemName="_PackageFiles" />
+    </MSBuild>
     <ItemGroup>
-      <Project>
-        <Properties>
-        _ProjectBuildTarget=$(_ProjectBuildTarget);
-        IntDir=$([msbuild]::EnsureTrailingSlash(`%(IntDir)`))$(_EscapeSep);
-        SourceRootDir=$([msbuild]::EnsureTrailingSlash(`$(SourceRootDir)`))$(_EscapeSep);
-        SourceDir=$([msbuild]::EnsureTrailingSlash($(SourceDir)))$([msbuild]::EnsureTrailingSlash(%(TargetDir)))$(_EscapeSep);
-        TargetName=%(TargetName);
-        TargetExt=%(TargetExt);
-        %(Properties)
-        </Properties>
-      </Project>
-      <Project>
-        <Properties Condition="$(_ProjectBuildTarget) != 'BuildSdist'">
-        OutDir=$([msbuild]::EnsureTrailingSlash($(OutDir)))$([msbuild]::EnsureTrailingSlash(%(TargetDir)))$(_EscapeSep);%(Properties)
-        </Properties>
-        <Properties Condition="$(_ProjectBuildTarget) == 'BuildSdist'">
-        OutDir=$([msbuild]::EnsureTrailingSlash(`$(OutDir)`))$(_EscapeSep);%(Properties)
-        </Properties>
-      </Project>
+      <PyMSBuild_SdistFiles Include="@(_PackageFiles)">
+      </PyMSBuild_SdistFiles>
+      <_PackageFiles Remove="@(_PackageFiles)" />
     </ItemGroup>
   </Target>
 
-  <Target Name="BuildDependencies" DependsOnTargets="_AssignProjectProperties" Condition="@(Project) != ''">
-    <Message Text="Building %(Project.Name) with %(Project.Properties)" Importance="$(_Low)" />
-    <MSBuild Projects="@(Project)" Targets="$(_ProjectBuildTarget)" Properties="%(Project.Properties)" />
-  </Target>
-
-  <Target Name="CleanDependencies" DependsOnTargets="_AssignProjectProperties" Condition="@(Project) != ''">
-    <MSBuild Projects="@(Project)" Targets="Clean" Properties="%(Project.Properties)" />
-  </Target>
-
-  <!-- Standard builds -->
-  <Target Name="PrepareForBuild" />
-  <Target Name="CoreBuild" />
-  <Target Name="Build" DependsOnTargets="PrepareForBuild;_AssignContentProperties;BuildDependencies;CoreBuild;_CopyContent" />
-  <Target Name="Clean" />
-  <Target Name="Rebuild" DependsOnTargets="Clean;Build" />
-
-  <!-- In-place builds -->
-  <Target Name="CalculateInPlace">
+  <Target Name="GetPackageFiles" DependsOnTargets="$(GetPackageFilesTargets)" Returns="@(PyMSBuild_PackageFiles)">
     <ItemGroup>
-      <InPlace Include="@(Content)" />
-      <InPlace>
-        <Destination>$([msbuild]::EnsureTrailingSlash($(SourceDir)))%(Name)</Destination>
-      </InPlace>
+      <_WithMetadata Remove="@(_WithMetadata)" />
+
+      <AllSourceFiles Include="@(Content);@(None)" />
+
+      <AllSourceFiles Remove="@(_ExcludeFile)" />
+      <_WithMetadata Include="@(AllSourceFiles)" Condition="%(AllSourceFiles.IncludeInWheel) == 'true'">
+        <Name Condition="%(AllSourceFiles.Name) == ''">%(Filename)%(Extension)</Name>
+      </_WithMetadata>
+      <_WithMetadata>
+        <TargetDir Condition="%(_WithMetadata.TargetDir) == ''">$([msbuild]::EnsureTrailingSlash($([System.IO.Path]::GetDirectoryName(`%(_WithMetadata.Name)`))))</TargetDir>
+        <TargetName Condition="%(_WithMetadata.TargetName) == ''">$([System.IO.Path]::GetFileNameWithoutExtension(`%(_WithMetadata.Name)`))</TargetName>
+        <TargetExt Condition="%(_WithMetadata.TargetExt) == ''">$([System.IO.Path]::GetExtension(%(_WithMetadata.Name)))</TargetExt>
+      </_WithMetadata>
+      <PyMSBuild_PackageFiles Include="@(_WithMetadata)" Condition="%(IncludeInWheel)" />
     </ItemGroup>
   </Target>
 
-  <Target Name="_InPlace_Exclude" AfterTargets="CalculateInPlace">
+  <Target Name="GetSdistFiles" DependsOnTargets="$(GetSdistFilesTargets)" Returns="@(PyMSBuild_SdistFiles)">
     <ItemGroup>
-      <_ToRemove Include="@(InPlace)" Condition="%(Extension) == '.exp'" />
-      <InPlace Remove="@(_ToRemove)" />
+      <_WithMetadata Remove="@(_WithMetadata)" />
+
+      <AllSourceFiles Include="@(Sdist);@(Content);@(None)" />
+
+      <AllSourceFiles Remove="@(_ExcludeFile)" />
+      <_WithMetadata Include="@(AllSourceFiles)">
+        <IncludeInSdist Condition="%(AllSourceFiles.IncludeInSdist) == ''">true</IncludeInSdist>
+      </_WithMetadata>
+      <_WithMetadata Condition="%(IncludeInSdist)">
+        <RelativeSource Condition="%(_WithMetadata.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd($(_Sep))), %(FullPath)))</RelativeSource>
+      </_WithMetadata>
+      <PyMSBuild_SdistFiles Include="@(_WithMetadata)" Condition="%(IncludeInSdist)" />
     </ItemGroup>
-  </Target> 
-
-  <Target Name="_MkdirInPlace">
-    <ItemGroup>
-      <_Outputs Include="%(InPlace.Destination)" />
-    </ItemGroup>
-    <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
   </Target>
-
-  <Target Name="_CopyInPlace" Inputs="@(InPlace)" Outputs="%(InPlace.Destination)">
-    <ItemGroup>
-      <FileWrites Include="%(InPlace.Destination)" Condition="!Exists(%(InPlace.Destination))" />
-    </ItemGroup>
-    <Copy SourceFiles="%(InPlace.FullPath)" DestinationFiles="%(InPlace.Destination)" />
-  </Target>
-
-  <Target Name="BuildInPlace" DependsOnTargets="$(BuildInPlaceDependsOn)">
-    <Message Text="Copied to source tree:" Importance="high" Condition="@(InPlace) != ''" />
-    <Message Text=" - %(InPlace.Destination)" Importance="high" Condition="@(InPlace) != ''" />
-  </Target>
-
-  <Target Name="RebuildInPlace" DependsOnTargets="Clean;BuildInPlace" />
-
 
   <!-- Clean support -->
-  <Target Name="_SaveFileWrites" AfterTargets="Build;BuildSdist;BuildInPlace">
+  <Target Name="_SaveFileWrites">
+    <ItemGroup>
+      <FileWrites Include="$(IntDir)/$(TargetName).writes.txt" />
+    </ItemGroup>
     <WriteLinesToFile File="$(IntDir)/$(TargetName).writes.txt"
                       Lines="@(FileWrites)"
                       Overwrite="true" />
@@ -118,7 +79,7 @@
              Condition="@(FileWrites) != ''" />
   </Target>
 
-  <Target Name="_CleanFileWrites" BeforeTargets="Clean" DependsOnTargets="CleanDependencies">
+  <Target Name="_CleanFileWrites">
     <ReadLinesFromFile File="$(IntDir)/$(TargetName).writes.txt">
       <Output TaskParameter="Lines" ItemName="FileWrites" />
     </ReadLinesFromFile>
@@ -127,6 +88,4 @@
       <FileWrites Remove="@(FileWrites)" />
     </ItemGroup>
   </Target>
-
-  <Import Project="sdist.targets" />
 </Project>

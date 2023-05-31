@@ -1,0 +1,7 @@
+<Project>
+  <Target Name="PrepareForBuild" />
+  <Target Name="CoreBuild" />
+  <Target Name="Clean" DependsOnTargets="CleanDependencies;_CleanFileWrites" />
+  <Target Name="Build" DependsOnTargets="LayoutInPlace" />
+  <Target Name="Rebuild" DependsOnTargets="Clean;Build" />
+</Project>

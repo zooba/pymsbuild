@@ -30,4 +30,10 @@
       <ResourceCompile Include="$(IntDir)\dllpack.rc" />
     </ItemGroup>
   </Target>
+
+  <PropertyGroup>
+    <SuppressBasicTargetOverrides>true</SuppressBasicTargetOverrides>
+    <CoreBuildTargetName>Build</CoreBuildTargetName>
+  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)package.targets" />
 </Project>

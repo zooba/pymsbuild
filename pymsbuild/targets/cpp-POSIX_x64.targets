@@ -79,7 +79,8 @@
   </Target>
 
   <Target Name="CoreBuild" DependsOnTargets="_CalculateFlags;PrepareForBuild;$(BeforeBuildGenerateSourcesTargets);ClCompile;Link" />
-  <Target Name="Clean">
+  <Target Name="Build" DependsOnTargets="CoreBuild;_SaveFileWrites" />
+  <Target Name="Clean" DependsOnTargets="_CleanFileWrites">
     <RemoveDir Directories="$(IntDir)" />
   </Target>
 </Project>

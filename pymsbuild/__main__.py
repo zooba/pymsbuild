@@ -125,7 +125,7 @@ bs.source_dir = Path.cwd() / (ns.source_dir or "")
 bs.output_dir = bs.source_dir / (ns.dist_dir or "dist")
 bs.config_file = ns.config
 root_dir = bs.source_dir / (ns.temp_dir or "build")
-bs.build_dir = root_dir / "layout"
+bs.build_dir = root_dir / "bin"
 bs.temp_dir = root_dir / "temp"
 bs.layout_dir = ns.layout_dir
 bs.layout_extra_files = ns.add
@@ -135,11 +135,21 @@ bs.force = ns.force
 if ns.debug:
     bs.configuration = "Debug"
 
-for cmd in ns.command:
-    cmd = {
+if ns.layout_dir:
+    COMMANDS = {
+        "sdist": "layout_sdist",
+        "wheel": "layout_wheel",
+        "distinfo": "prepare_wheel_distinfo",
+    }
+else:
+    COMMANDS = {
         "sdist": "build_sdist",
         "wheel": "build_wheel",
         "distinfo": "prepare_wheel_distinfo",
-    }.get(cmd, cmd)
+    }
+
+
+for cmd in ns.command:
+    cmd = COMMANDS.get(cmd, cmd)
     f = getattr(bs, cmd)
     f()

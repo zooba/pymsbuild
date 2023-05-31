@@ -30,5 +30,8 @@ def test_init_1(init_project):
     assert "'module'" in content
     assert "'subpackage'" in content
     print(pyproj)
-    assert "pymsbuild>=" in pyproj
+    if pymsbuild.__version__ == '%VERSION%':
+        assert "'pymsbuild'" in pyproj
+    else:
+        assert "pymsbuild>=" in pyproj
     assert "Cython" in pyproj

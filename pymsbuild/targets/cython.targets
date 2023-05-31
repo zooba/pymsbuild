@@ -13,6 +13,8 @@
       <RelativeSource>%(RelativeOutput)</RelativeSource>
       <PreprocessorDefinitions Condition="%(ClPreprocessorDefinitions) != ''">%(ClPreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ObjectFile>$([msbuild]::MakeRelative($(IntDir), %(FullPath))).o</ObjectFile>
+      <IncludeInSdist>true</IncludeInSdist>
+      <IncludeInWheel>false</IncludeInWheel>
     </ClCompile>
   </ItemGroup>
 
@@ -58,15 +60,20 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="_BuildCythonSdist" DependsOnTargets="Cythonize" BeforeTargets="CalculateSdist">
+  <Target Name="_BuildCythonSdist" DependsOnTargets="Cythonize">
     <ItemGroup>
-      <Sdist Include="@(_PyxCompileWithOutput)">
-        <RelativeSource>%(RelativeSource)</RelativeSource>
-      </Sdist>
-      <Sdist Include="@(CythonInclude)">
-        <RelativeSource Condition="%(CythonInclude.RelativeSource) != ''">%(CythonInclude.RelativeSource)</RelativeSource>
-        <RelativeSource Condition="%(CythonInclude.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd($(_Sep))), %(FullPath)))</RelativeSource>
-      </Sdist>
+      <AllSourceFiles Include="@(PyxCompile)">
+        <TargetName>%(Filename)</TargetName>
+        <TargetExt>%(Extension)</TargetExt>
+        <IncludeInSdist>true</IncludeInSdist>
+      </AllSourceFiles>
+      <AllSourceFiles Include="@(CythonInclude)">
+        <IncludeInSdist>true</IncludeInSdist>
+      </AllSourceFiles>
     </ItemGroup>
   </Target>
+
+  <PropertyGroup>
+    <GetSdistFilesTargets>_BuildCythonSdist;$(GetSdistFilesTargets)</GetSdistFilesTargets>
+  </PropertyGroup>
 </Project>
