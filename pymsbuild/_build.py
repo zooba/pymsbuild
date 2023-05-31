@@ -356,6 +356,11 @@ class BuildState:
     def layout_sdist(self, statefile=True):
         self.finalize(sdist=True)
         self.generate()
+
+        if self.layout_dir.is_dir():
+            self.log("Removing existing layout directory", self.layout_dir)
+            shutil.rmtree(self.layout_dir)
+
         self.build()
 
         if not self.layout_dir.is_dir():
@@ -401,6 +406,11 @@ class BuildState:
     def layout_wheel(self, statefile=True):
         self.finalize()
         self.generate()
+
+        if self.layout_dir.is_dir():
+            self.log("Removing existing layout directory", self.layout_dir)
+            shutil.rmtree(self.layout_dir)
+
         self.build()
 
         if not self.layout_dir.is_dir():

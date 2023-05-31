@@ -44,7 +44,9 @@
     <ItemGroup>
       <FileWrites Include="%(_DistFiles.Destination)" />
     </ItemGroup>
-    <Copy SourceFiles="%(_DistFiles.FullPath)" DestinationFiles="%(_DistFiles.Destination)">
+    <Copy SourceFiles="%(_DistFiles.FullPath)"
+          DestinationFiles="%(_DistFiles.Destination)"
+          UseHardLinksIfPossible="true">
       <Output TaskParameter="CopiedFiles" ItemName="_CopiedDistFiles" />
     </Copy>
   </Target>
@@ -95,7 +97,7 @@
 
   <Target Name="LayoutSdist"
           DependsOnTargets="
-            PrepareForBuild;BuildDependencies;$(CoreBuildTargetName);GetSdistFiles;
+            PrepareForBuild;GetSdistFiles;
             _LayoutSdist_Calculate;
             _Layout_Mkdir;_Layout_Copy;_SaveFileWrites">
     <Message Text="Copied to layout:" Importance="high" Condition="@(_CopiedDistFiles) != ''" />
