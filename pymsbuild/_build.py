@@ -391,7 +391,7 @@ class BuildState:
             with tarfile.TarFile.open(tar_name, "w", fileobj=f_gz, format=tarfile.PAX_FORMAT) as f:
                 self.log("Packing files into", sdist)
                 for n, rn in rel_files:
-                    if n.match(self.state_file):
+                    if n.match(str(self.state_file)):
                         continue
                     self.log("-", rn)
                     f.add(n, arcname=rn)
@@ -454,7 +454,7 @@ class BuildState:
         with zipfile.ZipFile(wheel, "w", compression=zipfile.ZIP_DEFLATED) as f:
             self.log("Packing files into", wheel)
             for n, rn in rel_files:
-                if n.match(self.state_file):
+                if n.match(str(self.state_file)):
                     continue
                 self.log("-", rn)
                 record.append(_add_and_record(f, n, rn))
