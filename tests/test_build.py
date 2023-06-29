@@ -141,8 +141,10 @@ def test_build_wheel_layout(build_state):
     with zipfile.ZipFile(Path(bs2.output_dir) / f, 'r') as zf:
         files = set(zf.namelist())
     print("Wheel contents:", *files, sep="\n")
-    files = [p for p in files if Path(p).match("*.dist-info/RECORD")]
-    assert len(files) == 1
+    records = [p for p in files if Path(p).match("*.dist-info/RECORD")]
+    assert len(records) == 1
+    states = [p for p in files if Path(p).match("__state.txt")]
+    assert not states
 
 
 @pytest.mark.parametrize("proj", ["testcython", "testproject1", "testpurepy"])
