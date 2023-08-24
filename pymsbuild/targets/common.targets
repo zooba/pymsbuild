@@ -63,7 +63,7 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="GetLayoutFiles" DependsOnTargets="$(GetLayoutFilesTargets);GetPackageFiles" Returns="@(PyMSBuild_LayoutFiles)">
+  <Target Name="GetLayoutFiles" DependsOnTargets="GetPackageFiles;$(GetLayoutFilesTargets)" Returns="@(PyMSBuild_LayoutFiles)">
     <ItemGroup>
       <_WithMetadata Remove="@(_WithMetadata)" />
 

@@ -93,7 +93,7 @@
 
   <Target Name="Layout"
           DependsOnTargets="
-            PrepareForBuild;BuildDependencies;$(CoreBuildTargetName);GetLayoutFiles;
+            PrepareForBuild;BuildDependencies;$(CoreBuildTargetName);GetPackageFiles;
             _Layout_Calculate;
             _Layout_Mkdir;_Layout_Copy;_SaveFileWrites">
     <Message Text="Copied to layout:" Importance="high" Condition="@(_CopiedDistFiles) != ''" />
@@ -111,7 +111,7 @@
 
   <Target Name="LayoutInPlace"
           DependsOnTargets="
-            PrepareForBuild;BuildDependencies;$(CoreBuildTargetName);GetPackageFiles;
+            PrepareForBuild;BuildDependencies;$(CoreBuildTargetName);GetLayoutFiles;
             _LayoutInPlace_Calculate;
             _Layout_Mkdir;_Layout_Copy;_SaveFileWrites">
     <Message Text="Copied to source tree:" Importance="high" Condition="@(_CopiedDistFiles) != ''" />
