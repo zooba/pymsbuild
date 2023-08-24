@@ -230,6 +230,13 @@ automatically included in sdists or wheels, or the project may cause
 the build to fail.
 """
     _ITEMNAME = "Project"
+    options = {
+        "IntDir": "$(IntDir)%(Filename)",
+        "TargetDir": "$(TargetName)",
+        "SourceDir": "$(SourceDir)",
+        "IncludeInSdist": True,
+        "IncludeInWheel": False,
+    }
 
 
 class SourceFile(File):

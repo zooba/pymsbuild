@@ -4,7 +4,8 @@
       <_PackageFiles Remove="@(_PackageFiles)" />
     </ItemGroup>
     <Message Text="Getting package files from %(Project.Name)" />
-    <MSBuild Projects="%(Project.Identity)" Properties="%(Project.Properties)" Targets="GetPackageFiles">
+    <MSBuild Projects="%(Project.Identity)" Properties="%(Project.Properties)" Targets="GetPackageFiles"
+             RebaseOutputs="True">
       <Output TaskParameter="TargetOutputs" ItemName="_PackageFiles" />
     </MSBuild>
     <ItemGroup>
@@ -20,10 +21,14 @@
       <_PackageFiles Remove="@(_PackageFiles)" />
     </ItemGroup>
     <Message Text="Getting sdist files from %(Project.FullName)" />
-    <MSBuild Projects="%(Project.Identity)" Properties="%(Project.Properties)" Targets="GetSdistFiles">
+    <MSBuild Projects="%(Project.Identity)" Properties="%(Project.Properties)" Targets="GetSdistFiles"
+             RebaseOutputs="True">
       <Output TaskParameter="TargetOutputs" ItemName="_PackageFiles" />
     </MSBuild>
     <ItemGroup>
+      <PyMSBuild_SdistFiles Include="@(Project)" Condition="%(Project.IncludeInSdist) == true">
+        <RelativeSource Condition="%(Project.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd($(_Sep))), %(FullPath)))</RelativeSource>
+      </PyMSBuild_SdistFiles>
       <PyMSBuild_SdistFiles Include="@(_PackageFiles)">
       </PyMSBuild_SdistFiles>
       <_PackageFiles Remove="@(_PackageFiles)" />
@@ -45,7 +50,7 @@
         <TargetName Condition="%(_WithMetadata.TargetName) == ''">$([System.IO.Path]::GetFileNameWithoutExtension(`%(_WithMetadata.Name)`))</TargetName>
         <TargetExt Condition="%(_WithMetadata.TargetExt) == ''">$([System.IO.Path]::GetExtension(%(_WithMetadata.Name)))</TargetExt>
       </_WithMetadata>
-      <PyMSBuild_PackageFiles Include="@(_WithMetadata)" Condition="%(IncludeInWheel)" />
+      <PyMSBuild_PackageFiles Include="@(_WithMetadata)" Condition="'%(IncludeInWheel)' == true" />
     </ItemGroup>
   </Target>
 
@@ -53,13 +58,13 @@
     <ItemGroup>
       <_WithMetadata Remove="@(_WithMetadata)" />
 
-      <AllSourceFiles Include="@(Sdist);@(Content);@(None)" />
+      <AllSourceFiles Include="@(Sdist);@(ClCompile);@(ClInclude);@(Content);@(None)" />
 
       <AllSourceFiles Remove="@(_ExcludeFile)" />
       <_WithMetadata Include="@(AllSourceFiles)">
         <IncludeInSdist Condition="%(AllSourceFiles.IncludeInSdist) == ''">true</IncludeInSdist>
       </_WithMetadata>
-      <_WithMetadata Condition="%(IncludeInSdist)">
+      <_WithMetadata Condition="'%(IncludeInSdist)' == true">
         <RelativeSource Condition="%(_WithMetadata.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd($(_Sep))), %(FullPath)))</RelativeSource>
       </_WithMetadata>
       <PyMSBuild_SdistFiles Include="@(_WithMetadata)" Condition="%(IncludeInSdist)" />
