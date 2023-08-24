@@ -71,7 +71,7 @@
         <IncludeInLayout>true</IncludeInLayout>
       </AllSourceFiles>
 
-      <AllSourceFiles Include="@(PyMSBuild_PackageFiles);@(Content);@(None)" />
+      <AllSourceFiles Include="@(PyMSBuild_PackageFiles);@(ClCompile);@(ClInclude);@(Content);@(None)" />
 
       <AllSourceFiles Remove="@(_ExcludeFile)" />
       <_WithMetadata Include="@(AllSourceFiles)">
