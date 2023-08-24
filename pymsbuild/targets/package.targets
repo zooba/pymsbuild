@@ -77,7 +77,7 @@
   <Target Name="_LayoutInPlace_Calculate">
     <ItemGroup>
       <_DistFiles Remove="@(_DistFiles)" />
-      <_DistFiles Include="@(PyMSBuild_PackageFiles)" Condition="%(IncludeInWheel)">
+      <_DistFiles Include="@(PyMSBuild_LayoutFiles)" Condition="%(IncludeInLayout)">
         <Destination>$([msbuild]::EnsureTrailingSlash($(SourceDir)))%(TargetDir)%(TargetName)%(TargetExt)</Destination>
       </_DistFiles>
       <!-- Remove anything that is being copied directly from the source tree -->
@@ -93,7 +93,7 @@
 
   <Target Name="Layout"
           DependsOnTargets="
-            PrepareForBuild;BuildDependencies;$(CoreBuildTargetName);GetPackageFiles;
+            PrepareForBuild;BuildDependencies;$(CoreBuildTargetName);GetLayoutFiles;
             _Layout_Calculate;
             _Layout_Mkdir;_Layout_Copy;_SaveFileWrites">
     <Message Text="Copied to layout:" Importance="high" Condition="@(_CopiedDistFiles) != ''" />
