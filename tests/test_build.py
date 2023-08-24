@@ -24,6 +24,7 @@ if not os.getenv("MSBUILD"):
 @pytest.fixture
 def build_state(tmp_path, testdata):
     bs = BuildState()
+    bs.verbose = True
     bs.source_dir = testdata
     bs.output_dir = tmp_path / "out"
     bs.build_dir = tmp_path / "build"

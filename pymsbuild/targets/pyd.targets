@@ -6,8 +6,6 @@
 
   <Target Name="_GetPydPackageFiles">
     <ItemGroup>
-      <AllSourceFiles Include="@(ClCompile);@(ClInclude)" />
-
       <AllSourceFiles Include="$(OutDir)$(TargetName)$(TargetExt)">
         <TargetDir></TargetDir>
         <TargetName>$(TargetName)</TargetName>
@@ -20,7 +18,6 @@
 
   <Target Name="_GetPydSdistFiles">
     <ItemGroup>
-      <AllSourceFiles Include="@(ClCompile);@(ClInclude)" />
     </ItemGroup>
   </Target>
 

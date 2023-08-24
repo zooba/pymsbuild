@@ -4,15 +4,20 @@
     <ItemGroup>
       <Project>
         <Properties Condition="%(Project.Properties) == ''"></Properties>
+        <IntDir Condition="%(Project.IntDir) == ''">$([msbuild]::EnsureTrailingSlash(`$(IntDir)`))%(Project.TargetName)</IntDir>
         <PyMSBuild_Properties>
         _ProjectBuildTarget=$(_ProjectBuildTarget);
         IntDir=$([msbuild]::EnsureTrailingSlash(`%(IntDir)`))$(_EscapeSep);
         SourceRootDir=$([msbuild]::EnsureTrailingSlash(`$(SourceRootDir)`))$(_EscapeSep);
         SourceDir=$([msbuild]::EnsureTrailingSlash($(SourceDir)))$([msbuild]::EnsureTrailingSlash(%(TargetDir)))$(_EscapeSep);
-        OutDir=$([msbuild]::EnsureTrailingSlash($(OutDir)))$([msbuild]::EnsureTrailingSlash(%(TargetDir)))$(_EscapeSep);
-        TargetName=%(TargetName);
-        TargetExt=%(TargetExt)
+        OutDir=$([msbuild]::EnsureTrailingSlash($(OutDir)))$([msbuild]::EnsureTrailingSlash(%(TargetDir)))$(_EscapeSep)
         </PyMSBuild_Properties>
+      </Project>
+    </ItemGroup>
+    <ItemGroup>
+      <Project>
+        <PyMSBuild_Properties Condition="%(Project.TargetName) != ''">%(PyMSBuild_Properties);TargetName=%(Project.TargetName)</PyMSBuild_Properties>
+        <PyMSBuild_Properties Condition="%(Project.TargetExt) != ''">%(PyMSBuild_Properties);TargetExt=%(Project.TargetExt)</PyMSBuild_Properties>
       </Project>
     </ItemGroup>
     <ItemGroup>
@@ -72,7 +77,7 @@
   <Target Name="_LayoutInPlace_Calculate">
     <ItemGroup>
       <_DistFiles Remove="@(_DistFiles)" />
-      <_DistFiles Include="@(PyMSBuild_PackageFiles)" Condition="%(IncludeInWheel)">
+      <_DistFiles Include="@(PyMSBuild_LayoutFiles)" Condition="%(IncludeInLayout)">
         <Destination>$([msbuild]::EnsureTrailingSlash($(SourceDir)))%(TargetDir)%(TargetName)%(TargetExt)</Destination>
       </_DistFiles>
       <!-- Remove anything that is being copied directly from the source tree -->
@@ -106,7 +111,7 @@
 
   <Target Name="LayoutInPlace"
           DependsOnTargets="
-            PrepareForBuild;BuildDependencies;$(CoreBuildTargetName);GetPackageFiles;
+            PrepareForBuild;BuildDependencies;$(CoreBuildTargetName);GetLayoutFiles;
             _LayoutInPlace_Calculate;
             _Layout_Mkdir;_Layout_Copy;_SaveFileWrites">
     <Message Text="Copied to source tree:" Importance="high" Condition="@(_CopiedDistFiles) != ''" />
