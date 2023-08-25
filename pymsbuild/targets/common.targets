@@ -71,7 +71,13 @@
         <IncludeInLayout>true</IncludeInLayout>
       </AllSourceFiles>
 
-      <AllSourceFiles Include="@(PyMSBuild_PackageFiles);@(ClCompile);@(ClInclude);@(Content);@(None)" />
+      <AllSourceFiles Include="@(PyMSBuild_PackageFiles);@(Content);@(None)" />
+      <AllSourceFiles Include="@(ClCompile)">
+        <IncludeInLayout Condition="%(ClCompile.IncludeInLayout) == ''">false</IncludeInLayout>
+      </AllSourceFiles>
+      <AllSourceFiles Include="@(ClInclude)">
+        <IncludeInLayout Condition="%(ClInclude.IncludeInLayout) == ''">false</IncludeInLayout>
+      </AllSourceFiles>
 
       <AllSourceFiles Remove="@(_ExcludeFile)" />
       <_WithMetadata Include="@(AllSourceFiles)">
