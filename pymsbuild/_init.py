@@ -99,7 +99,12 @@ def run(root, config_name="_msbuild.py"):
 
     substitutions["PACKAGE"] = "\n".join([
         "PACKAGE = Package(",
-        *_generate_module(project, offset, build_requires, _root=project.parent),
+        *_generate_module(
+            project,
+            offset,
+            build_requires,
+            _root=project.parent if project else None,
+        ),
         ")",
     ])
 

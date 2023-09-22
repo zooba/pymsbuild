@@ -37,7 +37,33 @@ It will be available in the root of the package as the same name.
 
     def __init__(self, name, **options):
         self.name = name
+        self.members = []
         self.options = dict(**options)
+
+    def write_member(self, project, group):
+        group.switch_to("ItemGroup")
+        project.add_item(self._ITEMNAME, self.name, **self.options)
+
+
+class DllRedirect:
+    r"""Represents a redirected extension module.
+
+The name would normally be resolved within the packed DLL. However, for
+.pyd files normally nested into a package, they need to be directed to
+an adjacent file. The 'redirect_to' name will be loaded from the same
+directory as the packed DLL using the default extension module loader.
+
+The target module is not automatically included in the package.
+"""
+    _ITEMNAME = "DllPackRedirect"
+
+    def __init__(self, name, redirect_to, **options):
+        self.name = name
+        self.members = []
+        self.options = {
+            "RedirectTo": redirect_to,
+            **options
+        }
 
     def write_member(self, project, group):
         group.switch_to("ItemGroup")

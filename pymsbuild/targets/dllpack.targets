@@ -3,12 +3,21 @@
     <BeforeBuildGenerateSourcesTargets>GenerateDllPack;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)dllpack.c">
+      <AdditionalIncludeDirectories>$(IntDir.TrimEnd(`$(_Sep)`));%(ClCompile.AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <IncludeInSdist>false</IncludeInSdist>
+      <IncludeInLayout>false</IncludeInLayout>
+      <IncludeInWheel>false</IncludeInWheel>
+    </ClCompile>
+  </ItemGroup>
+
   <Target Name="GenerateDllPack">
     <Message Text="WARNING: DLL packing is experimental and may change. Send feedback at https://github.com/zooba/pymsbuild"
              Importance="high" />
     <ItemGroup>
-      <_DllPackHeader Include="$(IntDir)\dllpack.h" />
-      <_DllPackRsp Include="$(IntDir)\dllpack.rsp" />
+      <_DllPackHeader Include="$(IntDir)dllpack.h" />
+      <_DllPackRsp Include="$(IntDir)dllpack.rsp" />
       <FileWrites Include="@(_DllPackHeader)" />
       <_SourceFiles Include="@(Content)">
         <Name>%(Content.Name)</Name>
@@ -17,17 +26,18 @@
       </_SourceFiles>
       <Content Remove="@(_SourceFiles)" />
     </ItemGroup>
-    <WriteLinesToFile Lines="@(_SourceFiles->'%(Kind):%(Name):%(FullPath)');@(DllPackFunction->'function:%(Identity)')"
+    <WriteLinesToFile Lines="@(_SourceFiles->'%(Kind):%(Name):%(FullPath)');@(DllPackFunction->'function:%(Identity)');@(DllPackRedirect->'redirect:%(Identity):%(RedirectTo)')"
                       File="@(_DllPackRsp)" Encoding="UTF-8" Overwrite="true" />
     <PropertyGroup>
       <_GenCommand>"$(HostPython)" "$(PyMsbuildTargets)\dllpack-generate.py" "$(RootNamespace)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
     </PropertyGroup>
     <Exec Command="$(_GenCommand)" WorkingDirectory="$(IntDir)" />
     <ItemGroup>
-      <ClCompile Include="$(MSBuildThisFileDirectory)dllpack.c">
-        <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      </ClCompile>
-      <ResourceCompile Include="$(IntDir)\dllpack.rc" />
+      <ResourceCompile Include="$(IntDir)dllpack.rc">
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>false</IncludeInLayout>
+        <IncludeInWheel>false</IncludeInWheel>
+      </ResourceCompile>
     </ItemGroup>
   </Target>
 
@@ -35,5 +45,4 @@
     <SuppressBasicTargetOverrides>true</SuppressBasicTargetOverrides>
     <CoreBuildTargetName>Build</CoreBuildTargetName>
   </PropertyGroup>
-  <Import Project="$(MSBuildThisFileDirectory)package.targets" />
 </Project>

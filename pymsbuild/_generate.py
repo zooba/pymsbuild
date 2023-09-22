@@ -34,30 +34,32 @@ class GroupSwitcher:
             return self._cm.__exit__(*exc_info)
 
 
-def _resolve_wildcards(basename, source, include_dirs=True):
-    if source.parent.name == "**":
-        name = PurePath(basename).parent
-        root = source.parent.parent
-        for p in root.iterdir():
-            if p.is_dir():
-                yield from _resolve_wildcards(
-                    name / p.relative_to(root) / source.name,
-                    p / "**" / source.name,
-                    include_dirs=False,
-                )
-            else:
-                yield name / p.name, p
-    elif "**" in source.parts:
-        raise ValueError("Unsupported wildcard pattern" + str(source))
-    elif "*" in source.name or "?" in source.name:
-        name = PurePath(basename).parent
-        for p in source.parent.glob(source.name):
-            if not p.is_dir():
-                yield name / p.name, p
-    elif any("*" in p or "?" in p for p in source.parts):
-        raise ValueError("Unsupported wildcard pattern " + str(source))
-    elif include_dirs or not source.is_dir():
+def _resolve_wildcards(basename, source, pattern):
+    pattern = PurePath(pattern)
+    skip = 0
+    for p in pattern.parts:
+        if "*" in p or "?" in p:
+            break
+        skip += 1
+        source /= p
+    else:
         yield basename, source
+        return
+
+    roots = [(PurePath(basename).parent, source)]
+    wildcards_r = list(reversed(pattern.parts[skip:]))
+    while wildcards_r:
+        r = wildcards_r.pop()
+        if r == "**":
+            wildcards = PurePath(*reversed(wildcards_r))
+            yield from ((bn / p.relative_to(d), p)
+                        for bn, d in roots
+                        for p in d.rglob("*")
+                        if not p.is_dir() and p.match(wildcards))
+        elif wildcards_r:
+            roots = [((bn / p.name), p) for bn, d in roots for p in d.glob(r) if p.is_dir()]
+        else:
+            yield from ((bn / p.name, p) for bn, d in roots for p in d.glob(r) if not p.is_dir())
 
 
 def _all_members(item, recurse_if=None, return_if=None, *, prefix=""):
@@ -85,8 +87,8 @@ def _write_members(f, source_dir, members):
                     condition = getattr(p, "condition", None)
                     pattern = getattr(p, "exclude", None)
                     if pattern:
-                        exclude = {p2 for n2, p2 in _resolve_wildcards(n, source_dir / pattern)}
-                for n2, p2 in _resolve_wildcards(n, source_dir / p.source):
+                        exclude = {p2 for n2, p2 in _resolve_wildcards(n, source_dir, pattern)}
+                for n2, p2 in _resolve_wildcards(n, source_dir, p.source):
                     if p2 in exclude:
                         continue
                     options = dict(p.options)
@@ -278,11 +280,13 @@ def readback_distinfo(pkg_info):
             distinfo.append((key.strip(), value.lstrip()))
     d = {}
     for k, v in distinfo:
-        r = d.setdefault(k, v)
+        r = d.get(k, None)
         if isinstance(r, list):
             r.append(v)
-        elif r is not v:
+        elif r is not None and r is not v:
             d[k] = [r, v]
+        else:
+            d[k] = v
     if description:
         d["Description"] = "".join(description).rstrip()
     return d

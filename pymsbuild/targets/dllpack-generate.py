@@ -21,7 +21,7 @@ def groupby(iterator, key):
 
 def parse_all(file):
     g = groupby(map(str.strip, file), key=lambda i: i.partition(":")[0].lower())
-    factories = dict(code=CodeFileInfo, resource=DataFileInfo, function=FunctionInfo)
+    factories = dict(code=CodeFileInfo, resource=DataFileInfo, function=FunctionInfo, redirect=RedirectInfo)
     return [
         factories.get(k, ErrorInfo)(next(RESID_COUNTER), line)
         for k, v in g.items() for line in v
@@ -105,6 +105,18 @@ class FunctionInfo:
         return "PyObject *{}(PyObject *, PyObject *, PyObject *);".format(self.name)
 
 
+class RedirectInfo:
+    RC_TYPE = None
+    RC_TABLE = "REDIRECT_TABLE"
+
+    def __init__(self, resid, line):
+        _, self.name, self.origin = line.split(":", 2)
+        self.resid = resid
+
+    def check(self):
+        pass
+
+
 class ErrorInfo:
     RC_TYPE = None
     RC_TABLE = None
@@ -147,7 +159,7 @@ def _generate_files(module, files, targets):
         print("#define _DATAFILE 258", file=h_file)
         print("#define _PYC_HEADER_LEN 16", file=h_file)
         print("struct ENTRY {const char *name; const char *origin; int id;};", file=h_file)
-        expected_tables = {"IMPORT_TABLE", "DATA_TABLE"}
+        expected_tables = {"IMPORT_TABLE", "DATA_TABLE", "REDIRECT_TABLE"}
         tables = groupby(files, lambda f: f.RC_TABLE)
         for table, table_files in tables.items():
             if not table or not table.isidentifier():

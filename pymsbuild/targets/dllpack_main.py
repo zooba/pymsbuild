@@ -3,7 +3,7 @@ def _init():
 
     from importlib import import_module
     from importlib.abc import Loader, MetaPathFinder, ResourceReader
-    from importlib.machinery import ModuleSpec
+    from importlib.machinery import ExtensionFileLoader, ModuleSpec
     from ntpath import split as nt_split
 
     _NAME = __NAME()
@@ -26,7 +26,7 @@ def _init():
             raise FileNotFoundError()
 
         def is_resource(self, resource):
-            return prefix + resource in _DATA_NAMES
+            return self.prefix + resource in _DATA_NAMES
 
         def contents(self):
             p = self.prefix
@@ -58,7 +58,10 @@ def _init():
     class DllPackFinder(MetaPathFinder):
         def find_spec(self, fullname, path, target=None):
             if fullname.startswith(_NAME_DOT) or fullname == _NAME:
-                return _MAKESPEC(fullname, LOADER)
+                spec = _MAKESPEC(fullname, LOADER)
+                if spec and not spec.loader:
+                    spec.loader = ExtensionFileLoader(spec.name, spec.origin)
+                return spec
 
     DllPackFinder.__name__ += "_" + _NAME
     DllPackFinder.__qualname__ = "<generated>." + DllPackFinder.__name__
@@ -72,8 +75,8 @@ def _init():
 
 
 __spec__ = _init()
-del _init, __NAME, __CREATE_MODULE, __EXEC_MODULE, __DATA, __DATA_NAMES, __MAKESPEC
-
 __file__ = __spec__.origin
 __loader__ = __spec__.loader
+__package__ = getattr(__spec__, "parent", None)
 __path__ = []
+del _init

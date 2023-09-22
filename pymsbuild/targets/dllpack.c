@@ -36,6 +36,17 @@ lookup_data(const char *name)
     return NULL;
 }
 
+static const struct ENTRY *
+lookup_redirect(const char *name)
+{
+    for (struct ENTRY *entry = REDIRECT_TABLE; entry->name; ++entry) {
+        if (!strcmp(entry->name, name)) {
+            return entry;
+        }
+    }
+    return NULL;
+}
+
 static PyObject *
 load_bytes(int id)
 {
@@ -293,11 +304,20 @@ mod_makespec(PyObject *self, PyObject *args)
         goto error;
     }
 
-    int is_package = 0;
+    int is_package = 0, is_redirect = 0;
     const struct ENTRY *e = lookup_import(name, &is_package);
     if (!e) {
-        PyErr_Format(PyExc_ModuleNotFoundError, "'%s' is not part of this package", name);
-        goto error;
+        e = lookup_redirect(name);
+        if (!e) {
+            r = Py_None;
+            Py_INCREF(r);
+            goto error;
+        }
+        is_redirect = 1;
+        args = Py_BuildValue("sO", name, Py_None);
+        if (!args) {
+            goto error;
+        }
     }
     origin = get_origin_root();
     if (origin) {
