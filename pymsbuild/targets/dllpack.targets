@@ -45,4 +45,6 @@
     <SuppressBasicTargetOverrides>true</SuppressBasicTargetOverrides>
     <CoreBuildTargetName>Build</CoreBuildTargetName>
   </PropertyGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)package.targets" />
 </Project>

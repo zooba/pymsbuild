@@ -43,8 +43,8 @@ PACKAGE = Package(
 
 Note that subpackages _must_ be specified as a `Package` element, as the
 nesting of `Package` elements determines the destination path. Otherwise you
-will find all of your files flattened. Recursive wildcards, while partially
-supported, are not going to work!
+will find all of your files flattened. Recursive wildcards are supported, however,
+be aware that it is not always intuitive how the paths are going to be remapped.
 
 Also note that without a `source=` named argument, all source paths are
 relative to the configuration file.
@@ -561,6 +561,20 @@ PACKAGE = DllPackage(
     PyFile("__init__.py"),
     CSourceFile("extra.c"),
     CFunction("my_func"),
+    ...
+)
+```
+
+To allow referencing other extension modules that would normally be
+nested within the module, add `DllRedirect` element and include the
+extension module adjacent to your packed DLL. The filename does not
+have to match the original name, as it will be passed directly to the
+module loader.
+
+```python
+PACKAGE = DllPackage(
+    "packed",
+    DllRedirect("packed.nested", "packed-nested.pyd"),
     ...
 )
 ```
