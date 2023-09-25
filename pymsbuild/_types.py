@@ -144,6 +144,119 @@ Other options will be added to the project as properties.
     options = {"TargetExt": None}
 
 
+class VersionInfo:
+    r"""Represents version info to compile into a .pyd module.
+
+Recommended usage is to add a default instance into your project and
+in 'init_METADATA' find it again and pass in the final metadata.
+
+PACKAGE = Package(
+    "package",
+    PydFile("mod1", VersionInfo()),
+    PydFile("mod2", VersionInfo()),
+)
+
+def init_METADATA():
+    METADATA["Version"] = "1.0"
+    for vi in PACKAGE.findall("*/VersionInfo"):
+        vi.from_metadata(METADATA)
+
+See https://learn.microsoft.com/en-us/windows/win32/menurc/versioninfo-resource
+for the full list of metadata.
+"""
+    _ITEMNAME = "PydVersionInfo"
+    name = "VersionInfo"
+    members = ()
+
+    options = {
+        "FileVersionValue": "0,0,0,0",
+        "ProductVersionValue": "0,0,0,0",
+        "FileFlagsMask": "VS_FFI_FILEFLAGSMASK",
+        "FileFlags": "0",
+        "FileOS": "VOS_NT",
+        "FileType": "VFT_DLL",
+        "FileSubType": "0",
+        "Comments": "",
+        "CompanyName": "",
+        "FileDescription": "",
+        "FileVersion": "",
+        "InternalName": "",
+        "LegalCopyright": "",
+        "LegalTrademarks": "",
+        "OriginalFilename": "$(TargetName)$(TargetExt)",
+        "PrivateBuild": "",
+        "ProductName": "",
+        "ProductVersion": "",
+        "SpecialBuild": "",
+        "LangId": "0x0409",
+        "CharsetId": "1200",
+    }
+
+    def __init__(self, **options):
+        self.options = {
+            **self.options,
+            **options,
+        }
+
+    @staticmethod
+    def _read_version(version):
+        vv = []
+        for v in version.split(".", 5):
+            try:
+                int(v)
+            except (OverflowError, ValueError):
+                break
+            else:
+                vv.append(v)
+        return ", ".join((vv + ("0", "0", "0", "0"))[:4])
+
+    def from_metadata(self, metadata):
+        ver = metadata["Version"]
+        self.update(False, dict(
+            FileVersionValue=self._read_version(ver),
+            ProductVersionValue=self._read_version(ver),
+            CompanyName=metadata.get("Author"),
+            FileDescription=metadata.get("Summary"),
+            FileVersion=ver,
+            InternalName=metadata.get("Name"),
+            ProductName=metadata.get("Name"),
+            ProductVersion=ver,
+        ))
+
+    def update(self, overwrite=True, **values):
+        for k, v in values.items():
+            if overwrite or (v and not self.options.setdefault(k, v)):
+                self.options[k] = v
+
+    def _match(self, key):
+        return key.casefold() == "versioninfo".casefold()
+
+    def write_member(self, project, group):
+        group.switch_to("ItemGroup")
+        opts = {**self.options}
+        langid = opts.get("LangId", "0x0409")
+        try:
+            langid = int(langid, 0)
+        except ValueError:
+            langid = 0x0409
+        charsetid = opts.get("CharsetId", "1200")
+        try:
+            charsetid = int(charsetid, 0)
+        except ValueError:
+            charsetid = 1200
+        encoding = "Unicode" if charsetid == 1200 else "ASCII"
+        opts.update({
+            "LangId": f"0x{langid:04X}",
+            "CharsetId": str(charsetid),
+            "LangCharset": f"{langid:04X}{charsetid:04X}",
+            "Encoding": encoding,
+        })
+        for k in list(opts):
+            if not opts.get(k):
+                del opts[k]
+        project.add_item(self._ITEMNAME, self.name, **opts)
+
+
 class LiteralXML:
     r"""Literal string to insert into generated project file.
 

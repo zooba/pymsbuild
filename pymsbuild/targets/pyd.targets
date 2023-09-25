@@ -2,7 +2,86 @@
   <PropertyGroup>
     <GetPackageFilesTargets>_GetPydPackageFiles;$(GetPackageFilesTargets)</GetPackageFilesTargets>
     <GetSdistFilesTargets>_GetPydSdistFiles;$(GetSdistFilesTargets)</GetSdistFilesTargets>
+    <BeforeBuildGenerateSourcesTargets>_GenerateVersionInfo;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
   </PropertyGroup>
+
+  <Target Name="_PrepareVersionInfoItems">
+    <ItemGroup>
+      <_PydVersionInfo Remove="@(_PydVersionInfo)" />
+      <_PydVersionInfo Include="@(PydVersionInfo)">
+        <RC>$(IntDir)version.rc</RC>
+      </_PydVersionInfo>
+      <ResourceCompile Include="$(IntDir)version.rc">
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>false</IncludeInLayout>
+        <IncludeInWheel>false</IncludeInWheel>
+      </ResourceCompile>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_WriteVersionInfo"
+          Inputs="@(_PydVersionInfo)"
+          Outputs="%(_PydVersionInfo.RC)">
+    <PropertyGroup>
+      <_PydVersionInfoLines><![CDATA[
+#include <windows.h>
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION %(_PydVersionInfo.FileVersionValue)
+PRODUCTVERSION %(_PydVersionInfo.ProductVersionValue)
+FILEFLAGSMASK %(_PydVersionInfo.FileFlagsMask)
+FILEFLAGS %(_PydVersionInfo.FileFlags)
+FILEOS %(_PydVersionInfo.FileOS)
+FILETYPE %(_PydVersionInfo.FileType)
+FILESUBTYPE %(_PydVersionInfo.FileSubType)
+BEGIN
+ BLOCK "StringFileInfo"
+ BEGIN
+  BLOCK "%(_PydVersionInfo.LangCharset)"
+  BEGIN]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines Condition="%(_PydVersionInfo.Comments) != ''"><![CDATA[$(_PydVersionInfoLines)
+    VALUE "Comments", "%(_PydVersionInfo.Comments)\0"]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines Condition="%(_PydVersionInfo.CompanyName) != ''"><![CDATA[$(_PydVersionInfoLines)
+    VALUE "CompanyName", "%(_PydVersionInfo.CompanyName)\0"]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines Condition="%(_PydVersionInfo.FileDescription) != ''"><![CDATA[$(_PydVersionInfoLines)
+    VALUE "FileDescription", "%(_PydVersionInfo.FileDescription)\0"]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines Condition="%(_PydVersionInfo.FileVersion) != ''"><![CDATA[$(_PydVersionInfoLines)
+    VALUE "FileVersion", "%(_PydVersionInfo.FileVersion)\0"]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines Condition="%(_PydVersionInfo.InternalName) != ''"><![CDATA[$(_PydVersionInfoLines)
+    VALUE "InternalName", "%(_PydVersionInfo.InternalName)\0"]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines Condition="%(_PydVersionInfo.LegalCopyright) != ''"><![CDATA[$(_PydVersionInfoLines)
+    VALUE "LegalCopyright", "%(_PydVersionInfo.LegalCopyright)\0"]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines Condition="%(_PydVersionInfo.LegalTrademarks) != ''"><![CDATA[$(_PydVersionInfoLines)
+    VALUE "LegalTrademarks", "%(_PydVersionInfo.LegalTrademarks)\0"]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines Condition="%(_PydVersionInfo.OriginalFilename) != ''"><![CDATA[$(_PydVersionInfoLines)
+    VALUE "OriginalFilename", "%(_PydVersionInfo.OriginalFilename)\0"]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines Condition="%(_PydVersionInfo.PrivateBuild) != ''"><![CDATA[$(_PydVersionInfoLines)
+    VALUE "PrivateBuild", "%(_PydVersionInfo.PrivateBuild)\0"]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines Condition="%(_PydVersionInfo.ProductName) != ''"><![CDATA[$(_PydVersionInfoLines)
+    VALUE "ProductName", "%(_PydVersionInfo.ProductName)\0"]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines Condition="%(_PydVersionInfo.ProductVersion) != ''"><![CDATA[$(_PydVersionInfoLines)
+    VALUE "ProductVersion", "%(_PydVersionInfo.ProductVersion)\0"]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines Condition="%(_PydVersionInfo.SpecialBuild) != ''"><![CDATA[$(_PydVersionInfoLines)
+    VALUE "SpecialBuild", "%(_PydVersionInfo.SpecialBuild)\0"]]></_PydVersionInfoLines>
+      <_PydVersionInfoLines><![CDATA[$(_PydVersionInfoLines)
+  END
+ END
+
+ BLOCK "VarFileInfo"
+ BEGIN
+  VALUE "Translation", %(_PydVersionInfo.LangId), %(_PydVersionInfo.CharsetId)
+ END
+END]]></_PydVersionInfoLines>
+    </PropertyGroup>
+    <WriteLinesToFile File="%(_PydVersionInfo.RC)"
+                      Lines="$(_PydVersionInfoLines.Trim())"
+                      Encoding="%(_PydVersionInfo.Encoding)"
+                      Overwrite="true"
+                      WriteOnlyWhenDifferent="true" />
+    <Message Text="Generated version info" />
+  </Target>
+
+  <Target Name="_GenerateVersionInfo"
+          DependsOnTargets="_PrepareVersionInfoItems;_WriteVersionInfo" />
 
   <Target Name="_GetPydPackageFiles">
     <ItemGroup>
