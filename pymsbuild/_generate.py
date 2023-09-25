@@ -34,30 +34,50 @@ class GroupSwitcher:
             return self._cm.__exit__(*exc_info)
 
 
-def _resolve_wildcards(basename, source, include_dirs=True):
-    if source.parent.name == "**":
-        name = PurePath(basename).parent
-        root = source.parent.parent
-        for p in root.iterdir():
-            if p.is_dir():
-                yield from _resolve_wildcards(
-                    name / p.relative_to(root) / source.name,
-                    p / "**" / source.name,
-                    include_dirs=False,
-                )
-            else:
-                yield name / p.name, p
-    elif "**" in source.parts:
-        raise ValueError("Unsupported wildcard pattern" + str(source))
-    elif "*" in source.name or "?" in source.name:
-        name = PurePath(basename).parent
-        for p in source.parent.glob(source.name):
-            if not p.is_dir():
-                yield name / p.name, p
-    elif any("*" in p or "?" in p for p in source.parts):
-        raise ValueError("Unsupported wildcard pattern " + str(source))
-    elif include_dirs or not source.is_dir():
-        yield basename, source
+def _resolve_wildcards(basename, source, pattern):
+    """Find all files matching 'pattern' under 'source'.
+
+Returns a sequence of (generated name, path), where each element may be
+a Path, PurePath, or str. If there are no wildcards in 'pattern', the
+generated name is 'basename' unmodified and the path is
+"source / pattern". Otherwise, 'basename' is reduced by the same number
+of segments as there are in 'pattern', and the generated name for each
+file will be the recursive path appended to the shortened base.
+
+If 'pattern' is an absolute path, it is split at the first wildcard
+segment and the first part becomes 'source'. 'basename' must have at
+least as many segments as remain in 'pattern'.
+"""
+    basename = PurePath(basename)
+    pattern = PurePath(pattern)
+    if not any("*" in p or "?" in p for p in pattern.parts):
+        yield basename, source / pattern
+        return
+
+    if pattern.is_absolute():
+        for i, p in enumerate(pattern.parts):
+            if "*" in p or "?" in p:
+                source = Path(*pattern.parts[:i])
+                pattern = PurePath(*pattern.parts[i:])
+                break
+
+    if len(basename.parts) < len(pattern.parts):
+        raise ValueError(f"basename ({basename}) should be at least as long as pattern ({pattern})")
+
+    basename = PurePath(*basename.parts[:-len(pattern.parts)])
+    roots = [(basename, source)]
+    for i, r in enumerate(pattern.parts[:-1]):
+        if r == "**":
+            wildcards = str(PurePath(*pattern.parts[i + 1:]))
+            yield from ((bn / p.relative_to(d), p)
+                        for bn, d in roots
+                        for p in d.rglob("*")
+                        if not p.is_dir() and p.relative_to(d).match(wildcards))
+            return
+        roots = [((bn / p.name), p) for bn, d in roots for p in d.glob(r) if p.is_dir()]
+
+    r = pattern.parts[-1]
+    yield from ((bn / p.name, p) for bn, d in roots for p in d.glob(r) if not p.is_dir())
 
 
 def _all_members(item, recurse_if=None, return_if=None, *, prefix=""):
@@ -78,20 +98,34 @@ def _write_members(f, source_dir, members):
         for n, p in members:
             if isinstance(p, File):
                 g.switch_to("ItemGroup")
-                wrote_any = False
+                wrote_any = bool(p.options.get("allow_none"))
+                flat_char = p.options.get("flatten")
+                name = p.options.get("Name")
                 exclude = ()
                 condition = None
                 if getattr(p, "has_condition", False):
                     condition = getattr(p, "condition", None)
                     pattern = getattr(p, "exclude", None)
                     if pattern:
-                        exclude = {p2 for n2, p2 in _resolve_wildcards(n, source_dir / pattern)}
-                for n2, p2 in _resolve_wildcards(n, source_dir / p.source):
+                        exclude = {p2 for n2, p2 in _resolve_wildcards(n, source_dir, pattern)}
+                for n2, p2 in _resolve_wildcards(n, source_dir, p.source):
                     if p2 in exclude:
                         continue
-                    options = dict(p.options)
-                    options.setdefault("SourceDir", source_dir)
-                    options.setdefault("Name", n2)
+                    if isinstance(name, str):
+                        n2 = n2.with_name(name)
+                    if flat_char is True:
+                        n2 = n2.parts[-1]
+                    elif isinstance(flat_char, str):
+                        n2 = flat_char.join(n2.parts)
+                    options = {
+                        "SourceDir": source_dir,
+                        **p.options,
+                        "Name": n2,
+                        "allow_none": None,
+                        "flatten": None,
+                    }
+                    if name is not None and not isinstance(name, str):
+                        options["Name"] = name
                     if condition:
                         p2 = ConditionalValue(p2, condition=condition)
                     f.add_item(p._ITEMNAME, p2, **options)
@@ -278,11 +312,13 @@ def readback_distinfo(pkg_info):
             distinfo.append((key.strip(), value.lstrip()))
     d = {}
     for k, v in distinfo:
-        r = d.setdefault(k, v)
+        r = d.get(k, None)
         if isinstance(r, list):
             r.append(v)
-        elif r is not v:
+        elif r is not None and r is not v:
             d[k] = [r, v]
+        else:
+            d[k] = v
     if description:
         d["Description"] = "".join(description).rstrip()
     return d

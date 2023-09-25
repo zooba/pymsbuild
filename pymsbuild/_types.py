@@ -40,6 +40,67 @@ class _Project:
             else:
                 yield from it
 
+    @staticmethod
+    def _match_item(o, key):
+        if key == "*":
+            return True
+        try:
+            match = o._match
+        except AttributeError:
+            pass
+        else:
+            return match(key)
+        try:
+            name = o.name
+        except AttributeError:
+            pass
+        else:
+            return PurePath(name).match(key)
+        return False
+
+    def find(self, member_path, default=...):
+        """Returns the first member matching the path.
+
+Paths are as for 'findall'. If no member is found, ValueError is raised
+unless 'default' is specified, in which case it is returned.
+"""
+        r = next(self.findall(member_path), default)
+        if r is ...:
+            raise ValueError(f"Unable to find '{member_path}'")
+        return r
+
+    def findall(self, member_path):
+        """Returns an iterable of members matching the path.
+
+Paths are slash-separated hierarchies of names matched according to
+each member's own rules. By default, most members match their 'name'
+property following file system rules (including name wildcards).
+
+All matching levels of the path are collected. So a path of 'A/B/C'
+will match multiple 'A's and 'B's return all the members beneath them
+that match the full path 'A/B/C'.
+
+A segment of '*' will match all members. Recursive wildcards are not
+supported.
+"""
+        if not member_path:
+            return
+        if isinstance(member_path, str):
+            member_path = member_path.replace("\\", "/").split("/")
+        p = member_path[0]
+        matches = (m for m in self.members if self._match_item(m, p))
+        if len(member_path) == 1:
+            yield from matches
+        else:
+            next_path = member_path[1:]
+            for m in matches:
+                try:
+                    findall = m.findall
+                except AttributeError:
+                    pass
+                else:
+                    yield from findall(next_path)
+
 
 class Package(_Project):
     r"""Represents a Python package.
@@ -81,6 +142,124 @@ Specify `source` to find sources in a subdirectory.
 Other options will be added to the project as properties.
 """
     options = {"TargetExt": None}
+
+
+class VersionInfo:
+    r"""Represents version info to compile into a .pyd module.
+
+Recommended usage is to add a default instance into your project and
+in 'init_METADATA' find it again and pass in the final metadata.
+
+PACKAGE = Package(
+    "package",
+    PydFile("mod1", VersionInfo()),
+    PydFile("mod2", VersionInfo()),
+)
+
+def init_METADATA():
+    METADATA["Version"] = "1.0"
+    for vi in PACKAGE.findall("*/VersionInfo"):
+        vi.from_metadata(METADATA)
+
+See https://learn.microsoft.com/en-us/windows/win32/menurc/versioninfo-resource
+for the full list of metadata.
+"""
+    _ITEMNAME = "PydVersionInfo"
+    name = "VersionInfo"
+    members = ()
+
+    options = {
+        "FILEVERSION": "0,0,0,0",
+        "PRODUCTVERSION": "0,0,0,0",
+        "FILEFLAGSMASK": "VS_FFI_FILEFLAGSMASK",
+        "FILEFLAGS": "0",
+        "FILEOS": "VOS_NT",
+        "FILETYPE": "VFT_DLL",
+        "FILESUBTYPE": "0",
+        "Comments": "",
+        "CompanyName": "",
+        "FileDescription": "",
+        "FileVersion": "",
+        "InternalName": "",
+        "LegalCopyright": "",
+        "LegalTrademarks": "",
+        "OriginalFilename": "$(TargetName)$(TargetExt)",
+        "PrivateBuild": "",
+        "ProductName": "",
+        "ProductVersion": "",
+        "SpecialBuild": "",
+        "LangId": "0x0409",
+        "CharsetId": "1200",
+    }
+
+    def __init__(self, **options):
+        self.options = {
+            **self.options,
+            **options,
+        }
+
+    @staticmethod
+    def _read_version(version):
+        vv = []
+        for v in version.split(".", 5):
+            try:
+                int(v)
+            except (OverflowError, ValueError):
+                break
+            else:
+                vv.append(v)
+        return ", ".join((vv + ("0", "0", "0", "0"))[:4])
+
+    def from_metadata(self, metadata):
+        ver = metadata["Version"]
+        self.update(False, dict(
+            FILEVERSION=self._read_version(ver),
+            PRODUCTVERSION=self._read_version(ver),
+            CompanyName=metadata.get("Author"),
+            FileDescription=metadata.get("Summary"),
+            FileVersion=ver,
+            InternalName=metadata.get("Name"),
+            ProductName=metadata.get("Name"),
+            ProductVersion=ver,
+        ))
+
+    def update(self, overwrite=True, **values):
+        for k, v in values.items():
+            if overwrite or (v and not self.options.setdefault(k, v)):
+                self.options[k] = v
+
+    def _match(self, key):
+        return key.casefold() == "versioninfo".casefold()
+
+    def write_member(self, project, group):
+        group.switch_to("ItemGroup")
+        opts = {**self.options}
+        langid = opts.get("LangId", "0x0409")
+        try:
+            langid = int(langid, 0)
+        except ValueError:
+            langid = 0x0409
+        charsetid = opts.get("CharsetId", "1200")
+        try:
+            charsetid = int(charsetid, 0)
+        except ValueError:
+            charsetid = 1200
+        encoding = "Unicode" if charsetid == 1200 else "ASCII"
+        opts.update({
+            "LangId": f"0x{langid:04X}",
+            "CharsetId": str(charsetid),
+            "LangCharset": f"{langid:04X}{charsetid:04X}",
+            "Encoding": encoding,
+        })
+        for k in ["FileVersion", "ProductVersion", "FileFlagsMask", "FileFlags", "FileOS", "FileType", "FileSubType"]:
+            v = opts.pop(k.upper(), None)
+            if v:
+                opts[f"_{k}"] = v
+        
+        for k in list(opts):
+            if not opts.get(k):
+                del opts[k]
+        project.add_item(self._ITEMNAME, self.name, **opts)
 
 
 class LiteralXML:
@@ -186,6 +365,7 @@ project treats "Content" elements.
     _ITEMNAME = "Content"
     options = {
         "IncludeInSdist": True,
+        "IncludeInLayout": True,
         "IncludeInWheel": True,
     }
     has_condition = False
@@ -193,7 +373,7 @@ project treats "Content" elements.
 
     def __init__(self, source, name=None, **metadata):
         self.source = PurePath(source)
-        self.name = name or self.source.name
+        self.name = name or str(source)
         self.members = []
         self.options = {**self.options, **metadata}
 
@@ -216,6 +396,7 @@ Currently does nothing special. One day will generate .pyc files.
     options = {
         "GeneratePyc": True,
         "IncludeInSdist": True,
+        "IncludeInLayout": True,
         "IncludeInWheel": True,
     }
 
@@ -235,6 +416,7 @@ the build to fail.
         "TargetDir": "$(TargetName)",
         "SourceDir": "$(SourceDir)",
         "IncludeInSdist": True,
+        "IncludeInLayout": False,
         "IncludeInWheel": False,
     }
 
@@ -248,6 +430,7 @@ in-place or included in wheels.
     _ITEMNAME = "None"
     options = {
         "IncludeInSdist": True,
+        "IncludeInLayout": False,
         "IncludeInWheel": False,
     }
 

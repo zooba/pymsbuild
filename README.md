@@ -43,8 +43,8 @@ PACKAGE = Package(
 
 Note that subpackages _must_ be specified as a `Package` element, as the
 nesting of `Package` elements determines the destination path. Otherwise you
-will find all of your files flattened. Recursive wildcards, while partially
-supported, are not going to work!
+will find all of your files flattened. Recursive wildcards are supported, however,
+be aware that it is not always intuitive how the paths are going to be remapped.
 
 Also note that without a `source=` named argument, all source paths are
 relative to the configuration file.
@@ -174,6 +174,55 @@ PACKAGE = Package("my_package", P1)
 PACKAGE.members.append(P2)
 ```
 
+## Wildcard handling
+
+Files can be added recursively using wildcard operators. These are
+evaluated at generation time by `pymsbuild` and not by MSBuild/
+`dotnet build`, as it allows greater control over target names.
+
+```python
+PACKAGE = Package(
+    "my_package",
+    # All .py files, relative to the 'src' directory
+    PyFile(r"**\*.py"),
+    # All license files, if any, with path separators converted to '-'
+    File(r"**\license*", flatten="-", allow_none=True),
+    # All .bin files from all data directories, moved to the root
+    File(r"**\data\*.bin", flatten=True),
+    source="src"
+)
+```
+
+`flatten` specifies the string sequence to replace path separators in
+the name. Passing `True` indicates that only the file name should be
+retained.
+
+`allow_none` merely suppresses a build-time error when the wildcard
+fails to match any files. This is usually an important problem, and
+should be suppressed with care.
+
+The `flatten` and `allow_none` properties are not written to the build
+file. However, they are case-sensitive while MSBuild is not, so the
+capitalised versions will be ignored for this processing and passed
+through.
+
+Specifying the `Name` metadata (as opposed to `name`, which is a
+keyword argument) will override the destination name of every matched
+file. This is applied before flattening, and so will preserve the
+relative path in whatever form is specified by `flatten`. To bypass
+this additional processing and use the name as an MSBuild literal,
+wrap it in a `ConditionalValue` with no condition:
+
+```python
+PACKAGE = Package(
+    "my_package",
+    File("**/*.dat", Name=ConditionalValue("%(Filename)-1.dat")),
+)
+```
+
+For more complex transforms on filename, we recommend using the
+`init_PACKAGE` function described below.
+
 ## Dynamic packages
 
 After import, if an `init_PACKAGE(tag=None)` function exists it will be
@@ -236,6 +285,22 @@ PACKAGE = Package(
     PyFile(r"my_package\*.py").if_("%(Filename) != '_internal'"),
     File(ConditionalValue("*.txt", condition="%(Filename.StartsWith(`internal`))")),
 )
+```
+
+Package members can be located during the dynamic stage using the `find` and
+`findall` functions. These take a path of member identifiers (typically their
+name property) and will return those that match.
+
+```python
+PACKAGE = Package(
+    "my_package",
+    Package("sub1", File("license.txt")),
+    Package("sub2", File("license.txt")),
+)
+
+def init_PACKAGE(tag=None):
+    for e in PACKAGE.findall("sub*/license.txt"):
+        e.name = "LICENSE"
 ```
 
 ## Source offsets
@@ -380,6 +445,34 @@ top-level `Project` element.
     LiteralXml("<Import Project='my_props.props' />"),
     ...
 ```
+
+## Version info for DLLs/PYDs
+
+To embed version info into a compiled extension module (on Windows),
+add a `VersionInfo` element into the `PydFile`. All the fields from
+https://learn.microsoft.com/en-us/windows/win32/menurc/versioninfo-resource
+are available, using the names as shown in the tables (e.g.
+`FILEVERSION` for the `'1,0,0,0'` fields and `FileVersion` for the string
+table entry).
+
+The recommended usage is to add a default instance into your project and then
+use 'init_METADATA' to find it again and update the final metadata.
+
+```
+PACKAGE = Package(
+    "package",
+    PydFile("mod1", VersionInfo()),
+    PydFile("mod2", VersionInfo()),
+)
+
+def init_METADATA():
+    METADATA["Version"] = calculate_current_version()
+    for vi in PACKAGE.findall("*/VersionInfo"):
+        vi.from_metadata(METADATA)
+```
+
+`from_metadata` will fill in any empty fields from the set of metadata that is
+passed in.
 
 ## Alternate config file
 
@@ -561,6 +654,20 @@ PACKAGE = DllPackage(
     PyFile("__init__.py"),
     CSourceFile("extra.c"),
     CFunction("my_func"),
+    ...
+)
+```
+
+To allow referencing other extension modules that would normally be
+nested within the module, add `DllRedirect` element and include the
+extension module adjacent to your packed DLL. The filename does not
+have to match the original name, as it will be passed directly to the
+module loader.
+
+```python
+PACKAGE = DllPackage(
+    "packed",
+    DllRedirect("packed.nested", "packed-nested.pyd"),
     ...
 )
 ```

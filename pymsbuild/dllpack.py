@@ -34,6 +34,7 @@ PyObject *function(PyObject *module, PyObject *args, PyObject *kwargs)
 It will be available in the root of the package as the same name.
 """
     _ITEMNAME = "DllPackFunction"
+    members = ()
 
     def __init__(self, name, **options):
         self.name = name
@@ -42,3 +43,25 @@ It will be available in the root of the package as the same name.
     def write_member(self, project, group):
         group.switch_to("ItemGroup")
         project.add_item(self._ITEMNAME, self.name, **self.options)
+
+
+class PydRedirect(File):
+    r"""Represents a redirected extension module.
+
+The name would normally be resolved within the packed DLL. However, for
+.pyd files normally nested into a package, they need to be directed to
+an adjacent file. The 'redirect_to' name will be loaded from the same
+directory as the packed DLL using the default extension module loader.
+
+If 'source' is provided, the module is automatically included in the
+package. Additional options are applied as metadata to both the
+redirect and the content (.pyd) file.
+"""
+    _ITEMNAME = "DllPackRedirect"
+    members = ()
+
+    options = {
+        **File.options,
+        "IncludeInSdist": False,
+        "flatten": ".",
+    }

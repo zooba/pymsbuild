@@ -5,8 +5,14 @@ import sys
 
 from . import PYMSBUILD_REQUIRES_SPEC
 
-TEMPLATE = importlib.resources.read_text("pymsbuild", "_msbuild.py.in")
-TOML_TEMPLATE = importlib.resources.read_text("pymsbuild", "pyproject.toml.in")
+# importlib.resources has no feature detection, so we have to assume that
+# they'll stick to CPython versions.
+if sys.version_info[:2] >= (3, 11):
+    TEMPLATE = (importlib.resources.files("pymsbuild") / "_msbuild.py.in").read_text()
+    TOML_TEMPLATE = (importlib.resources.files("pymsbuild") / "pyproject.toml.in").read_text()
+else:
+    TEMPLATE = importlib.resources.read_text("pymsbuild", "_msbuild.py.in")
+    TOML_TEMPLATE = importlib.resources.read_text("pymsbuild", "pyproject.toml.in")
 
 C_PREPROC_BLURB = """
 # Need to set preprocessor variables or include dirs? Use a ClCompile item definition
@@ -99,7 +105,12 @@ def run(root, config_name="_msbuild.py"):
 
     substitutions["PACKAGE"] = "\n".join([
         "PACKAGE = Package(",
-        *_generate_module(project, offset, build_requires, _root=project.parent),
+        *_generate_module(
+            project,
+            offset,
+            build_requires,
+            _root=project.parent if project else None,
+        ),
         ")",
     ])
 

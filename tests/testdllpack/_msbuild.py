@@ -15,6 +15,9 @@ PACKAGE = DllPackage(
     CFunction("myfunc"),
     # Included as content, not code
     File("test-dllpack.py"),
+    # Pretend this is a .pyd
+    PydRedirect("pretend-pyd.txt", name="pretend.pyd", flatten="_"),
+    PydRedirect("pretend-pyd.txt", name="pretend.pyd", flatten=True),
 )
 
 DIST_INFO = {

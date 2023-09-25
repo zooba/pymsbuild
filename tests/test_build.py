@@ -34,6 +34,14 @@ def build_state(tmp_path, testdata):
         T.PyFile(testdata / "empty.py", "__init__.py"),
         T.PydFile("mod",
             T.CSourceFile(testdata / "mod.c"),
+            T.VersionInfo(
+                ProductName="package",
+                FileDescription="The package module",
+                FileVersion="1.0",
+                FILEVERSION="1,0,0,0",
+                ProductVersion="1.0",
+                PRODUCTVERSION="1,0,0,0",
+            ),
             TargetExt=".pyd",
         ),
     )
@@ -73,7 +81,6 @@ def test_build(build_state, configuration):
     files = {p.relative_to(bs.source_dir) for p in bs.source_dir.rglob("**/*") if p.is_file()}
     assert files >= {Path(p) for p in {"empty.py"}}
     assert not files & {Path(p) for p in {"package/__init__.py", "package/mod.pyd"}}
-
 
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
 def test_build_sdist(build_state, configuration):

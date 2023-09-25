@@ -101,7 +101,7 @@ class BuildState:
         self.python_includes = None
         self.python_libs = None
 
-    def finalize(self, getenv=os.getenv, sdist=False, in_place=False):
+    def finalize_metadata(self, getenv=os.getenv, sdist=False, in_place=False):
         if self._finalized:
             return
         self._finalized = True
@@ -204,7 +204,13 @@ class BuildState:
             else:
                 self.python_libs = sysconfig.get_config_var("LIBPL")
 
+        type(self).current = None
+
+    def finalize(self, getenv=os.getenv, sdist=False, in_place=False):
+        self.finalize_metadata(getenv, sdist, in_place)
+
         if self.package is None:
+            type(self).current = self
             if hasattr(self.config, "init_PACKAGE"):
                 self.log("Dynamically initialising PACKAGE")
                 if sdist:
@@ -214,8 +220,7 @@ class BuildState:
                 if pack:
                     self.config.PACKAGE = self.package
             self.package = self.config.PACKAGE
-
-        type(self).current = None
+            type(self).current = None
 
     def _set_best(self, key, metakey, envkey, default, getenv):
         if getattr(self, key, None):
@@ -350,7 +355,7 @@ class BuildState:
             self.build()
 
     def get_requires_for_build_sdist(self):
-        self.finalize(sdist=True)
+        self.finalize_metadata(sdist=True)
         return self.metadata.get("BuildSdistRequires", [])
 
     def layout_sdist(self, statefile=True):
@@ -400,7 +405,7 @@ class BuildState:
         return sdist.name
 
     def get_requires_for_build_wheel(self):
-        self.finalize()
+        self.finalize_metadata()
         return self.metadata.get("BuildWheelRequires", [])
 
     def layout_wheel(self, statefile=True):
@@ -421,7 +426,8 @@ class BuildState:
 
         # Copy metadata_dir into layout_dir
         if self.metadata_dir != self.layout_dir:
-            for n, rn in _relative_to_layout(None, self.metadata_dir):
+            metadata = (self.metadata_dir / self.distinfo_name).glob("*")
+            for n, rn in _relative_to_layout(metadata, self.metadata_dir):
                 n2 = self.layout_dir / rn
                 n2.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy(n, n2)
@@ -458,7 +464,7 @@ class BuildState:
                     continue
                 self.log("-", rn)
                 record.append(_add_and_record(f, n, rn))
-            for n in self.metadata_dir.glob("*.dist-info"):
+            for n in self.metadata_dir.glob(self.distinfo_name):
                 if n.is_dir():
                     record_files.append(rf"{n.name}/RECORD")
                     record.append(rf"{n.name}/RECORD,,")
