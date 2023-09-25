@@ -25,7 +25,7 @@ def test_file_types(itemkind, ftype):
     f = ftype("testdata/f.py", opt1=1)
     assert f._ITEMNAME == itemkind
     assert f.source == PurePath("testdata/f.py")
-    assert f.name == "f.py"
+    assert f.name == "testdata/f.py"
     assert f.options["opt1"] == 1
 
 
@@ -94,7 +94,7 @@ def test_package_generation(tmp_path):
     assert {i.text for i in sdist_md} == {"pyproject.toml", "PKG-INFO", "_msbuild.py"}
 
     files = pf.getall("./x:ItemGroup/x:Content/x:Name")
-    assert {i.text for i in files} == {
+    assert {i.text.replace('\\', '/') for i in files} == {
         "package/__init__.py",
         "package/subpackage/__init__.py",
         "package/subpackage/subpackage/__init__.py",
