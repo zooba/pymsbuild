@@ -77,11 +77,9 @@ with warnings.catch_warnings():
 print(c)
 assert "data.txt" in c
 
-try:
-    i_r.files
-except AttributeError:
-    pass
-else:
+# importlib.resources has no feature detection, so we have to assume that
+# they'll stick to CPython versions.
+if sys.version_info[:2] >= (3, 10):
     assert (i_r.files(TDP) / "data.txt").read_text().startswith("This is data")
     assert (i_r.files(TDP) / "data.txt").read_bytes().startswith(b"This is data")
 
