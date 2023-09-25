@@ -324,7 +324,7 @@ mod_makespec(PyObject *self, PyObject *args)
         goto error;
     }
 
-    int is_package = 0, is_redirect = 0;
+    int is_package = 0;
     const struct ENTRY *e = lookup_import(name, &is_package);
     if (!e) {
         if (PyErr_Occurred()) {
@@ -338,7 +338,6 @@ mod_makespec(PyObject *self, PyObject *args)
             }
             goto error;
         }
-        is_redirect = 1;
         args = Py_BuildValue("sO", name, Py_None);
         if (!args) {
             goto error;
