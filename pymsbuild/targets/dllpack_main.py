@@ -79,4 +79,4 @@ __file__ = __spec__.origin
 __loader__ = __spec__.loader
 __package__ = getattr(__spec__, "parent", None)
 __path__ = []
-del _init
+del _init, __CREATE_MODULE, __DATA, __DATA_NAMES, __EXEC_MODULE, __MAKESPEC, __NAME

@@ -13,14 +13,19 @@ sys.addaudithook(event_hook)
 #######################################
 # Check testdllpack
 #######################################
-import testdllpack as TDP
+try:
+    import testdllpack as TDP
+finally:
+    print(*audit_events, sep="\n")
 print("Successful import of: ", TDP.__file__)
 print(dir(TDP))
 
-print(*audit_events, sep="\n")
 assert audit_events[0] == ("pymsbuild.dllpack.lookup_import", ("testdllpack", "testdllpack"))
 assert audit_events[1][0] == "pymsbuild.dllpack.load_pyc"
-assert audit_events[2] == ("pymsbuild.dllpack.data_names", ("testdllpack",))
+if audit_events[2][0] == "pymsbuild.dllpack.decrypt_buffer":
+    assert audit_events[3] == ("pymsbuild.dllpack.data_names", ("testdllpack",))
+else:
+    assert audit_events[2] == ("pymsbuild.dllpack.data_names", ("testdllpack",))
 
 assert os.path.isabs(TDP.__file__)
 assert not os.path.exists(TDP.__file__)

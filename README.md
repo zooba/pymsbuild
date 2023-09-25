@@ -658,6 +658,8 @@ PACKAGE = DllPackage(
 )
 ```
 
+### Nested extension modules
+
 To allow referencing other extension modules that would normally be
 nested within the module, add `DllRedirect` element and include the
 extension module adjacent to your packed DLL. The filename does not
@@ -670,6 +672,37 @@ PACKAGE = DllPackage(
     DllRedirect("packed.nested", "packed-nested.pyd"),
     ...
 )
+```
+
+### Encryption
+
+To encrypt your content using symmetric AES encryption, provide the
+name of the environment variable holding your key as the
+`EncryptionKeyVariable` option. The key will need to be a valid size
+(usually 16, 24 or 32 bytes) when encoded to UTF-8 or decoded from
+base 64. Base 64 keys should start with `base64:`.
+
+The same variable will need to be set when importing the module. It is
+your responsibility to protect the key! The benefit of this encryption
+is best realised when you avoid storing the key to disk. That way, an
+attacker who steals a copy of your module is unlikely to have access to
+the key. An attacker with access to a running copy of your module will
+be able to easily extract the key.
+
+```python
+PACKAGE = DllPackage(
+    "package",
+    ...,
+    EncryptionKeyVariable="MY_KEY_VARIABLE"
+)
+```
+
+```powershell
+> $env:MY_KEY_VARIABLE="base64:MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
+> python -m pymsbuild
+> del env:\MY_KEY_VARIABLE
+> python -c "import package"
+ImportError: Module cannot be decrypted
 ```
 
 ## Cross-platform builds

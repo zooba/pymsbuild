@@ -21,9 +21,15 @@ def groupby(iterator, key):
 
 def parse_all(file):
     g = groupby(map(str.strip, file), key=lambda i: i.partition(":")[0].lower())
-    factories = dict(code=CodeFileInfo, resource=DataFileInfo, function=FunctionInfo, redirect=RedirectInfo)
+    factories = dict(
+        code=CodeFileInfo,
+        resource=DataFileInfo,
+        function=FunctionInfo,
+        redirect=RedirectInfo,
+        encrypt=EncryptInfo,
+    )
     return [
-        factories.get(k, ErrorInfo)(next(RESID_COUNTER), line)
+        factories.get(k, ErrorInfo)(line)
         for k, v in g.items() for line in v
     ]
 
@@ -32,7 +38,7 @@ class CodeFileInfo:
     RC_TYPE = "PYCFILE"
     RC_TABLE = "IMPORT_TABLE"
 
-    def __init__(self, resid, line):
+    def __init__(self, line, resid=None):
         _, name, path = line.split(":", maxsplit=2)
         name = PureWindowsPath(name)
         path = Path(path)
@@ -43,13 +49,13 @@ class CodeFileInfo:
         self.origin = str(name)
         self.sourcefile = path
         self._resource_file = None
-        if path.suffix.casefold() == ".pyc".casefold():
+        if path.match("*.pyc"):
             self._resource_file = self.sourcefile
-        self.resid = resid
+        self.resid = next(RESID_COUNTER) if resid is None else resid
 
-    def resource_file(self):
+    def resource_file(self, encrypt=None):
         if not self._resource_file:
-            self._resource_file = Path(py_compile.compile(
+            pyc = Path(py_compile.compile(
                 str(self.sourcefile),
                 "pyc{}.bin".format(self.resid),
                 self.origin,
@@ -57,6 +63,11 @@ class CodeFileInfo:
                 optimize=PYC_OPTIMIZATION,
                 invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH,
             ))
+            if encrypt:
+                self._resource_file = Path("pycx{}.bin".format(self.resid))
+                encrypt.file(src=pyc, dest=self._resource_file)
+            else:
+                self._resource_file = pyc
         return self._resource_file
 
     def check(self):
@@ -65,37 +76,43 @@ class CodeFileInfo:
 
     @classmethod
     def get_builtin(cls, resid, sourcefile):
-        return cls(resid, "code:${}:{}".format(sourcefile.stem, sourcefile))
+        return cls("code:${}:{}".format(sourcefile.stem, sourcefile), resid=resid)
 
 
 class DataFileInfo:
     RC_TYPE = "DATAFILE"
     RC_TABLE = "DATA_TABLE"
 
-    def __init__(self, resid, line):
+    def __init__(self, line):
         _, name, path = line.split(":", maxsplit=2)
         name = PureWindowsPath(name)
         path = Path(path)
         self.name = ".".join(name.parts)
         self.origin = str(name)
         self.sourcefile = path
-        self.resid = resid
+        self._resource_file = None
+        self.resid = next(RESID_COUNTER)
 
     def check(self):
         if not self.sourcefile.is_file():
             return "Missing input: {}".format(self.sourcefile)
 
-    def resource_file(self):
-        return self.sourcefile
-
+    def resource_file(self, encrypt=None):
+        if self._resource_file:
+            return self._resource_file
+        if not encrypt:
+            return self.sourcefile
+        self._resource_file = Path(f"data{self.resid}.bin")
+        encrypt.file(src=self.sourcefile, dest=self._resource_file)
+        return self._resource_file
 
 class FunctionInfo:
     RC_TYPE = None
     RC_TABLE = "$FUNCTIONS"
+    resid = 0
 
-    def __init__(self, resid, line):
+    def __init__(self, line):
         self.name = line.partition(":")[2]
-        self.resid = resid
 
     def check(self):
         if not self.name.isidentifier():
@@ -108,8 +125,9 @@ class FunctionInfo:
 class RedirectInfo:
     RC_TYPE = None
     RC_TABLE = "REDIRECT_TABLE"
+    resid = 0
 
-    def __init__(self, resid, line):
+    def __init__(self, line):
         _, name, self.origin = line.split(":", 2)
         if not name:
             bits = Path(self.origin).name.split(".")
@@ -120,19 +138,83 @@ class RedirectInfo:
             self.name = ".".join(bits)
         else:
             self.name = name
-        self.resid = resid
 
     def check(self):
         pass
+
+
+class EncryptInfo:
+    RC_TYPE = None
+    RC_TABLE = None
+
+    def __init__(self, line):
+        self.name = line.partition(":")[2]
+        self._key = None
+
+    @property
+    def key(self):
+        if not self._key:
+            key = os.getenv(self.name)
+            if not key:
+                raise ValueError("no key provided")
+            if key.startswith("base64:"):
+                import base64
+                self._key = base64.b64decode(key.partition(":")[2])
+            else:
+                self._key = key.encode("utf-8", "strict")
+        return self._key
+
+    def check(self):
+        try:
+            key = self.key
+            try:
+                from windows.cryptography import algorithms
+            except ImportError:
+                from cryptography import algorithms
+            if not key:
+                return
+            if len(key) * 8 not in algorithms.AES.key_sizes():
+                return f"Key must be {algorithms.AES.key_sizes()} bits"
+        except Exception as ex:
+            return "Cannot use encryption key ({})".format(ex)
+
+    def file(self, src, dest):
+        try:
+            from windows.cryptography import algorithms, modes, Cipher
+        except ImportError:
+            from cryptography import algorithms, modes, Cipher
+        block_size = algorithms.AES.block_sizes()[0]
+        iv = os.urandom(block_size)
+        cipher = Cipher(algorithms.AES(self.key), modes.CBC(iv))
+        encryptor = cipher.encryptor()
+        bufs = []
+        with open(src, "rb") as f1:
+            eof = False
+            while not eof:
+                buf = f1.read(cipher.block_length)
+                eof = not buf
+                buf = encryptor.update(buf) if buf else encryptor.finalize()
+                if buf:
+                    bufs.append(buf)
+        with open(dest, "wb") as f2:
+            f2.write(os.stat(src).st_size.to_bytes(4, "little"))
+            f2.write(sum(len(b) for b in bufs).to_bytes(4, "little"))
+            f2.write(len(iv).to_bytes(4, "little"))
+            f2.write(iv)
+            for buf in bufs:
+                f2.write(buf)
+
+    @classmethod
+    def find_key(cls, items):
+        return next((p for p in items if isinstance(p, cls)), None)
 
 
 class ErrorInfo:
     RC_TYPE = None
     RC_TABLE = None
 
-    def __init__(self, resid, line):
+    def __init__(self, line):
         self.line = line
-        self.resid = resid
 
     def check(self):
         return "Unhandled input: " + line
@@ -150,7 +232,7 @@ def _c_str(s):
     return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def _generate_files(module, files, targets):
+def _generate_files(module, files, targets, encrypt=None):
     files.append(CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py"))
 
     with open("dllpack.rc", "w", encoding="ascii", errors="backslashescape") as rc_file:
@@ -158,7 +240,7 @@ def _generate_files(module, files, targets):
         print("#define DATAFILE 258", file=rc_file)
         for f in files:
             if f.RC_TYPE:
-                print(f.resid, f.RC_TYPE, _c_str(f.resource_file()), file=rc_file)
+                print(f.resid, f.RC_TYPE, _c_str(f.resource_file(encrypt)), file=rc_file)
 
     with open("dllpack.h", "w", encoding="ascii", errors="backslashescape") as h_file:
         print('#define _MODULE_NAME "{}"'.format(module), file=h_file)
@@ -167,6 +249,8 @@ def _generate_files(module, files, targets):
         print("#define _PYCFILE 257", file=h_file)
         print("#define _DATAFILE 258", file=h_file)
         print("#define _PYC_HEADER_LEN 16", file=h_file)
+        if encrypt:
+            print('#define _ENCRYPT_KEY_NAME L"{}"'.format(encrypt.name), file=h_file)
         print("struct ENTRY {const char *name; const char *origin; int id;};", file=h_file)
         expected_tables = {"IMPORT_TABLE", "DATA_TABLE", "REDIRECT_TABLE"}
         tables = groupby(files, lambda f: f.RC_TABLE)
@@ -202,5 +286,6 @@ if __name__ == "__main__":
     if any(ERRORS):
         print(*filter(None, ERRORS), sep="\n")
         sys.exit(1)
+    ENCRYPT = EncryptInfo.find_key(PARSED)
     TARGETS = Path(sys.argv[3]).absolute()
-    _generate_files(MODULE, PARSED, TARGETS)
+    _generate_files(MODULE, PARSED, TARGETS, ENCRYPT)

@@ -3,7 +3,20 @@
 #include "marshal.h"
 #include "dllpack.h"
 
+#define STATUS_DATA_ERROR 0xC000003E
+
 static HMODULE hInstance;
+
+#ifdef _ENCRYPT_KEY_NAME
+static const wchar_t *encrypt_variable = _ENCRYPT_KEY_NAME;
+#else
+static const wchar_t *encrypt_variable = NULL;
+#endif
+
+typedef struct {
+    BCRYPT_ALG_HANDLE hAlg;
+    BCRYPT_KEY_HANDLE hKey;
+} ModuleState;
 
 
 static const struct ENTRY *
@@ -57,8 +70,61 @@ lookup_redirect(const char *name)
     return NULL;
 }
 
+static void *
+decrypt_buffer(ModuleState *ms, const char **buffer, DWORD *cbBuffer)
+{
+    struct hdr {
+        DWORD cbPlain;
+        DWORD cbData;
+        DWORD cbIV;
+        const UCHAR iv[512];
+    } *header = (struct hdr*)*buffer;
+    UCHAR iv[512];
+    if (PySys_Audit("pymsbuild.dllpack.decrypt_buffer", "III", header->cbData, header->cbPlain, header->cbIV) < 0) {
+        return NULL;
+    }
+    if (header->cbIV > sizeof(iv)) {
+        PyErr_Format(PyExc_OverflowError, "requested IV length (%i) is too large", header->cbIV);
+        return NULL;
+    }
+    memcpy(iv, header->iv, header->cbIV);
+    PUCHAR data = (PUCHAR)&header->iv[header->cbIV];
+    DWORD cbPlainActual;
+    PUCHAR plain = (PUCHAR)HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, header->cbPlain);
+
+    NTSTATUS err = BCryptDecrypt(
+        ms->hKey,
+        data, header->cbData,
+        NULL,
+        iv, header->cbIV,
+        plain, header->cbPlain,
+        &cbPlainActual,
+        BCRYPT_BLOCK_PADDING
+    );
+    if (err) {
+        HeapFree(GetProcessHeap(), 0, plain);
+        if (err == STATUS_DATA_ERROR) {
+            PyErr_SetString(PyExc_ImportError, "Failed to decode module");
+        } else {
+            PyErr_SetFromWindowsErr(err);
+        }
+        return NULL;
+    }
+
+    *buffer = (const char *)plain;
+    *cbBuffer = cbPlainActual;
+    return plain;
+}
+
+static void
+free_decrypt_cookie(void *cookie)
+{
+    HeapFree(GetProcessHeap(), 0, cookie);
+}
+
+
 static PyObject *
-load_bytes(int id)
+load_bytes(ModuleState *ms, int id)
 {
     if (PySys_Audit("pymsbuild.dllpack.load_bytes", "si", _DLLPACK_NAME, id) < 0) {
         return NULL;
@@ -85,13 +151,22 @@ load_bytes(int id)
         FreeResource(res);
         return NULL;
     }
+    void *decrypt_cookie = NULL;
+    if (encrypt_variable) {
+        decrypt_cookie = decrypt_buffer(ms, &buffer, &cbBuffer);
+        if (!decrypt_cookie) {
+            FreeResource(res);
+            return NULL;
+        }
+    }
     obj = PyBytes_FromStringAndSize(buffer, cbBuffer);
     FreeResource(res);
+    free_decrypt_cookie(decrypt_cookie);
     return obj;
 }
 
 static PyObject *
-load_pyc(int id)
+load_pyc(ModuleState *ms, int id)
 {
     if (PySys_Audit("pymsbuild.dllpack.load_pyc", "si", _DLLPACK_NAME, id) < 0) {
         return NULL;
@@ -118,9 +193,18 @@ load_pyc(int id)
         FreeResource(res);
         return NULL;
     }
+    void *decrypt_cookie = NULL;
+    if (encrypt_variable) {
+        decrypt_cookie = decrypt_buffer(ms, &buffer, &cbBuffer);
+        if (!decrypt_cookie) {
+            FreeResource(res);
+            return NULL;
+        }
+    }
     // Our .pyc has a header
     obj = PyMarshal_ReadObjectFromString(&buffer[_PYC_HEADER_LEN], cbBuffer - _PYC_HEADER_LEN);
     FreeResource(res);
+    free_decrypt_cookie(decrypt_cookie);
     return obj;
 }
 
@@ -160,7 +244,7 @@ get_origin_root()
 }
 
 static PyObject *
-mod_load_impl(const char *name, PyObject *mod, int is_main) {
+mod_load_impl(ModuleState *ms, const char *name, PyObject *mod, int is_main) {
     int is_package = 0;
     const struct ENTRY *e = lookup_import(name, &is_package);
     if (!e) {
@@ -174,7 +258,7 @@ mod_load_impl(const char *name, PyObject *mod, int is_main) {
 
     PyObject *pyc, *r;
     if (is_main) {
-        pyc = load_pyc(_IMPORTERS_RESID);
+        pyc = load_pyc(ms, _IMPORTERS_RESID);
         if (!pyc) {
             return NULL;
         }
@@ -186,7 +270,7 @@ mod_load_impl(const char *name, PyObject *mod, int is_main) {
         Py_DECREF(r);
     }
 
-    pyc = load_pyc(e->id);
+    pyc = load_pyc(ms, e->id);
     if (!pyc) {
         return NULL;
     }
@@ -218,7 +302,7 @@ mod_load(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O", &mod)) {
         return NULL;
     }
-    mod = mod_load_impl(PyModule_GetName(mod), mod, 0);
+    mod = mod_load_impl((ModuleState*)PyModule_GetState(self), PyModule_GetName(mod), mod, 0);
     Py_XINCREF(mod);
     return mod;
 }
@@ -390,7 +474,8 @@ mod_data(PyObject *self, PyObject *args)
     }
     const struct ENTRY *e = lookup_data(name);
     if (e) {
-        return load_bytes(e->id);
+        ModuleState *ms = (ModuleState*)PyModule_GetState(self);
+        return load_bytes(ms, e->id);
     }
     PyErr_Format(PyExc_FileNotFoundError, "'%s' is not part of this package", name);
     return NULL;
@@ -428,9 +513,85 @@ mod_name(PyObject *self, PyObject *args)
 }
 
 static int
+init_decryptor(ModuleState *ms)
+{
+    char key[4096];
+    DWORD cbKey = sizeof(key);
+    wchar_t buffer[4096];
+    NTSTATUS err;
+
+    ms->hAlg = NULL;
+    ms->hKey = NULL;
+
+    if (GetEnvironmentVariableW(encrypt_variable, buffer, 4096) == 0) {
+        PyErr_SetFromWindowsErr(GetLastError());
+        return -1;
+    }
+    if (0 == wcsncmp(buffer, L"base64:", 7)) {
+        if (!CryptStringToBinaryW(&buffer[7], 0, CRYPT_STRING_BASE64, key, &cbKey, NULL, NULL)) {
+            PyErr_SetFromWindowsErr(GetLastError());
+            return -1;
+        }
+    } else {
+        cbKey = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, buffer, -1, key, cbKey, NULL, NULL);
+        if (!cbKey) {
+            PyErr_SetFromWindowsErr(GetLastError());
+            return -1;
+        }
+        cbKey -= 1;
+    }
+
+    err = BCryptOpenAlgorithmProvider(&ms->hAlg, BCRYPT_AES_ALGORITHM, NULL, 0);
+    if (!err) {
+        err = BCryptSetProperty(
+            ms->hAlg,
+            BCRYPT_CHAINING_MODE,
+            (PUCHAR)BCRYPT_CHAIN_MODE_CBC,
+            -1,
+            0
+        );
+    }
+    if (!err) {
+        err = BCryptGenerateSymmetricKey(ms->hAlg, &ms->hKey, NULL, 0, key, cbKey, 0);
+    }
+    if (err) {
+        PyErr_SetFromWindowsErr(err);
+        return -1;
+    }
+    return 0;
+}
+
+static int
+free_decryptor(ModuleState *ms)
+{
+    if (ms->hKey) {
+        BCryptDestroyKey(ms->hKey);
+        ms->hKey = NULL;
+    }
+    if (ms->hAlg) {
+        BCryptCloseAlgorithmProvider(ms->hAlg, 0);
+        ms->hAlg = NULL;
+    }
+    return 0;
+}
+
+static int
 mod_exec(PyObject *m)
 {
-    return mod_load_impl(PyModule_GetName(m), m, 1) ? 0 : -1;
+    ModuleState *ms = (ModuleState *)PyModule_GetState(m);
+    if (encrypt_variable) {
+        if (init_decryptor(ms) < 0) {
+            free_decryptor(ms);
+            return -1;
+        }
+    }
+    return mod_load_impl(ms, PyModule_GetName(m), m, 1) ? 0 : -1;
+}
+
+static void
+mod_free(PyObject *m)
+{
+    free_decryptor((ModuleState *)PyModule_GetState(m));
 }
 
 
@@ -453,12 +614,12 @@ static struct PyModuleDef modmodule = {
     PyModuleDef_HEAD_INIT,
     _MODULE_NAME,
     NULL,
-    0,
+    sizeof(ModuleState),
     mod_meth,
     mod_slots,
     NULL,
     NULL,
-    NULL
+    (freefunc)mod_free
 };
 
 
