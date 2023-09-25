@@ -40,6 +40,67 @@ class _Project:
             else:
                 yield from it
 
+    @staticmethod
+    def _match_item(o, key):
+        if key == "*":
+            return True
+        try:
+            match = o._match
+        except AttributeError:
+            pass
+        else:
+            return match(key)
+        try:
+            name = o.name
+        except AttributeError:
+            pass
+        else:
+            return PurePath(name).match(key)
+        return False
+
+    def find(self, member_path, default=...):
+        """Returns the first member matching the path.
+
+Paths are as for 'findall'. If no member is found, ValueError is raised
+unless 'default' is specified, in which case it is returned.
+"""
+        r = next(self.findall(member_path), default)
+        if r is ...:
+            raise ValueError(f"Unable to find '{member_path}'")
+        return r
+
+    def findall(self, member_path):
+        """Returns an iterable of members matching the path.
+
+Paths are slash-separated hierarchies of names matched according to
+each member's own rules. By default, most members match their 'name'
+property following file system rules (including name wildcards).
+
+All matching levels of the path are collected. So a path of 'A/B/C'
+will match multiple 'A's and 'B's return all the members beneath them
+that match the full path 'A/B/C'.
+
+A segment of '*' will match all members. Recursive wildcards are not
+supported.
+"""
+        if not member_path:
+            return
+        if isinstance(member_path, str):
+            member_path = member_path.replace("\\", "/").split("/")
+        p = member_path[0]
+        matches = (m for m in self.members if self._match_item(m, p))
+        if len(member_path) == 1:
+            yield from matches
+        else:
+            next_path = member_path[1:]
+            for m in matches:
+                try:
+                    findall = m.findall
+                except AttributeError:
+                    pass
+                else:
+                    yield from findall(next_path)
+
 
 class Package(_Project):
     r"""Represents a Python package.
@@ -186,6 +247,7 @@ project treats "Content" elements.
     _ITEMNAME = "Content"
     options = {
         "IncludeInSdist": True,
+        "IncludeInLayout": True,
         "IncludeInWheel": True,
     }
     has_condition = False
@@ -193,7 +255,7 @@ project treats "Content" elements.
 
     def __init__(self, source, name=None, **metadata):
         self.source = PurePath(source)
-        self.name = name or self.source.name
+        self.name = name or str(source)
         self.members = []
         self.options = {**self.options, **metadata}
 
@@ -216,6 +278,7 @@ Currently does nothing special. One day will generate .pyc files.
     options = {
         "GeneratePyc": True,
         "IncludeInSdist": True,
+        "IncludeInLayout": True,
         "IncludeInWheel": True,
     }
 
@@ -235,6 +298,7 @@ the build to fail.
         "TargetDir": "$(TargetName)",
         "SourceDir": "$(SourceDir)",
         "IncludeInSdist": True,
+        "IncludeInLayout": False,
         "IncludeInWheel": False,
     }
 
@@ -248,6 +312,7 @@ in-place or included in wheels.
     _ITEMNAME = "None"
     options = {
         "IncludeInSdist": True,
+        "IncludeInLayout": False,
         "IncludeInWheel": False,
     }
 

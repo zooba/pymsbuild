@@ -9,6 +9,7 @@ compiled DLL that exposes submodules and resources using an import hook.
 Add `Function` elements to link """
     options = {
         **PydFile.options,
+        "DllPackVerbose": None,
     }
 
     def __init__(self, name, *members, project_file=None, **kwargs):
@@ -45,7 +46,7 @@ It will be available in the root of the package as the same name.
         project.add_item(self._ITEMNAME, self.name, **self.options)
 
 
-class DllRedirect:
+class PydRedirect(File):
     r"""Represents a redirected extension module.
 
 The name would normally be resolved within the packed DLL. However, for
@@ -53,18 +54,14 @@ The name would normally be resolved within the packed DLL. However, for
 an adjacent file. The 'redirect_to' name will be loaded from the same
 directory as the packed DLL using the default extension module loader.
 
-The target module is not automatically included in the package.
+If 'source' is provided, the module is automatically included in the
+package. Additional options are applied as metadata to both the
+redirect and the content (.pyd) file.
 """
     _ITEMNAME = "DllPackRedirect"
 
-    def __init__(self, name, redirect_to, **options):
-        self.name = name
-        self.members = []
-        self.options = {
-            "RedirectTo": redirect_to,
-            **options
-        }
-
-    def write_member(self, project, group):
-        group.switch_to("ItemGroup")
-        project.add_item(self._ITEMNAME, self.name, **self.options)
+    options = {
+        **File.options,
+        "IncludeInSdist": False,
+        "flatten": ".",
+    }

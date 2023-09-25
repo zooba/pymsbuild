@@ -69,7 +69,7 @@ def _init():
     FINDER = next((getattr(m, "__name__", None) == DllPackFinder.__name__ for m in sys.meta_path), None)
     if not FINDER:
         FINDER = DllPackFinder()
-        sys.meta_path.append(FINDER)
+        sys.meta_path.insert(0, FINDER)
 
     return _MAKESPEC(__name__, LOADER)
 

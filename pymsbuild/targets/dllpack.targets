@@ -1,43 +1,78 @@
 <Project>
   <PropertyGroup>
     <BeforeBuildGenerateSourcesTargets>GenerateDllPack;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
+    <GetPackageFilesTargets>_ConvertPydRedirectToContent;$(GetPackageFilesTargets)</GetPackageFilesTargets>
   </PropertyGroup>
 
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)dllpack.c">
       <AdditionalIncludeDirectories>$(IntDir.TrimEnd(`$(_Sep)`));%(ClCompile.AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_DLLPACK_NAME="$(RootNamespace)";%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludeInSdist>false</IncludeInSdist>
       <IncludeInLayout>false</IncludeInLayout>
       <IncludeInWheel>false</IncludeInWheel>
     </ClCompile>
   </ItemGroup>
 
-  <Target Name="GenerateDllPack">
-    <Message Text="WARNING: DLL packing is experimental and may change. Send feedback at https://github.com/zooba/pymsbuild"
-             Importance="high" />
+  <Target Name="_ConvertPydRedirectToContent">
+    <ItemGroup>
+      <DllPackRedirect>
+        <ImportName Condition="%(DllPackRedirect.ImportName) == ''"></ImportName>
+      </DllPackRedirect>
+      <Content Include="@(DllPackRedirect)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_GetDllPackSourceFiles">
     <ItemGroup>
       <_DllPackHeader Include="$(IntDir)dllpack.h" />
+      <_DllPackRc Include="$(IntDir)dllpack.rc" />
       <_DllPackRsp Include="$(IntDir)dllpack.rsp" />
+      <_DllPackMainPy Include="$(MSBuildThisFileDirectory)dllpack_main.py" />
       <FileWrites Include="@(_DllPackHeader)" />
-      <_SourceFiles Include="@(Content)">
+      <_DllPackSourceFiles Include="@(Content)">
         <Name>%(Content.Name)</Name>
         <Kind>resource</Kind>
         <Kind Condition="%(Content.GeneratePyc) == 'true'">code</Kind>
-      </_SourceFiles>
-      <Content Remove="@(_SourceFiles)" />
+      </_DllPackSourceFiles>
+      <Content Remove="@(_DllPackSourceFiles)" />
     </ItemGroup>
-    <WriteLinesToFile Lines="@(_SourceFiles->'%(Kind):%(Name):%(FullPath)');@(DllPackFunction->'function:%(Identity)');@(DllPackRedirect->'redirect:%(Identity):%(RedirectTo)')"
-                      File="@(_DllPackRsp)" Encoding="UTF-8" Overwrite="true" />
+  </Target>
+
+  <Target Name="_CalculateDllPackResponseFile">
+    <ItemGroup>
+      <_DllPackRspLines Include="@(_DllPackSourceFiles->'%(Kind):%(Name):%(FullPath)')" />
+      <_DllPackRspLines Include="@(DllPackFunction->'function:%(Identity)')" />
+      <_DllPackRspLines Include="@(DllPackRedirect->'redirect:%(ImportName):%(Name)')" />
+    </ItemGroup>
+    <WriteLinesToFile File="@(_DllPackRsp)"
+                      Lines="@(_DllPackRspLines)"
+                      Encoding="UTF-8"
+                      Overwrite="true"
+                      WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <FileWrites Include="@(_DllPackRsp)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="GenerateDllPack"
+          DependsOnTargets="_GetDllPackSourceFiles;_CalculateDllPackResponseFile"
+          Inputs="@(_DllPackRsp);@(_DllPackMainPy);@(_DllPackSourceFiles)"
+          Outputs="@(_DllPackHeader);@(_DllPackRc)">
+    <Message Text="WARNING: DLL packing is experimental and may change. Send feedback at https://github.com/zooba/pymsbuild"
+             Importance="high" />
     <PropertyGroup>
       <_GenCommand>"$(HostPython)" "$(PyMsbuildTargets)\dllpack-generate.py" "$(RootNamespace)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
     </PropertyGroup>
+    <Message Text="Generating pack for the following files:%0A@(_DllPackRspLines,'%0A')" Importance="normal" />
     <Exec Command="$(_GenCommand)" WorkingDirectory="$(IntDir)" />
     <ItemGroup>
-      <ResourceCompile Include="$(IntDir)dllpack.rc">
+      <ResourceCompile Include="@(_DllPackRc)">
         <IncludeInSdist>false</IncludeInSdist>
         <IncludeInLayout>false</IncludeInLayout>
         <IncludeInWheel>false</IncludeInWheel>
       </ResourceCompile>
+      <FileWrites Include="@(_DllPackRc);@(_DllPackHeader)" />
     </ItemGroup>
   </Target>
 

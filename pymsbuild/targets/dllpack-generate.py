@@ -110,7 +110,16 @@ class RedirectInfo:
     RC_TABLE = "REDIRECT_TABLE"
 
     def __init__(self, resid, line):
-        _, self.name, self.origin = line.split(":", 2)
+        _, name, self.origin = line.split(":", 2)
+        if not name:
+            bits = Path(self.origin).name.split(".")
+            if bits and bits[-1].lower() == "pyd":
+                bits.pop()
+                if bits and "-win" in bits[-1].lower():
+                    bits.pop()
+            self.name = ".".join(bits)
+        else:
+            self.name = name
         self.resid = resid
 
     def check(self):
@@ -166,7 +175,7 @@ def _generate_files(module, files, targets):
                 continue
             expected_tables.discard(table)
             print("struct ENTRY ", table, "[] = {", sep="", file=h_file)
-            for f in table_files:
+            for f in sorted(table_files, key=lambda i: i.name):
                 print("    {", file=h_file)
                 print('        {},'.format(_c_str(f.name)), file=h_file)
                 print('        {},'.format(_c_str(f.origin)), file=h_file)

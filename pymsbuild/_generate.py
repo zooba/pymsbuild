@@ -35,31 +35,49 @@ class GroupSwitcher:
 
 
 def _resolve_wildcards(basename, source, pattern):
+    """Find all files matching 'pattern' under 'source'.
+
+Returns a sequence of (generated name, path), where each element may be
+a Path, PurePath, or str. If there are no wildcards in 'pattern', the
+generated name is 'basename' unmodified and the path is
+"source / pattern". Otherwise, 'basename' is reduced by the same number
+of segments as there are in 'pattern', and the generated name for each
+file will be the recursive path appended to the shortened base.
+
+If 'pattern' is an absolute path, it is split at the first wildcard
+segment and the first part becomes 'source'. 'basename' must have at
+least as many segments as remain in 'pattern'.
+"""
+    basename = PurePath(basename)
     pattern = PurePath(pattern)
-    skip = 0
-    for p in pattern.parts:
-        if "*" in p or "?" in p:
-            break
-        skip += 1
-        source /= p
-    else:
-        yield basename, source
+    if not any("*" in p or "?" in p for p in pattern.parts):
+        yield basename, source / pattern
         return
 
-    roots = [(PurePath(basename).parent, source)]
-    wildcards_r = list(reversed(pattern.parts[skip:]))
-    while wildcards_r:
-        r = wildcards_r.pop()
+    if pattern.is_absolute():
+        for i, p in enumerate(pattern.parts):
+            if "*" in p or "?" in p:
+                source = Path(*pattern.parts[:i])
+                pattern = PurePath(*pattern.parts[i:])
+                break
+
+    if len(basename.parts) < len(pattern.parts):
+        raise ValueError(f"basename ({basename}) should be at least as long as pattern ({pattern})")
+
+    basename = PurePath(*basename.parts[:-len(pattern.parts)])
+    roots = [(basename, source)]
+    for i, r in enumerate(pattern.parts[:-1]):
         if r == "**":
-            wildcards = PurePath(*reversed(wildcards_r))
+            wildcards = str(PurePath(*pattern.parts[i + 1:]))
             yield from ((bn / p.relative_to(d), p)
                         for bn, d in roots
                         for p in d.rglob("*")
-                        if not p.is_dir() and p.match(wildcards))
-        elif wildcards_r:
-            roots = [((bn / p.name), p) for bn, d in roots for p in d.glob(r) if p.is_dir()]
-        else:
-            yield from ((bn / p.name, p) for bn, d in roots for p in d.glob(r) if not p.is_dir())
+                        if not p.is_dir() and p.relative_to(d).match(wildcards))
+            return
+        roots = [((bn / p.name), p) for bn, d in roots for p in d.glob(r) if p.is_dir()]
+
+    r = pattern.parts[-1]
+    yield from ((bn / p.name, p) for bn, d in roots for p in d.glob(r) if not p.is_dir())
 
 
 def _all_members(item, recurse_if=None, return_if=None, *, prefix=""):
@@ -80,7 +98,9 @@ def _write_members(f, source_dir, members):
         for n, p in members:
             if isinstance(p, File):
                 g.switch_to("ItemGroup")
-                wrote_any = False
+                wrote_any = bool(p.options.get("allow_none"))
+                flat_char = p.options.get("flatten")
+                name = p.options.get("Name")
                 exclude = ()
                 condition = None
                 if getattr(p, "has_condition", False):
@@ -91,9 +111,21 @@ def _write_members(f, source_dir, members):
                 for n2, p2 in _resolve_wildcards(n, source_dir, p.source):
                     if p2 in exclude:
                         continue
-                    options = dict(p.options)
-                    options.setdefault("SourceDir", source_dir)
-                    options.setdefault("Name", n2)
+                    if isinstance(name, str):
+                        n2 = n2.with_name(name)
+                    if flat_char is True:
+                        n2 = n2.parts[-1]
+                    elif isinstance(flat_char, str):
+                        n2 = flat_char.join(n2.parts)
+                    options = {
+                        "SourceDir": source_dir,
+                        **p.options,
+                        "Name": n2,
+                        "allow_none": None,
+                        "flatten": None,
+                    }
+                    if name is not None and not isinstance(name, str):
+                        options["Name"] = name
                     if condition:
                         p2 = ConditionalValue(p2, condition=condition)
                     f.add_item(p._ITEMNAME, p2, **options)

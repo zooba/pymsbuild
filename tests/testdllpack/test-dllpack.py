@@ -1,5 +1,6 @@
 import os
 import sys
+import warnings
 
 #######################################
 # Check testdllpack
@@ -57,15 +58,29 @@ assert TDP.sub.mod2 is M2
 # Check testdllpack/data.txt
 #######################################
 import importlib.resources as i_r
-c = list(i_r.contents(TDP))
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    c = list(i_r.contents(TDP))
 print(c)
 assert "data.txt" in c
-assert i_r.read_text(TDP, "data.txt", encoding="ascii").startswith("This is data")
-assert i_r.read_binary(TDP, "data.txt").startswith(b"This is data")
-with i_r.path(TDP, "data.txt") as f:
-    with open(f, "rb") as f2:
-        c = f2.read()
-    assert c == i_r.read_binary(TDP, "data.txt")
+
+try:
+    i_r.files
+except AttributeError:
+    pass
+else:
+    assert (i_r.files(TDP) / "data.txt").read_text().startswith("This is data")
+    assert (i_r.files(TDP) / "data.txt").read_bytes().startswith(b"This is data")
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    assert i_r.read_text(TDP, "data.txt", encoding="ascii").startswith("This is data")
+    assert i_r.read_binary(TDP, "data.txt").startswith(b"This is data")
+    with i_r.path(TDP, "data.txt") as f:
+        with open(f, "rb") as f2:
+            c = f2.read()
+        assert c == i_r.read_binary(TDP, "data.txt")
+
 assert not os.path.isfile(f)
 
 #######################################
@@ -79,5 +94,30 @@ try:
     __import__("testdllpack.test-dllpack.py")
 except ModuleNotFoundError:
     pass
-c = i_r.read_text(TDP, "test-dllpack.py")
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    c = i_r.read_text(TDP, "test-dllpack.py")
 assert c
+
+#######################################
+# Check pretend.pyd
+#######################################
+
+try:
+    import testdllpack_pretend
+except ModuleNotFoundError:
+    # We expect the module to be found ...
+    raise
+except ImportError:
+    # ... but it should fail to load (because it's not real)
+    pass
+
+try:
+    import pretend
+except ModuleNotFoundError:
+    # We expect the module to be found ...
+    raise
+except ImportError:
+    # ... but it should fail to load (because it's not real)
+    pass

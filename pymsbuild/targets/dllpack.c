@@ -5,12 +5,16 @@
 
 static HMODULE hInstance;
 
+
 static const struct ENTRY *
 lookup_import(const char *name, int *is_package)
 {
     struct ENTRY *found = NULL;
     int cchName = strlen(name);
     *is_package = 0;
+    if (PySys_Audit("pymsbuild.dllpack.lookup_import", "ss", _DLLPACK_NAME, name) < 0) {
+        return NULL;
+    }
     for (struct ENTRY *entry = IMPORT_TABLE; entry->name; ++entry) {
         if (!strcmp(entry->name, name)) {
             found = entry;
@@ -28,6 +32,9 @@ lookup_import(const char *name, int *is_package)
 static const struct ENTRY *
 lookup_data(const char *name)
 {
+    if (PySys_Audit("pymsbuild.dllpack.lookup_data", "ss", _DLLPACK_NAME, name) < 0) {
+        return NULL;
+    }
     for (struct ENTRY *entry = DATA_TABLE; entry->name; ++entry) {
         if (!strcmp(entry->name, name)) {
             return entry;
@@ -39,6 +46,9 @@ lookup_data(const char *name)
 static const struct ENTRY *
 lookup_redirect(const char *name)
 {
+    if (PySys_Audit("pymsbuild.dllpack.lookup_redirect", "ss", _DLLPACK_NAME, name) < 0) {
+        return NULL;
+    }
     for (struct ENTRY *entry = REDIRECT_TABLE; entry->name; ++entry) {
         if (!strcmp(entry->name, name)) {
             return entry;
@@ -50,6 +60,9 @@ lookup_redirect(const char *name)
 static PyObject *
 load_bytes(int id)
 {
+    if (PySys_Audit("pymsbuild.dllpack.load_bytes", "si", _DLLPACK_NAME, id) < 0) {
+        return NULL;
+    }
     PyObject *obj;
     HRSRC block = FindResourceW(hInstance, MAKEINTRESOURCE(id), MAKEINTRESOURCE(_DATAFILE));
     if (!block) {
@@ -80,6 +93,9 @@ load_bytes(int id)
 static PyObject *
 load_pyc(int id)
 {
+    if (PySys_Audit("pymsbuild.dllpack.load_pyc", "si", _DLLPACK_NAME, id) < 0) {
+        return NULL;
+    }
     PyObject *obj;
     HRSRC block = FindResourceW(hInstance, MAKEINTRESOURCE(id), MAKEINTRESOURCE(_PYCFILE));
     if (!block) {
@@ -116,7 +132,7 @@ get_origin_root()
     if (cch == 0) {
         PyErr_SetFromWindowsErr(GetLastError());
         return NULL;
-    } else if (cch < 256) {
+    } else if (cch < sizeof(buff) / sizeof(buff[0])) {
         while (cch && buff[cch - 1] != '\\' && buff[cch - 1] != '/') {
             --cch;
         }
@@ -290,6 +306,10 @@ mod_makespec(PyObject *self, PyObject *args)
         return NULL;
     }
 
+    if (PySys_Audit("pymsbuild.dllpack.makespec", "ssO", _DLLPACK_NAME, name, loader) < 0) {
+        goto error;
+    }
+
     PyObject *ilib_m = NULL, *mspec = NULL, *kwargs = NULL, *origin = NULL, *r = NULL;
     ilib_m = PyImport_ImportModule("importlib.machinery");
     if (!ilib_m) {
@@ -307,10 +327,15 @@ mod_makespec(PyObject *self, PyObject *args)
     int is_package = 0, is_redirect = 0;
     const struct ENTRY *e = lookup_import(name, &is_package);
     if (!e) {
+        if (PyErr_Occurred()) {
+            goto error;
+        }
         e = lookup_redirect(name);
         if (!e) {
-            r = Py_None;
-            Py_INCREF(r);
+            if (!PyErr_Occurred()) {
+                r = Py_None;
+                Py_INCREF(r);
+            }
             goto error;
         }
         is_redirect = 1;
@@ -319,7 +344,19 @@ mod_makespec(PyObject *self, PyObject *args)
             goto error;
         }
     }
-    origin = get_origin_root();
+    origin = PyObject_GetAttrString(self, "_origin_root");
+    if (!origin) {
+        PyErr_Clear();
+        origin = get_origin_root();
+        if (origin) {
+            if (PySys_Audit("pymsbuild.dllpack.get_origin_root", "sO", _DLLPACK_NAME, origin) < 0) {
+                goto error;
+            }
+            if (PyObject_SetAttrString(self, "_origin_root", origin) < 0) {
+                goto error;
+            }
+        }
+    }
     if (origin) {
         Py_SETREF(origin, PyUnicode_FromFormat("%U%s", origin, e->origin));
     }
@@ -365,6 +402,9 @@ mod_data_names(PyObject *self, PyObject *args)
 {
     PyObject *r = PyList_New(0);
     if (!r) {
+        return NULL;
+    }
+    if (PySys_Audit("pymsbuild.dllpack.data_names", "s", _DLLPACK_NAME) < 0) {
         return NULL;
     }
     for (struct ENTRY *entry = DATA_TABLE; entry->name; ++entry) {
