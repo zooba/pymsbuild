@@ -7,7 +7,7 @@ from . import PYMSBUILD_REQUIRES_SPEC
 
 # importlib.resources has no feature detection, so we have to assume that
 # they'll stick to CPython versions.
-if sys.version_info[:2] >= (3, 10)
+if sys.version_info[:2] >= (3, 10):
     TEMPLATE = importlib.resources.read_text("pymsbuild", "_msbuild.py.in")
     TOML_TEMPLATE = importlib.resources.read_text("pymsbuild", "pyproject.toml.in")
 else:
