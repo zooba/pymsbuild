@@ -2,12 +2,25 @@ import os
 import sys
 import warnings
 
+audit_events = []
+
+def event_hook(event_name, args):
+    if event_name.startswith("pymsbuild."):
+        audit_events.append((event_name, args))
+
+sys.addaudithook(event_hook)
+
 #######################################
 # Check testdllpack
 #######################################
 import testdllpack as TDP
 print("Successful import of: ", TDP.__file__)
 print(dir(TDP))
+
+print(*audit_events, sep="\n")
+assert audit_events[0] == ("pymsbuild.dllpack.lookup_import", ("testdllpack", "testdllpack"))
+assert audit_events[1][0] == "pymsbuild.dllpack.load_pyc"
+assert audit_events[2] == ("pymsbuild.dllpack.data_names", ("testdllpack",))
 
 assert os.path.isabs(TDP.__file__)
 assert not os.path.exists(TDP.__file__)
