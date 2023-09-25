@@ -26,13 +26,13 @@
       <_PydVersionInfoLines><![CDATA[
 #include <windows.h>
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION %(_PydVersionInfo.FileVersionValue)
-PRODUCTVERSION %(_PydVersionInfo.ProductVersionValue)
-FILEFLAGSMASK %(_PydVersionInfo.FileFlagsMask)
-FILEFLAGS %(_PydVersionInfo.FileFlags)
-FILEOS %(_PydVersionInfo.FileOS)
-FILETYPE %(_PydVersionInfo.FileType)
-FILESUBTYPE %(_PydVersionInfo.FileSubType)
+FILEVERSION %(_PydVersionInfo._FileVersion)
+PRODUCTVERSION %(_PydVersionInfo._ProductVersion)
+FILEFLAGSMASK %(_PydVersionInfo._FileFlagsMask)
+FILEFLAGS %(_PydVersionInfo._FileFlags)
+FILEOS %(_PydVersionInfo._FileOS)
+FILETYPE %(_PydVersionInfo._FileType)
+FILESUBTYPE %(_PydVersionInfo._FileSubType)
 BEGIN
  BLOCK "StringFileInfo"
  BEGIN

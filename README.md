@@ -446,6 +446,34 @@ top-level `Project` element.
     ...
 ```
 
+## Version info for DLLs/PYDs
+
+To embed version info into a compiled extension module (on Windows),
+add a `VersionInfo` element into the `PydFile`. All the fields from
+https://learn.microsoft.com/en-us/windows/win32/menurc/versioninfo-resource
+are available, using the names as shown in the tables (e.g.
+`FILEVERSION` for the `'1,0,0,0'` fields and `FileVersion` for the string
+table entry).
+
+The recommended usage is to add a default instance into your project and then
+use 'init_METADATA' to find it again and update the final metadata.
+
+```
+PACKAGE = Package(
+    "package",
+    PydFile("mod1", VersionInfo()),
+    PydFile("mod2", VersionInfo()),
+)
+
+def init_METADATA():
+    METADATA["Version"] = calculate_current_version()
+    for vi in PACKAGE.findall("*/VersionInfo"):
+        vi.from_metadata(METADATA)
+```
+
+`from_metadata` will fill in any empty fields from the set of metadata that is
+passed in.
+
 ## Alternate config file
 
 To use a configuration file other than `_msbuild.py`, specify the

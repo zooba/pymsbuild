@@ -169,13 +169,13 @@ for the full list of metadata.
     members = ()
 
     options = {
-        "FileVersionValue": "0,0,0,0",
-        "ProductVersionValue": "0,0,0,0",
-        "FileFlagsMask": "VS_FFI_FILEFLAGSMASK",
-        "FileFlags": "0",
-        "FileOS": "VOS_NT",
-        "FileType": "VFT_DLL",
-        "FileSubType": "0",
+        "FILEVERSION": "0,0,0,0",
+        "PRODUCTVERSION": "0,0,0,0",
+        "FILEFLAGSMASK": "VS_FFI_FILEFLAGSMASK",
+        "FILEFLAGS": "0",
+        "FILEOS": "VOS_NT",
+        "FILETYPE": "VFT_DLL",
+        "FILESUBTYPE": "0",
         "Comments": "",
         "CompanyName": "",
         "FileDescription": "",
@@ -213,8 +213,8 @@ for the full list of metadata.
     def from_metadata(self, metadata):
         ver = metadata["Version"]
         self.update(False, dict(
-            FileVersionValue=self._read_version(ver),
-            ProductVersionValue=self._read_version(ver),
+            FILEVERSION=self._read_version(ver),
+            PRODUCTVERSION=self._read_version(ver),
             CompanyName=metadata.get("Author"),
             FileDescription=metadata.get("Summary"),
             FileVersion=ver,
@@ -251,6 +251,11 @@ for the full list of metadata.
             "LangCharset": f"{langid:04X}{charsetid:04X}",
             "Encoding": encoding,
         })
+        for k in ["FileVersion", "ProductVersion", "FileFlagsMask", "FileFlags", "FileOS", "FileType", "FileSubType"]:
+            v = opts.pop(k.upper(), None)
+            if v:
+                opts[f"_{k}"] = v
+        
         for k in list(opts):
             if not opts.get(k):
                 del opts[k]
