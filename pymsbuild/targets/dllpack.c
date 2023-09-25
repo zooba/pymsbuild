@@ -527,6 +527,7 @@ init_decryptor(ModuleState *ms)
         PyErr_SetFromWindowsErr(GetLastError());
         return -1;
     }
+    SetEnvironmentVariableW(encrypt_variable, NULL);
     if (0 == wcsncmp(buffer, L"base64:", 7)) {
         if (!CryptStringToBinaryW(&buffer[7], 0, CRYPT_STRING_BASE64, key, &cbKey, NULL, NULL)) {
             PyErr_SetFromWindowsErr(GetLastError());
