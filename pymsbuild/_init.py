@@ -5,8 +5,14 @@ import sys
 
 from . import PYMSBUILD_REQUIRES_SPEC
 
-TEMPLATE = importlib.resources.read_text("pymsbuild", "_msbuild.py.in")
-TOML_TEMPLATE = importlib.resources.read_text("pymsbuild", "pyproject.toml.in")
+try:
+    importlib.resources.files
+except AttributeError:
+    TEMPLATE = importlib.resources.read_text("pymsbuild", "_msbuild.py.in")
+    TOML_TEMPLATE = importlib.resources.read_text("pymsbuild", "pyproject.toml.in")
+else:
+    TEMPLATE = (importlib.resources.files("pymsbuild") / "_msbuild.py.in").read_text()
+    TOML_TEMPLATE = (importlib.resources.files("pymsbuild") / "pyproject.toml.in").read_text()
 
 C_PREPROC_BLURB = """
 # Need to set preprocessor variables or include dirs? Use a ClCompile item definition

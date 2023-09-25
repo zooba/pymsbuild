@@ -11,7 +11,7 @@
       <_PydVersionInfo Include="@(PydVersionInfo)">
         <RC>$(IntDir)version.rc</RC>
       </_PydVersionInfo>
-      <ResourceCompile Include="$(IntDir)version.rc">
+      <ResourceCompile Include="%(PydVersionInfo.RC)">
         <IncludeInSdist>false</IncludeInSdist>
         <IncludeInLayout>false</IncludeInLayout>
         <IncludeInWheel>false</IncludeInWheel>
