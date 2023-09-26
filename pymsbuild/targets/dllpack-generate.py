@@ -184,9 +184,12 @@ class EncryptInfo:
         try:
             from windows.cryptography import algorithms, modes, Cipher
             block_size = algorithms.AES.block_sizes()[0]
+            padder = None
         except ImportError:
+            from cryptography.hazmat.primitives import padding
             from cryptography.hazmat.primitives.ciphers import algorithms, modes, Cipher
             block_size = 16
+            padder = padding.PKCS7(block_size).padder()
         iv = os.urandom(block_size)
         cipher = Cipher(algorithms.AES(self.key), modes.CBC(iv))
         encryptor = cipher.encryptor()
@@ -196,6 +199,8 @@ class EncryptInfo:
             while not eof:
                 buf = f1.read(8192)
                 eof = not buf
+                if padder:
+                    buf = padder.update(buf) if buf else padder.finalize()
                 buf = encryptor.update(buf) if buf else encryptor.finalize()
                 if buf:
                     bufs.append(buf)
