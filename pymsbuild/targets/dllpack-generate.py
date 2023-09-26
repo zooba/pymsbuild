@@ -169,21 +169,24 @@ class EncryptInfo:
             key = self.key
             try:
                 from windows.cryptography import algorithms
+                key_sizes = algorithms.AES.key_sizes()
             except ImportError:
                 from cryptography.hazmat.primitives.ciphers import algorithms
+                key_sizes = algorithms.AES.key_sizes
             if not key:
                 return
-            if len(key) * 8 not in algorithms.AES.key_sizes():
-                return f"Key must be {algorithms.AES.key_sizes()} bits"
+            if len(key) * 8 not in key_sizes:
+                return f"Key must be {key_sizes} bits"
         except Exception as ex:
             return "Cannot use encryption key ({})".format(ex)
 
     def file(self, src, dest):
         try:
             from windows.cryptography import algorithms, modes, Cipher
+            block_size = algorithms.AES.block_sizes()[0]
         except ImportError:
             from cryptography.hazmat.primitives.ciphers import algorithms, modes, Cipher
-        block_size = algorithms.AES.block_sizes()[0]
+            block_size = algorithms.AES.block_sizes[0]
         iv = os.urandom(block_size)
         cipher = Cipher(algorithms.AES(self.key), modes.CBC(iv))
         encryptor = cipher.encryptor()
