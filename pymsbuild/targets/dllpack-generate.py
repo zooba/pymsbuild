@@ -201,9 +201,10 @@ class EncryptInfo:
                 eof = not buf
                 if padder:
                     buf = padder.update(buf) if buf else padder.finalize()
-                buf = encryptor.update(buf) if buf else encryptor.finalize()
                 if buf:
                     bufs.append(buf)
+        bufs = [encryptor.update(b) for b in bufs]
+        bufs.append(encryptor.finalize())
         with open(dest, "wb") as f2:
             f2.write(os.stat(src).st_size.to_bytes(4, "little"))
             f2.write(sum(len(b) for b in bufs).to_bytes(4, "little"))
