@@ -194,7 +194,7 @@ class EncryptInfo:
         with open(src, "rb") as f1:
             eof = False
             while not eof:
-                buf = f1.read(cipher.block_length)
+                buf = f1.read(8192)
                 eof = not buf
                 buf = encryptor.update(buf) if buf else encryptor.finalize()
                 if buf:
