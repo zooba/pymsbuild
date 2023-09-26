@@ -189,7 +189,7 @@ class EncryptInfo:
             from cryptography.hazmat.primitives import padding
             from cryptography.hazmat.primitives.ciphers import algorithms, modes, Cipher
             block_size = 16
-            padder = padding.PKCS7(block_size).padder()
+            padder = padding.PKCS7(block_size * 8).padder()
         iv = os.urandom(block_size)
         cipher = Cipher(algorithms.AES(self.key), modes.CBC(iv))
         encryptor = cipher.encryptor()
