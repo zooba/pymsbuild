@@ -635,6 +635,31 @@ PACKAGE = DllPackage(
 )
 ```
 
+An entire existing library, such as `cryptography` could be packed
+like this:
+
+```python
+from pymsbuild import *
+from pymsbuild.dllpack import *
+
+MODULE_TO_PACK = "cryptography"
+
+from importlib.util import find_spec
+spec = find_spec(MODULE_TO_PACK)
+if not spec:
+    raise RuntimeError(f"{MODULE_TO_PACK} must be installed")
+
+PACKAGE = DllPackage(
+    MODULE_TO_PACK,
+    PyFile("**/*.py"),
+    PydRedirect("**/*.pyd"),
+    source = spec.submodule_search_locations[0],
+)
+```
+
+See the `azure-pack` sample in our source repository for a more
+complete example.
+
 `DllPackage` is a subclass of `PydFile`, and so all logic or elements
 by that type are also available. `ClCompile` elements will be compiled
 and linked into the output and functions may be exposed in the root of

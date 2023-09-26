@@ -172,7 +172,7 @@ class EncryptInfo:
                 key_sizes = algorithms.AES.key_sizes()
             except ImportError:
                 from cryptography.hazmat.primitives.ciphers import algorithms
-                key_sizes = algorithms.AES.key_sizes
+                key_sizes = [128, 192, 256]
             if not key:
                 return
             if len(key) * 8 not in key_sizes:
@@ -186,7 +186,7 @@ class EncryptInfo:
             block_size = algorithms.AES.block_sizes()[0]
         except ImportError:
             from cryptography.hazmat.primitives.ciphers import algorithms, modes, Cipher
-            block_size = algorithms.AES.block_sizes[0]
+            block_size = 16
         iv = os.urandom(block_size)
         cipher = Cipher(algorithms.AES(self.key), modes.CBC(iv))
         encryptor = cipher.encryptor()
