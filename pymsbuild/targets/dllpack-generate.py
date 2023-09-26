@@ -170,7 +170,7 @@ class EncryptInfo:
             try:
                 from windows.cryptography import algorithms
             except ImportError:
-                from cryptography import algorithms
+                from cryptography.hazmat.primitives.ciphers import algorithms
             if not key:
                 return
             if len(key) * 8 not in algorithms.AES.key_sizes():
@@ -182,7 +182,7 @@ class EncryptInfo:
         try:
             from windows.cryptography import algorithms, modes, Cipher
         except ImportError:
-            from cryptography import algorithms, modes, Cipher
+            from cryptography.hazmat.primitives.ciphers import algorithms, modes, Cipher
         block_size = algorithms.AES.block_sizes()[0]
         iv = os.urandom(block_size)
         cipher = Cipher(algorithms.AES(self.key), modes.CBC(iv))
