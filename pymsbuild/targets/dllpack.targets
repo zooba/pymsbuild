@@ -14,6 +14,12 @@
     </ClCompile>
   </ItemGroup>
 
+  <ItemDefinitionGroup>
+    <Link>
+      <AdditionalDependencies>bcrypt.lib;crypt32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+
   <Target Name="_ConvertPydRedirectToContent">
     <ItemGroup>
       <DllPackRedirect>
@@ -41,6 +47,7 @@
 
   <Target Name="_CalculateDllPackResponseFile">
     <ItemGroup>
+      <_DllPackRspLines Include="encrypt:$(EncryptionKeyVariable)" Condition="$(EncryptionKeyVariable) != ''" />
       <_DllPackRspLines Include="@(_DllPackSourceFiles->'%(Kind):%(Name):%(FullPath)')" />
       <_DllPackRspLines Include="@(DllPackFunction->'function:%(Identity)')" />
       <_DllPackRspLines Include="@(DllPackRedirect->'redirect:%(ImportName):%(Name)')" />

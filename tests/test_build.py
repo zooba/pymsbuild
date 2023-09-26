@@ -185,3 +185,33 @@ def test_dllpack(build_state, configuration):
         [sys.executable, str(bs.source_dir / "test-dllpack.py")],
         env={**os.environ, "PYTHONPATH": str(bs.layout_dir)}
     )
+
+@pytest.mark.parametrize("configuration", ["Debug", "Release"])
+@pytest.mark.parametrize("encrypt", [b"a-bytes-key-0123", "a-str-key-01234567890123"])
+@pytest.mark.skipif(sys.platform not in {"win32"}, reason="Only supported on Windows")
+def test_dllpack_encrypted(build_state, configuration, encrypt):
+    if not isinstance(encrypt, str):
+        import base64
+        encrypt = "base64:" + base64.b64encode(encrypt).decode("ascii")
+    bs = build_state
+    bs.source_dir = bs.source_dir.parent / "testdllpack"
+    bs.package = None
+    bs.verbose = True
+    bs.finalize()
+    bs.package.options["EncryptionKeyVariable"] = "PYMSBUILD_ENCRYPT_KEY"
+    bs.generate()
+    bs.configuration = configuration
+    os.environ["PYMSBUILD_ENCRYPT_KEY"] = encrypt
+    bs.build()
+    del os.environ["PYMSBUILD_ENCRYPT_KEY"]
+    print(bs.layout_dir)
+    print(list(bs.layout_dir.glob("*")))
+    subprocess.check_call(
+        [sys.executable, str(bs.source_dir / "test-dllpack.py")],
+        env={**os.environ, "PYTHONPATH": str(bs.layout_dir), "PYMSBUILD_ENCRYPT_KEY": encrypt}
+    )
+    with pytest.raises(subprocess.CalledProcessError):
+        subprocess.check_call(
+            [sys.executable, str(bs.source_dir / "test-dllpack.py")],
+            env={**os.environ, "PYTHONPATH": str(bs.layout_dir)}
+        )

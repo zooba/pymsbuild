@@ -9,6 +9,7 @@ compiled DLL that exposes submodules and resources using an import hook.
 Add `Function` elements to link """
     options = {
         **PydFile.options,
+        "EncryptionKeyVariable": "",
     }
 
     def __init__(self, name, *members, project_file=None, **kwargs):

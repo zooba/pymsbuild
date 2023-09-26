@@ -20,7 +20,7 @@ PACKAGE = DllPackage(
     PydRedirect("pretend-pyd.txt", name="pretend.pyd", flatten=True),
 )
 
-DIST_INFO = {
+METADATA = {
     "Name": "testdllpack",
     "Version": "1.0.0",
 }
