@@ -225,10 +225,10 @@ For more complex transforms on filename, we recommend using the
 
 ## Dynamic packages
 
-After import, if an `init_PACKAGE(tag=None)` function exists it will be
-called with the intended platform tag. It must modify or return
-`PACKAGE`. This function is called for in-place, sdist and wheel
-generation, however, for sdists (and any scenario that should not
+After metadata processing, if an `init_PACKAGE(tag=None)` function
+exists it will be called with the intended platform tag. It must modify
+or return `PACKAGE`. This function is called for in-place, sdist and
+wheel generation, however, for sdists (and any scenario that should not
 generate binaries), `tag` will be `None`. Otherwise, it will be a
 string like `cp38-cp38-win32`.
 
