@@ -66,7 +66,7 @@ def find_spec(name):
     from importlib.util import find_spec
     spec = find_spec(name)
     if not spec:
-        raise RuntimeError(f"Cannot find {v.name!r}. Ensure it is listed in requirements.txt")
+        raise RuntimeError(f"Cannot find {name!r}. Ensure it is listed in requirements.txt")
     return spec
 
 
