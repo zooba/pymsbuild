@@ -53,7 +53,7 @@ def fresh_copy(sample, tmp_path):
 def test_sample_build_inplace(sample, tmp_path):
     maybe_skip(sample)
     DIR = fresh_copy(sample, tmp_path)
-    orig_files = list((ROOT / "samples" / sample).rglob("*"))
+    orig_files = {f.relative_to(DIR) for f in DIR.rglob("*")}
     env = dict(ENV)
 
     if (DIR / "requirements.txt").is_file():
@@ -69,11 +69,9 @@ def test_sample_build_inplace(sample, tmp_path):
         cwd=DIR,
         env=env,
     )
-    new_files = list((ROOT / "samples" / sample).rglob("*"))
-    print(*sorted(orig_files), sep="\n")
-    print()
-    print(*sorted(new_files), sep="\n")
-    assert orig_files == new_files
+    modules = {f.relative_to(DIR) for f in DIR.rglob("*.pyd")}
+    without_temp = {f for f in modules if f.parts[0] != "build"}
+    assert without_temp
 
 @all_samples
 def test_sample_sdist(sample, tmp_path):
@@ -85,6 +83,8 @@ def test_sample_sdist(sample, tmp_path):
         cwd=DIR,
         env=ENV,
     )
+    dist = set(OUT.glob("*.tar.gz"))
+    assert dist
 
 @all_samples
 def test_sample_build_sdist(sample, tmp_path):
@@ -96,6 +96,8 @@ def test_sample_build_sdist(sample, tmp_path):
         cwd=DIR,
         env=ENV,
     )
+    dist = set(OUT.glob("*.tar.gz"))
+    assert dist
 
 @all_samples
 def test_sample_build_wheel(sample, tmp_path):
@@ -107,6 +109,8 @@ def test_sample_build_wheel(sample, tmp_path):
         cwd=DIR,
         env=ENV,
     )
+    dist = set(OUT.glob("*.whl"))
+    assert dist
 
 @all_samples
 def test_sample_pip_wheel(sample, tmp_path):
@@ -117,6 +121,8 @@ def test_sample_pip_wheel(sample, tmp_path):
         [sys.executable, "-m", "pip", "wheel", DIR, "-w", OUT],
         env=ENV,
     )
+    dist = set(OUT.glob("*.whl"))
+    assert dist
 
 @all_samples
 def test_sample_pip_from_sdist(sample, tmp_path):
@@ -128,3 +134,15 @@ def test_sample_pip_from_sdist(sample, tmp_path):
         cwd=DIR,
         env=ENV,
     )
+    dist = set(OUT.glob("*.tar.gz"))
+    assert dist
+    for d in dist:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "wheel", d, "-w", OUT],
+            cwd=DIR,
+            env=ENV,
+        )
+        whls = set(OUT.glob("*.whl"))
+        assert whls
+        for w in whls:
+            w.unlink()
