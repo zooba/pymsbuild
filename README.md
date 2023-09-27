@@ -686,15 +686,16 @@ PACKAGE = DllPackage(
 ### Nested extension modules
 
 To allow referencing other extension modules that would normally be
-nested within the module, add `DllRedirect` element and include the
-extension module adjacent to your packed DLL. The filename does not
-have to match the original name, as it will be passed directly to the
-module loader.
+nested within the module, add a `PydRedirect` element and reference the
+extension module. The filename does not have to match the original
+name, as it will be passed directly to the module loader, and the file
+will be included in your wheel in the expected location (alongside the
+packed DLL). Wildcards are supported.
 
 ```python
 PACKAGE = DllPackage(
     "packed",
-    DllRedirect("packed.nested", "packed-nested.pyd"),
+    PydRedirect(source="packed/nested.pyd", name="packed-nested.pyd"),
     ...
 )
 ```
