@@ -169,7 +169,6 @@ def test_build_test_project(build_state, proj, configuration):
 
 
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
-@pytest.mark.skipif(sys.platform not in {"win32"}, reason="Only supported on Windows")
 def test_dllpack(build_state, configuration):
     bs = build_state
     bs.source_dir = bs.source_dir.parent / "testdllpack"

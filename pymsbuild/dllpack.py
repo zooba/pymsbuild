@@ -16,7 +16,7 @@ Add `Function` elements to link """
         super().__init__(
             name,
             *members,
-            LiteralXML('<Import Project="$(PyMsbuildTargets)\\dllpack.targets" />'),
+            LiteralXML('<Import Project="$(PyMsbuildTargets)/dllpack.targets" />'),
             project_file=project_file,
             **kwargs
         )

@@ -1,7 +1,9 @@
 <Project>
   <Target Name="PrepareForBuild">
     <MakeDir Directories="$(IntDir);$(OutDir)" />
+  </Target>
 
+  <Target Name="_CalculateClCompileItems">
     <ItemGroup>
       <ClCompile>
         <ObjectFile Condition="%(ClCompile.ObjectFile) == ''">$([msbuild]::MakeRelative($(SourceRootDir), %(FullPath))).o</ObjectFile>
@@ -9,11 +11,20 @@
       <ClCompile>
         <_ResolvedOutput>$([System.IO.Path]::Combine($(IntDir), %(ObjectFile)))</_ResolvedOutput>
       </ClCompile>
-      <_LinkerInputs Include="@(Link);%(ClCompile._ResolvedOutput)" />
     </ItemGroup>
   </Target>
 
+  <Target Name="_CalculateLinkerInputsItems">
+    <ItemGroup>
+      <_LinkerInputs_WithDups Include="@(Link);%(ClCompile._ResolvedOutput)" />
+    </ItemGroup>
+    <RemoveDuplicates Inputs="@(_LinkerInputs_WithDups)">
+      <Output TaskParameter="Filtered" ItemName="_LinkerInputs" />
+    </RemoveDuplicates>
+  </Target>
+
   <Target Name="_CalculateFlags">
+    <Message Text="Executing $(PythonConfig). If this fails, you may need to set PYTHON_CONFIG to the correct command." />
     <Exec Command="$(PythonConfig) --cflags" ConsoleToMsBuild="true" Condition="$(PythonCFlags) == ''"
           StandardOutputImportance="low">
       <Output TaskParameter="ConsoleOutput" PropertyName="PythonCFlags" />
@@ -26,11 +37,16 @@
     <Message Text="Calculated LDFLAGS=$(PythonLDFlags)" />
   </Target>
 
-  <Target Name="ClCompile" Inputs="@(ClCompile)" Outputs="%(ClCompile._ResolvedOutput)">
+  <Target Name="_ClCompile" Inputs="@(ClCompile)" Outputs="%(ClCompile._ResolvedOutput)">
     <Message Text="%(ClCompile.Identity) -> %(ClCompile.ObjectFile)" Importance="high" />
     <ItemGroup>
       <_IncludeSpec Remove="@(_IncludeSpec)" />
       <_IncludeSpec Include="%(ClCompile.AdditionalIncludeDirectories)" />
+      <_Preprocessor Remove="@(_Preprocessor)" />
+      <_Preprocessor Include="%(ClCompile.PreprocessorDefinitions)" />
+      <_Preprocessor>
+        <Spec>'-D%(Identity)'</Spec>
+      </_Preprocessor>
     </ItemGroup>
     <PropertyGroup>
       <!-- Base command -->
@@ -44,6 +60,9 @@
       <_Cmd Condition="$(_IncludeSpec) != ''">$(_Cmd) -I$(_IncludeSpec)</_Cmd>
       <!-- Python flags -->
       <_Cmd>$(_Cmd) $(PythonCFlags)</_Cmd>
+      <!-- Preprocessor definitions -->
+      <_PreprocessorSpec>@(_Preprocessor->'%(Spec)', ' ')</_PreprocessorSpec>
+      <_Cmd Condition="$(_PreprocessorSpec) != ''">$(_Cmd) $(_PreprocessorSpec)</_Cmd>
     </PropertyGroup>
     <Message Importance="Normal" Text="Executing $(_Cmd)" />
     <Exec Command="$(_Cmd)" />
@@ -52,7 +71,10 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="Link" Inputs="@(_LinkerInputs)" Outputs="$(TargetPath)">
+  <Target Name="ClCompile" DependsOnTargets="$(BeforeClCompileTargets);_CalculateClCompileItems;_ClCompile">
+  </Target>
+
+  <Target Name="_Link" Inputs="@(_LinkerInputs)" Outputs="$(TargetPath)">
     <Message Text="-> $([msbuild]::MakeRelative($(OutDir), $(TargetPath)))" Importance="high" />
     <ItemGroup>
       <_LibSpec Remove="@(_LibSpec)" />
@@ -76,6 +98,9 @@
     <ItemGroup>
       <FileWrites Include="$(TargetPath)" />
     </ItemGroup>
+  </Target>
+
+  <Target Name="Link" DependsOnTargets="$(BeforeLinkTargets);_CalculateLinkerInputsItems;_Link">
   </Target>
 
   <Target Name="CoreBuild" DependsOnTargets="_CalculateFlags;PrepareForBuild;$(BeforeBuildGenerateSourcesTargets);ClCompile;Link" />

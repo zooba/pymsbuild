@@ -613,15 +613,17 @@ python -m pymsbuild pack --layout-dir tmp --add tmp/EXTRA.txt
 
 ## DLL Packing
 
-**Experimental. Windows only.**
+**Experimental. (POSIX is _very_ experimental)**
 
 DLL Packing is a way to compile a complete Python package (`.py` source
-and resource files) into a Windows DLL. It is fundamentally equivalent
+and resource files) into an extension module. It is basically equivalent
 to packing in a ZIP file, except that additional native code may also be
 included (though not an entire native module), and the whole file may be
 cryptographically signed and validated by the operating system.
 
-`DllPackage` is a drop-in substitute for the `Package` type.
+`DllPackage` is a drop-in substitute for the `Package` type. It will
+generate a native extension module the same as the `PydFile` type,
+but only supports Python source and resource files.
 
 ```python
 from pymsbuild import *
