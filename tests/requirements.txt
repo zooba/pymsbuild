@@ -1,4 +1,5 @@
+build
+cryptography
 Cython
 packaging
 pytest
-cryptography
