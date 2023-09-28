@@ -287,9 +287,9 @@ def _generate_windows_files(module, files, targets, encrypt=None):
         print("#define _PYCFILE 257", file=h_file)
         print("#define _DATAFILE 258", file=h_file)
         print("#define _PYC_HEADER_LEN 16", file=h_file)
-        print('#include "dllpack-windows.h"', file=h_file)
         if encrypt:
             print('#define _ENCRYPT_KEY_NAME L"{}"'.format(encrypt.name), file=h_file)
+        print('#include "dllpack-windows.h"', file=h_file)
         expected_tables = {"IMPORT_TABLE", "DATA_TABLE", "REDIRECT_TABLE"}
         tables = groupby(files, lambda f: f.RC_TABLE)
         for table, table_files in tables.items():

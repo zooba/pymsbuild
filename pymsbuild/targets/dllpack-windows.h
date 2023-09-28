@@ -275,7 +275,7 @@ free_decryptor(ModuleState *ms)
 
 
 int
-dllpack_exec_module(PyObject *m)
+dllpack_exec_module(ModuleState *ms)
 {
     if (!encrypt_variable) {
         return 0;
@@ -290,17 +290,10 @@ dllpack_exec_module(PyObject *m)
 }
 
 
-int
-dllpack_module_size()
-{
-    return sizeof(ModuleState);
-}
-
-
 void
-dllpack_free_module(PyObject *m)
+dllpack_free_module(ModuleState *ms)
 {
-    free_decryptor((ModuleState *)PyModule_GetState(m));
+    free_decryptor(ms);
 }
 
 

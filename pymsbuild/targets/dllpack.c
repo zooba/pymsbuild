@@ -330,7 +330,9 @@ static int
 mod_exec(PyObject *m)
 {
     ModuleState *ms = (ModuleState *)PyModule_GetState(m);
-    if (dllpack_exec_module(m) < 0)
+    if (!ms)
+        return -1;
+    if (dllpack_exec_module(ms) < 0)
         return -1;
     return mod_load_impl(ms, PyModule_GetName(m), m, 1) ? 0 : -1;
 }
@@ -339,7 +341,9 @@ mod_exec(PyObject *m)
 static void
 mod_free(PyObject *m)
 {
-    dllpack_free_module(m);
+    ModuleState *ms = (ModuleState *)PyModule_GetState(m);
+    if (ms)
+        dllpack_free_module(ms);
 }
 
 
@@ -376,6 +380,5 @@ static struct PyModuleDef modmodule = {
 PyMODINIT_FUNC
 _INIT_FUNC_NAME(void)
 {
-    modmodule.m_size = dllpack_module_size();
     return PyModuleDef_Init(&modmodule);
 }

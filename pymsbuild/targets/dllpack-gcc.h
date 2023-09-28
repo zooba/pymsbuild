@@ -76,18 +76,11 @@ get_origin_root()
 
 
 int
-dllpack_exec_module(PyObject *m)
-{
-    return 0;
-}
-
-
-int
-dllpack_module_size()
+dllpack_exec_module(ModuleState *ms)
 {
     return 0;
 }
 
 void
-dllpack_free_module(PyObject *m)
+dllpack_free_module(ModuleState *ms)
 { }
