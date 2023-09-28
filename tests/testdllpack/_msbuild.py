@@ -24,3 +24,11 @@ METADATA = {
     "Name": "testdllpack",
     "Version": "1.0.0",
 }
+
+def init_PACKAGE(tag):
+    if not tag:
+        return
+    if "-win" in tag:
+        return
+    for p in PACKAGE.findall("pretend.pyd"):
+        p.name = "pretend.so"

@@ -1,0 +1,44 @@
+<Project>
+  <PropertyGroup>
+    <BeforeLinkTargets>DllPack_GccRC;$(BeforeLinkTargets)</BeforeLinkTargets>
+  </PropertyGroup>
+
+  <Target Name="_DllPack_GccRc_Calculate">
+    <ReadLinesFromFile File="@(_DllPackRc)">
+      <Output TaskParameter="Lines" ItemName="_DllPackRcLines" />
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <_DllPackRcBinary Include="@(_DllPackRcLines,';')">
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>false</IncludeInLayout>
+        <IncludeInWheel>false</IncludeInWheel>
+        <ObjectFile>$([System.IO.Path]::GetFileName(%(Identity))).o</ObjectFile>
+      </_DllPackRcBinary>
+      <_DllPackRcBinary>
+        <_ResolvedOutput>$([System.IO.Path]::Combine($(IntDir), %(ObjectFile)))</_ResolvedOutput>
+      </_DllPackRcBinary>
+      <Link Include="%(_DllPackRcBinary._ResolvedOutput)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_DllPack_GccRc_Build" Inputs="@(_DllPackRcBinary)" Outputs="%(_DllPackRcBinary._ResolvedOutput)">
+    <PropertyGroup>
+      <!-- Base command -->
+      <_Cmd>ld</_Cmd>
+      <!-- Command -->
+      <_Cmd>$(_Cmd) -r -b binary</_Cmd>
+      <!-- Output file -->
+      <_Cmd>$(_Cmd) -o %(_DllPackRcBinary._ResolvedOutput)</_Cmd>
+      <!-- Source file -->
+      <_Cmd>$(_Cmd) %(_DllPackRcBinary.Identity)</_Cmd>
+    </PropertyGroup>
+    <Message Importance="Normal" Text="Executing $(_Cmd)" />
+    <Exec Command="$(_Cmd)" WorkingDirectory="$(IntDir)" />
+    <ItemGroup>
+      <FileWrites Include="%(_DllPackRcBinary._ResolvedOutput)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="DllPack_GccRC" DependsOnTargets="_DllPack_GccRc_Calculate;_DllPack_GccRc_Build">
+  </Target>
+</Project>

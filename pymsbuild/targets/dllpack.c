@@ -1,23 +1,7 @@
-#include <windows.h>
 #include "Python.h"
 #include "marshal.h"
+
 #include "dllpack.h"
-
-#define STATUS_DATA_ERROR 0xC000003E
-
-static HMODULE hInstance;
-
-#ifdef _ENCRYPT_KEY_NAME
-static const wchar_t *encrypt_variable = _ENCRYPT_KEY_NAME;
-#else
-static const wchar_t *encrypt_variable = NULL;
-#endif
-
-typedef struct {
-    BCRYPT_ALG_HANDLE hAlg;
-    BCRYPT_KEY_HANDLE hKey;
-} ModuleState;
-
 
 static const struct ENTRY *
 lookup_import(const char *name, int *is_package)
@@ -70,178 +54,6 @@ lookup_redirect(const char *name)
     return NULL;
 }
 
-static void *
-decrypt_buffer(ModuleState *ms, const char **buffer, DWORD *cbBuffer)
-{
-    struct hdr {
-        DWORD cbPlain;
-        DWORD cbData;
-        DWORD cbIV;
-        const UCHAR iv[512];
-    } *header = (struct hdr*)*buffer;
-    UCHAR iv[512];
-    if (PySys_Audit("pymsbuild.dllpack.decrypt_buffer", "III", header->cbData, header->cbPlain, header->cbIV) < 0) {
-        return NULL;
-    }
-    if (header->cbIV > sizeof(iv)) {
-        PyErr_Format(PyExc_OverflowError, "requested IV length (%i) is too large", header->cbIV);
-        return NULL;
-    }
-    memcpy(iv, header->iv, header->cbIV);
-    PUCHAR data = (PUCHAR)&header->iv[header->cbIV];
-    DWORD cbPlainActual;
-    PUCHAR plain = (PUCHAR)HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, header->cbPlain);
-
-    NTSTATUS err = BCryptDecrypt(
-        ms->hKey,
-        data, header->cbData,
-        NULL,
-        iv, header->cbIV,
-        plain, header->cbPlain,
-        &cbPlainActual,
-        BCRYPT_BLOCK_PADDING
-    );
-    if (err) {
-        HeapFree(GetProcessHeap(), 0, plain);
-        if (err == STATUS_DATA_ERROR) {
-            PyErr_SetString(PyExc_ImportError, "Failed to decode module");
-        } else {
-            PyErr_SetFromWindowsErr(err);
-        }
-        return NULL;
-    }
-
-    *buffer = (const char *)plain;
-    *cbBuffer = cbPlainActual;
-    return plain;
-}
-
-static void
-free_decrypt_cookie(void *cookie)
-{
-    HeapFree(GetProcessHeap(), 0, cookie);
-}
-
-
-static PyObject *
-load_bytes(ModuleState *ms, int id)
-{
-    if (PySys_Audit("pymsbuild.dllpack.load_bytes", "si", _DLLPACK_NAME, id) < 0) {
-        return NULL;
-    }
-    PyObject *obj;
-    HRSRC block = FindResourceW(hInstance, MAKEINTRESOURCE(id), MAKEINTRESOURCE(_DATAFILE));
-    if (!block) {
-        PyErr_SetFromWindowsErr(GetLastError());
-        return NULL;
-    }
-    DWORD cbBuffer = SizeofResource(hInstance, block);
-    if (!cbBuffer) {
-        PyErr_SetFromWindowsErr(GetLastError());
-        return NULL;
-    }
-    HGLOBAL res = LoadResource(hInstance, block);
-    if (!res) {
-        PyErr_SetFromWindowsErr(GetLastError());
-        return NULL;
-    }
-    const char *buffer = (const char*)LockResource(res);
-    if (!buffer) {
-        PyErr_SetFromWindowsErr(GetLastError());
-        FreeResource(res);
-        return NULL;
-    }
-    void *decrypt_cookie = NULL;
-    if (encrypt_variable) {
-        decrypt_cookie = decrypt_buffer(ms, &buffer, &cbBuffer);
-        if (!decrypt_cookie) {
-            FreeResource(res);
-            return NULL;
-        }
-    }
-    obj = PyBytes_FromStringAndSize(buffer, cbBuffer);
-    FreeResource(res);
-    free_decrypt_cookie(decrypt_cookie);
-    return obj;
-}
-
-static PyObject *
-load_pyc(ModuleState *ms, int id)
-{
-    if (PySys_Audit("pymsbuild.dllpack.load_pyc", "si", _DLLPACK_NAME, id) < 0) {
-        return NULL;
-    }
-    PyObject *obj;
-    HRSRC block = FindResourceW(hInstance, MAKEINTRESOURCE(id), MAKEINTRESOURCE(_PYCFILE));
-    if (!block) {
-        PyErr_SetFromWindowsErr(GetLastError());
-        return NULL;
-    }
-    DWORD cbBuffer = SizeofResource(hInstance, block);
-    if (!cbBuffer) {
-        PyErr_SetFromWindowsErr(GetLastError());
-        return NULL;
-    }
-    HGLOBAL res = LoadResource(hInstance, block);
-    if (!res) {
-        PyErr_SetFromWindowsErr(GetLastError());
-        return NULL;
-    }
-    const char *buffer = (const char*)LockResource(res);
-    if (!buffer) {
-        PyErr_SetFromWindowsErr(GetLastError());
-        FreeResource(res);
-        return NULL;
-    }
-    void *decrypt_cookie = NULL;
-    if (encrypt_variable) {
-        decrypt_cookie = decrypt_buffer(ms, &buffer, &cbBuffer);
-        if (!decrypt_cookie) {
-            FreeResource(res);
-            return NULL;
-        }
-    }
-    // Our .pyc has a header
-    obj = PyMarshal_ReadObjectFromString(&buffer[_PYC_HEADER_LEN], cbBuffer - _PYC_HEADER_LEN);
-    FreeResource(res);
-    free_decrypt_cookie(decrypt_cookie);
-    return obj;
-}
-
-static PyObject*
-get_origin_root()
-{
-    wchar_t buff[256];
-    DWORD cch = GetModuleFileNameW(hInstance, buff, sizeof(buff) / sizeof(buff[0]));
-    if (cch == 0) {
-        PyErr_SetFromWindowsErr(GetLastError());
-        return NULL;
-    } else if (cch < sizeof(buff) / sizeof(buff[0])) {
-        while (cch && buff[cch - 1] != '\\' && buff[cch - 1] != '/') {
-            --cch;
-        }
-        return PyUnicode_FromWideChar(buff, cch);
-    }
-    cch += 1;
-    wchar_t *buff2 = (wchar_t *)PyMem_Malloc(sizeof(wchar_t) * cch);
-    if (!buff2) {
-        return NULL;
-    }
-    DWORD cch2 = GetModuleFileNameW(hInstance, buff2, cch);
-    PyObject *r = NULL;
-    if (cch2 == 0) {
-        PyErr_SetFromWindowsErr(GetLastError());
-    } else if (cch2 >= cch) {
-        PyErr_SetString(PyExc_SystemError, "failed to get DLL name; cannot import");
-    } else {
-        while (cch2 & buff2[cch2 - 1] != '\\' && buff2[cch2 - 1] != '/') {
-            --cch2;
-        }
-        r = PyUnicode_FromWideChar(buff2, cch2);
-    }
-    PyMem_Free(buff2);
-    return r;
-}
 
 static PyObject *
 mod_load_impl(ModuleState *ms, const char *name, PyObject *mod, int is_main) {
@@ -251,14 +63,10 @@ mod_load_impl(ModuleState *ms, const char *name, PyObject *mod, int is_main) {
         PyErr_Format(PyExc_ModuleNotFoundError, "'%s' is not part of this package", name);
         return NULL;
     }
-    if (e->id == 0) {
-        PyErr_Format(PyExc_ModuleNotFoundError, "unable to import '%s'", name);
-        return NULL;
-    }
 
     PyObject *pyc, *r;
     if (is_main) {
-        pyc = load_pyc(ms, _IMPORTERS_RESID);
+        pyc = load_pyc(ms, &_IMPORTERS);
         if (!pyc) {
             return NULL;
         }
@@ -270,7 +78,7 @@ mod_load_impl(ModuleState *ms, const char *name, PyObject *mod, int is_main) {
         Py_DECREF(r);
     }
 
-    pyc = load_pyc(ms, e->id);
+    pyc = load_pyc(ms, e);
     if (!pyc) {
         return NULL;
     }
@@ -306,6 +114,7 @@ mod_load(PyObject *self, PyObject *args)
     Py_XINCREF(mod);
     return mod;
 }
+
 
 static PyObject *
 mod_new(PyObject *self, PyObject *args)
@@ -386,6 +195,8 @@ mod_makespec(PyObject *self, PyObject *args)
 {
     const char *name;
     PyObject *loader;
+    PyObject *ilib_m = NULL, *mspec = NULL, *kwargs = NULL, *origin = NULL, *r = NULL;
+
     if (!PyArg_ParseTuple(args, "sO", &name, &loader)) {
         return NULL;
     }
@@ -394,7 +205,6 @@ mod_makespec(PyObject *self, PyObject *args)
         goto error;
     }
 
-    PyObject *ilib_m = NULL, *mspec = NULL, *kwargs = NULL, *origin = NULL, *r = NULL;
     ilib_m = PyImport_ImportModule("importlib.machinery");
     if (!ilib_m) {
         goto error;
@@ -465,6 +275,7 @@ error:
     return r;
 }
 
+
 static PyObject *
 mod_data(PyObject *self, PyObject *args)
 {
@@ -475,11 +286,12 @@ mod_data(PyObject *self, PyObject *args)
     const struct ENTRY *e = lookup_data(name);
     if (e) {
         ModuleState *ms = (ModuleState*)PyModule_GetState(self);
-        return load_bytes(ms, e->id);
+        return load_bytes(ms, e);
     }
     PyErr_Format(PyExc_FileNotFoundError, "'%s' is not part of this package", name);
     return NULL;
 }
+
 
 static PyObject *
 mod_data_names(PyObject *self, PyObject *args)
@@ -506,93 +318,28 @@ mod_data_names(PyObject *self, PyObject *args)
     return r;
 }
 
+
 static PyObject*
 mod_name(PyObject *self, PyObject *args)
 {
     return PyUnicode_FromString(_MODULE_NAME);
 }
 
-static int
-init_decryptor(ModuleState *ms)
-{
-    char key[4096];
-    DWORD cbKey = sizeof(key);
-    wchar_t buffer[4096];
-    NTSTATUS err;
-
-    ms->hAlg = NULL;
-    ms->hKey = NULL;
-
-    if (GetEnvironmentVariableW(encrypt_variable, buffer, 4096) == 0) {
-        PyErr_SetFromWindowsErr(GetLastError());
-        return -1;
-    }
-    SetEnvironmentVariableW(encrypt_variable, NULL);
-    if (0 == wcsncmp(buffer, L"base64:", 7)) {
-        if (!CryptStringToBinaryW(&buffer[7], 0, CRYPT_STRING_BASE64, key, &cbKey, NULL, NULL)) {
-            PyErr_SetFromWindowsErr(GetLastError());
-            return -1;
-        }
-    } else {
-        cbKey = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, buffer, -1, key, cbKey, NULL, NULL);
-        if (!cbKey) {
-            PyErr_SetFromWindowsErr(GetLastError());
-            return -1;
-        }
-        cbKey -= 1;
-    }
-
-    err = BCryptOpenAlgorithmProvider(&ms->hAlg, BCRYPT_AES_ALGORITHM, NULL, 0);
-    if (!err) {
-        err = BCryptSetProperty(
-            ms->hAlg,
-            BCRYPT_CHAINING_MODE,
-            (PUCHAR)BCRYPT_CHAIN_MODE_CBC,
-            -1,
-            0
-        );
-    }
-    if (!err) {
-        err = BCryptGenerateSymmetricKey(ms->hAlg, &ms->hKey, NULL, 0, key, cbKey, 0);
-    }
-    if (err) {
-        PyErr_SetFromWindowsErr(err);
-        return -1;
-    }
-    return 0;
-}
-
-static int
-free_decryptor(ModuleState *ms)
-{
-    if (ms->hKey) {
-        BCryptDestroyKey(ms->hKey);
-        ms->hKey = NULL;
-    }
-    if (ms->hAlg) {
-        BCryptCloseAlgorithmProvider(ms->hAlg, 0);
-        ms->hAlg = NULL;
-    }
-    return 0;
-}
 
 static int
 mod_exec(PyObject *m)
 {
     ModuleState *ms = (ModuleState *)PyModule_GetState(m);
-    if (encrypt_variable) {
-        if (init_decryptor(ms) < 0) {
-            free_decryptor(ms);
-            return -1;
-        }
-    }
+    if (dllpack_exec_module(m) < 0)
+        return -1;
     return mod_load_impl(ms, PyModule_GetName(m), m, 1) ? 0 : -1;
 }
+
 
 static void
 mod_free(PyObject *m)
 {
-    free_decryptor((ModuleState *)PyModule_GetState(m));
+    dllpack_free_module(m);
 }
 
 
@@ -606,10 +353,12 @@ static struct PyMethodDef mod_meth[] = {
     MOD_METH_TAIL
 };
 
+
 static struct PyModuleDef_Slot mod_slots[] = {
     {Py_mod_exec, mod_exec},
     {0, NULL},
 };
+
 
 static struct PyModuleDef modmodule = {
     PyModuleDef_HEAD_INIT,
@@ -627,23 +376,6 @@ static struct PyModuleDef modmodule = {
 PyMODINIT_FUNC
 _INIT_FUNC_NAME(void)
 {
+    modmodule.m_size = dllpack_module_size();
     return PyModuleDef_Init(&modmodule);
-}
-
-BOOL WINAPI
-DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved)
-{
-    switch( fdwReason )
-    {
-        case DLL_PROCESS_ATTACH:
-            hInstance = hinstDLL;
-            break;
-        case DLL_THREAD_ATTACH:
-            break;
-        case DLL_THREAD_DETACH:
-            break;
-        case DLL_PROCESS_DETACH:
-            break;
-    }
-    return TRUE;
 }

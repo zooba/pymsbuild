@@ -1,7 +1,8 @@
 import py_compile
 import os
 import sys
-from pathlib import Path, PureWindowsPath
+from importlib.machinery import EXTENSION_SUFFIXES
+from pathlib import Path, PurePath
 
 try:
     PYC_OPTIMIZATION = int(os.getenv("PYMSBUILD_PYC_OPTIMIZE", "0"))
@@ -22,6 +23,7 @@ def groupby(iterator, key):
 def parse_all(file):
     g = groupby(map(str.strip, file), key=lambda i: i.partition(":")[0].lower())
     factories = dict(
+        platform=PlatformInfo,
         code=CodeFileInfo,
         resource=DataFileInfo,
         function=FunctionInfo,
@@ -34,13 +36,35 @@ def parse_all(file):
     ]
 
 
+class PlatformInfo:
+    RC_TYPE = None
+    RC_TABLE = None
+
+    def __init__(self, line):
+        self.platform = line.partition(":")[2].lower()
+
+    def check(self):
+        if self.platform not in {"windows", "gcc"}:
+            return "Unsupported platform"
+
+    @classmethod
+    def find(cls, items, default="windows"):
+        for i in items:
+            if isinstance(i, cls):
+                err = i.check()
+                if err:
+                    raise ValueError(err)
+                return i.platform
+        return default
+
+
 class CodeFileInfo:
     RC_TYPE = "PYCFILE"
     RC_TABLE = "IMPORT_TABLE"
 
     def __init__(self, line, resid=None):
         _, name, path = line.split(":", maxsplit=2)
-        name = PureWindowsPath(name)
+        name = PurePath(name)
         path = Path(path)
         self.is_package = name.stem.casefold() == "__init__".casefold()
         self.name = ".".join(name.parts[:-1])
@@ -85,7 +109,7 @@ class DataFileInfo:
 
     def __init__(self, line):
         _, name, path = line.split(":", maxsplit=2)
-        name = PureWindowsPath(name)
+        name = PurePath(name)
         path = Path(path)
         self.name = ".".join(name.parts)
         self.origin = str(name)
@@ -100,11 +124,13 @@ class DataFileInfo:
     def resource_file(self, encrypt=None):
         if self._resource_file:
             return self._resource_file
-        if not encrypt:
-            return self.sourcefile
         self._resource_file = Path(f"data{self.resid}.bin")
-        encrypt.file(src=self.sourcefile, dest=self._resource_file)
+        if encrypt:
+            encrypt.file(src=self.sourcefile, dest=self._resource_file)
+        else:
+            self._resource_file.write_bytes(self.sourcefile.read_bytes())
         return self._resource_file
+
 
 class FunctionInfo:
     RC_TYPE = None
@@ -130,12 +156,13 @@ class RedirectInfo:
     def __init__(self, line):
         _, name, self.origin = line.split(":", 2)
         if not name:
-            bits = Path(self.origin).name.split(".")
-            if bits and bits[-1].lower() == "pyd":
-                bits.pop()
-                if bits and "-win" in bits[-1].lower():
-                    bits.pop()
-            self.name = ".".join(bits)
+            p = Path(self.origin)
+            for ext in sorted(EXTENSION_SUFFIXES, reverse=True, key=len):
+                if p.match(f"*{ext}"):
+                    self.name = p.name[:-len(ext)]
+                    break
+            else:
+                self.name = p.name
         else:
             self.name = name
 
@@ -171,7 +198,10 @@ class EncryptInfo:
                 from windows.cryptography import algorithms
                 key_sizes = algorithms.AES.key_sizes()
             except ImportError:
-                from cryptography.hazmat.primitives.ciphers import algorithms
+                try:
+                    from cryptography.hazmat.primitives.ciphers import algorithms
+                except ImportError:
+                    return "No supported cryptography libraries available"
                 key_sizes = [128, 192, 256]
             if not key:
                 return
@@ -241,7 +271,7 @@ def _c_str(s):
     return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def _generate_files(module, files, targets, encrypt=None):
+def _generate_windows_files(module, files, targets, encrypt=None):
     files.append(CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py"))
 
     with open("dllpack.rc", "w", encoding="ascii", errors="backslashescape") as rc_file:
@@ -253,14 +283,13 @@ def _generate_files(module, files, targets, encrypt=None):
 
     with open("dllpack.h", "w", encoding="ascii", errors="backslashescape") as h_file:
         print('#define _MODULE_NAME "{}"'.format(module), file=h_file)
-        print("#define _IMPORTERS_RESID", IMPORTERS_RESID, file=h_file)
         print('#define _INIT_FUNC_NAME PyInit_{}'.format(module), file=h_file)
         print("#define _PYCFILE 257", file=h_file)
         print("#define _DATAFILE 258", file=h_file)
         print("#define _PYC_HEADER_LEN 16", file=h_file)
+        print('#include "dllpack-windows.h"', file=h_file)
         if encrypt:
             print('#define _ENCRYPT_KEY_NAME L"{}"'.format(encrypt.name), file=h_file)
-        print("struct ENTRY {const char *name; const char *origin; int id;};", file=h_file)
         expected_tables = {"IMPORT_TABLE", "DATA_TABLE", "REDIRECT_TABLE"}
         tables = groupby(files, lambda f: f.RC_TABLE)
         for table, table_files in tables.items():
@@ -276,8 +305,62 @@ def _generate_files(module, files, targets, encrypt=None):
                 print("    },", file=h_file)
             print("    {NULL, NULL, 0}", file=h_file)
             print("};", file=h_file)
+        print(f"struct ENTRY _IMPORTERS = {{NULL, NULL, {IMPORTERS_RESID}}};", file=h_file)
         for table in expected_tables:
             print("struct ENTRY ", table, "[] = {{NULL, NULL, 0}};", sep="", file=h_file)
+        for f in tables.get("$FUNCTIONS", ()):
+            print("extern", f.prototype(), file=h_file);
+        print("#define MOD_METH_TAIL \\", file=h_file)
+        for f in tables.get("$FUNCTIONS", ()):
+            print('    {{"{0}", (PyCFunction){0}, METH_VARARGS|METH_KEYWORDS, NULL}}, \\'.format(f.name), file=h_file)
+        print("    {NULL, NULL, 0, NULL}", file=h_file)
+
+
+def _generate_gcc_files(module, files, targets, encrypt=None):
+    importer = CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py")
+    files.append(importer)
+
+    with open("dllpack.rc", "w", encoding="utf-8", errors="strict") as rc_file:
+        for f in files:
+            if f.RC_TYPE:
+                print(f.resource_file(encrypt), file=rc_file)
+
+    with open("dllpack.h", "w", encoding="ascii", errors="backslashescape") as h_file:
+        print('#define _MODULE_NAME "{}"'.format(module), file=h_file)
+        print('#define _INIT_FUNC_NAME PyInit_{}'.format(module), file=h_file)
+        print("#define _PYC_HEADER_LEN 16", file=h_file)
+        print('#include "dllpack-gcc.h"', file=h_file)
+        if encrypt:
+            print('#define _ENCRYPT_KEY_NAME L"{}"'.format(encrypt.name), file=h_file)
+        expected_tables = {"IMPORT_TABLE", "DATA_TABLE", "REDIRECT_TABLE"}
+        for f in files:
+            if f.RC_TYPE:
+                res_name = f.resource_file(encrypt).name.replace(".", "_")
+                print(f"_IMPORT_DATA({res_name})", file=h_file)
+        tables = groupby(files, lambda f: f.RC_TABLE)
+        for table, table_files in tables.items():
+            if not table or not table.isidentifier():
+                continue
+            expected_tables.discard(table)
+            print("struct ENTRY ", table, "[] = {", sep="", file=h_file)
+            for f in sorted(table_files, key=lambda i: i.name):
+                if f.RC_TYPE:
+                    res_name = "_REFERENCE_DATA({})".format(
+                        f.resource_file(encrypt).name.replace(".", "_")
+                    )
+                else:
+                    res_name = "NULL"
+                print("    {", file=h_file)
+                print("        {},".format(_c_str(f.name)), file=h_file)
+                print("        {},".format(_c_str(f.origin)), file=h_file)
+                print("        {}".format(res_name), file=h_file)
+                print("    },", file=h_file)
+            print("    {NULL, NULL, NULL}", file=h_file)
+            print("};", file=h_file)
+        res_name = importer.resource_file(encrypt).name.replace(".", "_")
+        print(f"struct ENTRY _IMPORTERS = {{_MODULE_NAME, _MODULE_NAME, _REFERENCE_DATA({res_name})}};", file=h_file)
+        for table in expected_tables:
+            print("struct ENTRY ", table, "[] = {{NULL, NULL, NULL}};", sep="", file=h_file)
         for f in tables.get("$FUNCTIONS", ()):
             print("extern", f.prototype(), file=h_file);
         print("#define MOD_METH_TAIL \\", file=h_file)
@@ -295,6 +378,11 @@ if __name__ == "__main__":
     if any(ERRORS):
         print(*filter(None, ERRORS), sep="\n")
         sys.exit(1)
+    PLATFORM = PlatformInfo.find(PARSED)
     ENCRYPT = EncryptInfo.find_key(PARSED)
     TARGETS = Path(sys.argv[3]).absolute()
-    _generate_files(MODULE, PARSED, TARGETS, ENCRYPT)
+    GENERATOR = {
+        "windows": _generate_windows_files,
+        "gcc": _generate_gcc_files,
+    }[PLATFORM]
+    GENERATOR(MODULE, PARSED, TARGETS, ENCRYPT)

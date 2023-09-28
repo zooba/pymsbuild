@@ -5,6 +5,9 @@ from pathlib import PurePath, Path
 from ._types import Package, PydFile, File, LiteralXML, Property, ItemDefinition, ConditionalValue
 from ._writer import ProjectFileWriter
 
+from importlib.machinery import EXTENSION_SUFFIXES
+DEFAULT_PYD_SUFFIX = EXTENSION_SUFFIXES[-1]
+
 LIBPATH = Path(sys.base_prefix) / "libs"
 INCPATH = Path(sys.base_prefix) / "include"
 SEP = os.path.sep
@@ -157,7 +160,7 @@ def _generate_pyd(project, build_dir, root_dir):
     if project.project_file:
         return Path(project.project_file)
 
-    tpath = project.options.get("TargetName", project.name) + (project.options.get("TargetExt") or ".pyd")
+    tpath = project.options.get("TargetName", project.name) + (project.options.get("TargetExt") or DEFAULT_PYD_SUFFIX)
     tname, tdot, text = tpath.rpartition(".")
     with ProjectFileWriter(proj, tname, vc_platforms=True, root_namespace=project.name) as f:
         with f.group("PropertyGroup", Label="Globals"):
@@ -193,7 +196,7 @@ def _generate_pyd(project, build_dir, root_dir):
 
 
 def _generate_pyd_reference_metadata(relname, project, source_dir):
-    output = project.options.get("TargetName", relname.stem) + project.options.get("TargetExt", ".pyd")
+    output = project.options.get("TargetName", relname.stem) + project.options.get("TargetExt", DEFAULT_PYD_SUFFIX)
     tname, tdot, text = output.rpartition(".")
     return {
         **dict(
