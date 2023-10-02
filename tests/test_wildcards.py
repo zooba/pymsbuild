@@ -14,13 +14,13 @@ import pymsbuild._types as T
 
 def find_names(source, pattern, basename=None):
     if basename is None:
-        basename = PurePath("test") / pattern
+        basename = PurePath("test") / PurePath(pattern).name
     return {PurePath(n) for n, p in G._resolve_wildcards(basename, source, pattern)}
 
 
 def find_paths(source, pattern, basename=None):
     if basename is None:
-        basename = PurePath("test") / pattern
+        basename = PurePath("test") / PurePath(pattern).name
     return {p for n, p in G._resolve_wildcards(basename, source, pattern)}
 
 
@@ -33,8 +33,10 @@ class TestWildcards:
         assert find_names(ROOT, "_msbuild.*") == expect
         assert find_names(ROOT, "?m?b?i?d.?y") == expect
 
-        expect = {PurePath("test/pymsbuild/__main__.py")}
+        expect = {PurePath("test/__main__.py")}
         assert find_names(ROOT, "pymsbuild/__main__.py") == expect
+
+        expect = {PurePath("test/pymsbuild/__main__.py")}
         assert find_names(ROOT, "*/__main__.py") == expect
         assert find_names(ROOT, "*/__m*__.py") == expect
         assert find_names(ROOT, "*/__m???__.py") == expect
@@ -44,11 +46,13 @@ class TestWildcards:
     def test_recursive(self):
         expect = {PurePath("test/tests/testcython/_msbuild.py"), PurePath("test/tests/testdata/_msbuild.py")}
         assert find_names(ROOT, "**/_msbuild.py") > expect
+        assert find_names(ROOT, "*/test*/_msbuild.py") > expect
+        assert find_names(ROOT, "**/test*/_msbuild.py") > expect
+
+        expect = {PurePath("test/testcython/_msbuild.py"), PurePath("test/testdata/_msbuild.py")}
         assert find_names(ROOT, "tests/**/_msbuild.py") > expect
         assert find_names(ROOT, "tests/*/_msbuild.py") > expect
         assert find_names(ROOT, "tests/test*/_msbuild.py") > expect
-        assert find_names(ROOT, "*/test*/_msbuild.py") > expect
-        assert find_names(ROOT, "**/test*/_msbuild.py") > expect
 
     def test_no_traversal(self):
         # These patterns include part of ROOT, and so should not match
@@ -62,13 +66,14 @@ class TestWildcards:
         assert find_names(ROOT, "_msbuil?.py", BN) == {PurePath("X/Y/Z/_msbuild.py")}
 
         assert find_names(ROOT / "tests", "testdata/_msbuild.py", BN) == {PurePath("X/Y/Z/__init__.py")}
-        assert find_names(ROOT / "tests", "testdata/_msbuil?.py", BN) == {PurePath("X/Y/testdata/_msbuild.py")}
-        assert find_names(ROOT / "tests", "*/_msbuild.py", BN) > {PurePath("X/Y/testdata/_msbuild.py")}
+        assert find_names(ROOT / "tests", "testdata/_msbuil?.py", BN) == {PurePath("X/Y/Z/_msbuild.py")}
+        assert find_names(ROOT / "tests", "*/_msbuild.py", BN) > {PurePath("X/Y/Z/testdata/__init__.py")}
 
-        assert find_names(ROOT, "tests/testdata/_msbuild.py", BN) == {PurePath("X/Y/Z/__init__.py")}
-        assert find_names(ROOT, "tests/*/_msbuild.py", BN) > {PurePath("X/tests/testdata/_msbuild.py")}
-        assert find_names(ROOT, "test*/*/_msbuild.py", BN) > {PurePath("X/tests/testdata/_msbuild.py")}
+        assert find_names(ROOT, "tests/testdata/_msbuild.py", BN) == {PurePath("X//Y/Z/__init__.py")}
+        assert find_names(ROOT, "tests/*/_msbuild.py", BN) > {PurePath("X/Y/Z/testdata/__init__.py")}
+        assert find_names(ROOT, "test*/*/_msbuild.py", BN) > {PurePath("X/Y/Z/tests/testdata/__init__.py")}
 
+        assert find_names(ROOT, ROOT / "tests/testdata/_msbuild.py", "__init__.py") == {PurePath("__init__.py")}
         assert find_names(ROOT, ROOT / "tests/testdata/_msbuild.py", BN) == {PurePath("X/Y/Z/__init__.py")}
-        assert find_names(ROOT, ROOT / "tests/*/_msbuild.py", BN) > {PurePath("X/Y/testdata/_msbuild.py")}
-        assert find_names(ROOT, ROOT / "*/testdata/_msbuild.py", BN) == {PurePath("X/tests/testdata/_msbuild.py")}
+        assert find_names(ROOT, ROOT / "tests/*/_msbuild.py", BN) > {PurePath("X/Y/Z/testdata/__init__.py")}
+        assert find_names(ROOT, ROOT / "*/testdata/_msbuild.py", BN) == {PurePath("X/Y/Z/tests/testdata/__init__.py")}

@@ -373,7 +373,7 @@ project treats "Content" elements.
 
     def __init__(self, source, name=None, **metadata):
         self.source = PurePath(source)
-        self.name = name or str(source)
+        self.name = name or self.source.name
         self.members = []
         self.options = {**self.options, **metadata}
 

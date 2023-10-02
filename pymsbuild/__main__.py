@@ -115,6 +115,9 @@ ns = parse_args()
 if not getattr(ns, "command", None):
     ns.command = ["build_in_place"]
 
+if ns.verbose:
+    print("pymsbuild", pymsbuild.__version__, "running on", sys.version.partition("\n")[0])
+
 if "init" in ns.command:
     from . import _init
     _init.run(Path.cwd(), ns.config)

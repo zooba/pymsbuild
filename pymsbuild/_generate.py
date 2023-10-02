@@ -47,32 +47,55 @@ generated name is 'basename' unmodified and the path is
 of segments as there are in 'pattern', and the generated name for each
 file will be the recursive path appended to the shortened base.
 
+The filename in 'basename' is preserved if the filename in 'pattern'
+contains no wildcard characters. Otherwise, the filename in the
+returned basenames are replaced by the matched filenames.
+
 If 'pattern' is an absolute path, it is split at the first wildcard
 segment and the first part becomes 'source'. 'basename' must have at
 least as many segments as remain in 'pattern'.
 """
     basename = PurePath(basename)
     pattern = PurePath(pattern)
-    if not any("*" in p or "?" in p for p in pattern.parts):
-        yield basename, source / pattern
-        return
 
     if pattern.is_absolute():
         for i, p in enumerate(pattern.parts):
             if "*" in p or "?" in p:
-                source = Path(*pattern.parts[:i])
+                source /= PurePath(*pattern.parts[:i])
                 pattern = PurePath(*pattern.parts[i:])
                 break
+        else:
+            yield basename, pattern
+            return
 
-    if len(basename.parts) < len(pattern.parts):
-        raise ValueError(f"basename ({basename}) should be at least as long as pattern ({pattern})")
+    # Keep the basename if the pattern name is not a wildcard.
+    # Otherwise, we'll replace with the matched filenames
+    finalname = None if ("*" in pattern.name or "?" in pattern.name) else basename.name
+    basename = basename.parent
 
-    basename = PurePath(*basename.parts[:-len(pattern.parts)])
+    pattern_parts = list(pattern.parts)
+    while pattern_parts:
+        p = pattern_parts[0]
+        if "*" in p or "?" in p:
+            break
+        source /= p
+        del pattern_parts[0]
+    else:
+        yield basename / finalname, source
+        return
+
+    if finalname:
+        def _make_basename(bn, p, d):
+            return (bn / p.relative_to(d)).with_name(finalname)
+    else:
+        def _make_basename(bn, p, d):
+            return bn / p.relative_to(d)
+
     roots = [(basename, source)]
-    for i, r in enumerate(pattern.parts[:-1]):
+    for i, r in enumerate(pattern_parts[:-1]):
         if r == "**":
-            wildcards = str(PurePath(*pattern.parts[i + 1:]))
-            yield from ((bn / p.relative_to(d), p)
+            wildcards = str(PurePath(*pattern_parts[i + 1:]))
+            yield from ((_make_basename(bn, p, d), p)
                         for bn, d in roots
                         for p in d.rglob("*")
                         if not p.is_dir() and p.relative_to(d).match(wildcards))
@@ -80,7 +103,7 @@ least as many segments as remain in 'pattern'.
         roots = [((bn / p.name), p) for bn, d in roots for p in d.glob(r) if p.is_dir()]
 
     r = pattern.parts[-1]
-    yield from ((bn / p.name, p) for bn, d in roots for p in d.glob(r) if not p.is_dir())
+    yield from ((bn / (finalname or p.name), p) for bn, d in roots for p in d.glob(r) if not p.is_dir())
 
 
 def _all_members(item, recurse_if=None, return_if=None, *, prefix=""):
