@@ -25,7 +25,7 @@ def test_file_types(itemkind, ftype):
     f = ftype("testdata/f.py", opt1=1)
     assert f._ITEMNAME == itemkind
     assert f.source == PurePath("testdata/f.py")
-    assert f.name == "testdata/f.py"
+    assert f.name == "f.py"
     assert f.options["opt1"] == 1
 
 

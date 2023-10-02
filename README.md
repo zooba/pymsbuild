@@ -206,6 +206,36 @@ file. However, they are case-sensitive while MSBuild is not, so the
 capitalised versions will be ignored for this processing and passed
 through.
 
+Final install location (also known as the element's name) are generated
+from the default name (source file name or `name` argument and all
+package names in the hierarchy) combined with the pattern according to
+these rules:
+
+* if the pattern contains no wildcards, the default name is preserved
+* each segment from the first one containing a wildcard will be joined
+  to the parent of the default name
+* if the pattern filename contains no wildcards, it is preserved in the
+  final name. Otherwise, it is replaced by matched files
+
+These rules ensure consistency across many forms of paths, making it
+reliable to use calculated absolute paths with wildcards (for example,
+a package extending the build system to add its own files). To create
+a directory in the destination, use a new `Package` element:
+
+```
+# Installs as 'A/__init__.py'
+PACKAGE = Package("A", PyFile("B/__init__.py"))
+PACKAGE = Package("A", PyFile("B/source.py", name="__init__.py"))
+
+# Installs as 'A/*.txt'
+PACKAGE = Package("A", File("B/*.txt"))
+
+# All of these install as 'A/B/*.txt'
+PACKAGE = Package("A", Package("B", File("B/*.txt")))
+PACKAGE = Package("A", Package("B", File("*.txt"), source="B"))
+PACKAGE = Package("A", File("*/*.txt"))  # assuming no other matches
+```
+
 Specifying the `Name` metadata (as opposed to `name`, which is a
 keyword argument) will override the destination name of every matched
 file. This is applied before flattening, and so will preserve the
