@@ -120,7 +120,7 @@ if ns.verbose:
 
 if "init" in ns.command:
     from . import _init
-    _init.run(Path.cwd(), ns.config)
+    _init.run(Path.cwd(), ns.config, ns.force)
     sys.exit(0)
 
 bs = BuildState()
