@@ -194,35 +194,47 @@ Other options will be added to the project as properties.
     class CommonCppImports:
         members = ()
         name = "$PydFile.CommonCppImports"
+        imports = [
+            "$(PyMsbuildTargets)/common.props",
+            "$(PyMsbuildTargets)/cpp-default-$(Platform).props",
+        ]
 
         def write_member(self, f, g):
             from os.path import sep as SEP
             g.switch_to(None)
-            f.add_import(f"$(PyMsbuildTargets){SEP}common.props")
-            f.add_import(f"$(PyMsbuildTargets){SEP}cpp-default-$(Platform).props")
+            for n in self.imports:
+                f.add_import(n.replace("/", SEP))
 
 
     class CppImports:
         members = ()
         name = "$PydFile.CppImports"
+        imports = [
+            "$(PyMsbuildTargets)/cpp-$(Platform).props",
+            "$(PyMsbuildTargets)/pyd.props",
+        ]
 
         def write_member(self, f, g):
             from os.path import sep as SEP
             g.switch_to(None)
-            f.add_import(f"$(PyMsbuildTargets){SEP}cpp-$(Platform).props")
-            f.add_import(f"$(PyMsbuildTargets){SEP}pyd.props")
+            for n in self.imports:
+                f.add_import(n.replace("/", SEP))
 
 
     class CppTargets:
         members = ()
         name = "$PydFile.CppTargets"
+        imports = [
+            "$(PyMsbuildTargets)/common.targets",
+            "$(PyMsbuildTargets)/cpp-$(Platform).targets",
+            "$(PyMsbuildTargets)/pyd.targets",
+        ]
 
         def write_member(self, f, g):
             from os.path import sep as SEP
             g.switch_to(None)
-            f.add_import(f"$(PyMsbuildTargets){SEP}common.targets")
-            f.add_import(f"$(PyMsbuildTargets){SEP}cpp-$(Platform).targets")
-            f.add_import(f"$(PyMsbuildTargets){SEP}pyd.targets")
+            for n in self.imports:
+                f.add_import(n.replace("/", SEP))
 
 
     class GlobalProperties:

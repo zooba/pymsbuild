@@ -58,7 +58,7 @@ least as many segments as remain in 'pattern'.
     basename = PurePath(basename)
     pattern = PurePath(pattern)
 
-    if pattern.is_absolute():
+    if pattern.is_absolute() or any("$(" in p for p in pattern.parts):
         for i, p in enumerate(pattern.parts):
             if "*" in p or "?" in p:
                 source /= PurePath(*pattern.parts[:i])
