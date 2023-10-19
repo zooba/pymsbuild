@@ -15,6 +15,8 @@ __all__ = [
     "CSourceFile",
     "IncludeFile",
     "File",
+    "Midl",
+    "Manifest",
     "RemoveFile",
 ]
 
@@ -609,3 +611,31 @@ a string or the type object, but is not used.
             name, 
             Kind=getattr(kind, "_ITEMNAME", None) or str(kind),
         )
+
+class Midl(File):
+    r"""Add an interface definition language source.
+
+These files are compiled using the MIDL tool to generate headers that
+are included by your own code.
+
+See https://learn.microsoft.com/uwp/midl-3/ for more information.
+"""
+    _ITEMNAME = "Midl"
+    options = {
+        **File.options,
+        "Subtype": "Code",
+    }
+
+
+class Manifest(File):
+    r"""Add an application manifest file.
+
+The manifest is embedded into a Windows executable file to provide
+additional settings.
+
+See https://learn.microsoft.com/windows/win32/sbscs/application-manifests
+for more information.
+"""
+    _ITEMNAME = "Manifest"
+
+

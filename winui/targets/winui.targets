@@ -1,0 +1,57 @@
+<Project>
+  <PropertyGroup>
+    <GetPackageFilesTargets>_GetWinUIExePackageFiles;$(GetPackageFilesTargets)</GetPackageFilesTargets>
+    <BeforeBuildGenerateSourcesTargets>_PrepareWinUIPchFile;_IncludeModuleCpp;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
+  </PropertyGroup>
+
+  <Target Name="_PrepareWinUIPchFile">
+    <WriteLinesToFile File="$(IntDir)pch.cpp" Lines="#include &quot;pch.h&quot;" />
+    <ItemGroup>
+      <ClCompile Include="$(IntDir)pch.cpp">
+        <PrecompiledHeader>Create</PrecompiledHeader>
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>false</IncludeInLayout>
+        <IncludeInWheel>false</IncludeInWheel>
+      </ClCompile>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_IncludeModuleCpp">
+    <ItemGroup>
+      <ClCompile Include="$(GeneratedFilesDir)module.g.cpp">
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>false</IncludeInLayout>
+        <IncludeInWheel>false</IncludeInWheel>
+      </ClCompile>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_GetWinUIExePackageFiles">
+    <ItemGroup>
+      <_AllPages Include="@(ApplicationDefinition);@(Page)">
+        <XbfFile>$(OutDir)%(Filename).xbf</XbfFile>
+      </_AllPages>
+      <AllSourceFiles Include="%(_AllPages.XbfFile)">
+        <TargetDir></TargetDir>
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>true</IncludeInLayout>
+        <IncludeInWheel>true</IncludeInWheel>
+      </AllSourceFiles>
+      <_AppDefinition Include="@(ApplicationDefinition)">
+        <PriFile>$(OutDir)%(Filename).pri</PriFile>
+        <WinmdFile>$(OutDir)%(Filename).winmd</WinmdFile>
+      </_AppDefinition>
+      <AllSourceFiles Include="%(_AppDefinition.PriFile);%(_AppDefinition.WinmdFile)">
+        <TargetDir></TargetDir>
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>true</IncludeInLayout>
+        <IncludeInWheel>true</IncludeInWheel>
+      </AllSourceFiles>
+    </ItemGroup>
+  </Target>
+
+  <Import Project="Microsoft.Windows.CppWinRT/build/native/Microsoft.Windows.CppWinRT.targets" />
+  <Import Project="Microsoft.Windows.SDK.BuildTools/build/Microsoft.Windows.SDK.BuildTools.targets" />
+  <Import Project="Microsoft.WindowsAppSDK/build/native/Microsoft.WindowsAppSDK.targets" />
+  <Import Project="Microsoft.Windows.ImplementationLibrary/build/native/Microsoft.Windows.ImplementationLibrary.targets" />
+</Project>
