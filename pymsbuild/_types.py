@@ -19,6 +19,17 @@ __all__ = [
 ]
 
 
+def _recursive_iter(it):
+    for m in it:
+        yield m
+        try:
+            it = iter(m)
+        except TypeError:
+            pass
+        else:
+            yield from it
+
+
 class _Project:
     r"""Base class of compilable projects. Do not use directly."""
     options = {}
@@ -31,14 +42,7 @@ class _Project:
         self.members = list(members)
 
     def __iter__(self):
-        for m in self.members:
-            yield m
-            try:
-                it = iter(m)
-            except TypeError:
-                pass
-            else:
-                yield from it
+        return _recursive_iter(self.members)
 
     @staticmethod
     def _match_item(o, key):
@@ -101,6 +105,38 @@ supported.
                 else:
                     yield from findall(next_path)
 
+    def insert(self, member_path, member, *, offset=0, range=False):
+        """Finds a member by path and inserts one before it.
+
+Raises LookupError if no matching member could be found.
+'offset' is added to the found member's index before inserting. Set to
+1 to insert after the element."""
+        if not member_path:
+            self.members.append(member)
+            return
+        if isinstance(member_path, str):
+            member_path = member_path.replace("\\", "/").split("/")
+        p = member_path[0]
+        if len(member_path) == 1:
+            for i, m in enumerate(self.members):
+                if self._match_item(m, p):
+                    if range:
+                        self.members[i + offset:i + offset] = member
+                    else:
+                        self.members.insert(i + offset, member)
+                    return
+        else:
+            next_path = member_path[1:]
+            for m in self.members:
+                if self._match_item(m, p):
+                    try:
+                        insert = m.insert
+                    except AttributeError:
+                        pass
+                    else:
+                        return insert(next_path, member, offset=offset, range=range)
+        raise LookupError("unable to locate requested member")
+        
 
 class Package(_Project):
     r"""Represents a Python package.
@@ -142,6 +178,80 @@ Specify `source` to find sources in a subdirectory.
 Other options will be added to the project as properties.
 """
     options = {"TargetExt": None}
+
+    def __init__(self, name, *members, **options):
+        super().__init__(name, *members, **options)
+        self.members = [
+            self.GlobalProperties(self),
+            self.CommonCppImports(),
+            self.ConfigurationProperties(self),
+            self.CppImports(),
+            *self.members,
+            self.CppTargets(),
+        ]
+
+
+    class CommonCppImports:
+        members = ()
+        name = "$PydFile.CommonCppImports"
+
+        def write_member(self, f, g):
+            from os.path import sep as SEP
+            g.switch_to(None)
+            f.add_import(f"$(PyMsbuildTargets){SEP}common.props")
+            f.add_import(f"$(PyMsbuildTargets){SEP}cpp-default-$(Platform).props")
+
+
+    class CppImports:
+        members = ()
+        name = "$PydFile.CppImports"
+
+        def write_member(self, f, g):
+            from os.path import sep as SEP
+            g.switch_to(None)
+            f.add_import(f"$(PyMsbuildTargets){SEP}cpp-$(Platform).props")
+            f.add_import(f"$(PyMsbuildTargets){SEP}pyd.props")
+
+
+    class CppTargets:
+        members = ()
+        name = "$PydFile.CppTargets"
+
+        def write_member(self, f, g):
+            from os.path import sep as SEP
+            g.switch_to(None)
+            f.add_import(f"$(PyMsbuildTargets){SEP}common.targets")
+            f.add_import(f"$(PyMsbuildTargets){SEP}cpp-$(Platform).targets")
+            f.add_import(f"$(PyMsbuildTargets){SEP}pyd.targets")
+
+
+    class GlobalProperties:
+        members = ()
+        name = "$PydFile.GlobalProperties"
+
+        def __init__(self, project):
+            self.project = project
+
+        def write_member(self, f, g):
+            g.switch_to("PropertyGroup")
+            for k, v in self.project.options.items():
+                if k not in {"ConfigurationType", "TargetExt"}:
+                    f.add_property(k, v)
+
+
+    class ConfigurationProperties:
+        members = ()
+        name = "$PydFile.ConfigurationProperties"
+
+        def __init__(self, project):
+            self.project = project
+
+        def write_member(self, f, g):
+            g.switch_to("PropertyGroup")
+            f.add_property("ConfigurationType", self.project.options.get("ConfigurationType", "DynamicLibrary"))
+            f.add_property("PlatformToolset", "$(DefaultPlatformToolset)")
+            f.add_property("BasePlatformToolset", "$(DefaultPlatformToolset)")
+            f.add_property("CharacterSet", "Unicode")
 
 
 class VersionInfo:
