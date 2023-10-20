@@ -1,8 +1,16 @@
 <Project>
   <PropertyGroup>
     <GetPackageFilesTargets>_GetWinUIExePackageFiles;$(GetPackageFilesTargets)</GetPackageFilesTargets>
-    <BeforeBuildGenerateSourcesTargets>_PrepareWinUIPchFile;_IncludeModuleCpp;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
+    <BeforeBuildGenerateSourcesTargets>_PrepareWinUIPchFile;_IncludeSources;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
   </PropertyGroup>
+
+  <ItemGroup>
+    <IncludeFile Include="$(MSBuildThisFileDirectory)python-winui.h">
+      <IncludeInSdist>false</IncludeInSdist>
+      <IncludeInLayout>false</IncludeInLayout>
+      <IncludeInWheel>false</IncludeInWheel>
+    </IncludeFile>
+  </ItemGroup>
 
   <Target Name="_PrepareWinUIPchFile">
     <WriteLinesToFile File="$(IntDir)pch.cpp" Lines="#include &quot;pch.h&quot;" />
@@ -16,9 +24,11 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="_IncludeModuleCpp">
+  <Target Name="_IncludeSources">
     <ItemGroup>
-      <ClCompile Include="$(GeneratedFilesDir)module.g.cpp">
+      <_Src Include="$(GeneratedFilesDir)module.g.cpp" />
+      <_Src Include="$(MSBuildThisFileDirectory)xaml_controls.cpp" />
+      <ClCompile Include="@(_Src)">
         <IncludeInSdist>false</IncludeInSdist>
         <IncludeInLayout>false</IncludeInLayout>
         <IncludeInWheel>false</IncludeInWheel>

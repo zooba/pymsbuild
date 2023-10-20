@@ -58,3 +58,9 @@ class WinUIExe(PydFile):
         self.insert(PydFile.GlobalProperties.name, self.WinUIProps(), offset=1)
         self.insert(PydFile.CppTargets.name, extras, range=True)
         self.members.append(self.WinUITargets())
+
+    def init_PACKAGE(self, tag):
+        if not tag:
+            return
+        # TODO: download packages from Nuget
+        # TODO: download Python runtime
