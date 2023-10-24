@@ -119,46 +119,58 @@ def _all_members(item, recurse_if=None, return_if=None, *, prefix=""):
             )
 
 
+def _write_file_with_wildcards(f, source_dir, name, item):
+    wrote_any = bool(item.options.get("allow_none"))
+    flat_char = item.options.get("flatten")
+    new_name = item.options.get("Name")
+    exclude = ()
+    condition = None
+    if getattr(item, "has_condition", False):
+        condition = getattr(item, "condition", None)
+        patterns = (getattr(item, "exclude", None) or "").split(os.pathsep)
+        exclude = set()
+        for pattern in patterns:
+            exclude.update(p2 for n2, p2 in _resolve_wildcards(name, source_dir, pattern))
+    for n2, p2 in _resolve_wildcards(name, source_dir, item.source):
+        if p2 in exclude:
+            continue
+        if isinstance(new_name, str):
+            n2 = n2.with_name(new_name)
+        if flat_char is True:
+            n2 = n2.parts[-1]
+        elif isinstance(flat_char, str):
+            n2 = flat_char.join(n2.parts)
+        options = {
+            "SourceDir": source_dir,
+            **item.options,
+            "Name": n2,
+            "allow_none": None,
+            "flatten": None,
+        }
+        if new_name is not None and not isinstance(new_name, str):
+            options["Name"] = new_name
+        if condition:
+            p2 = ConditionalValue(p2, condition=condition)
+        f.add_item(item._ITEMNAME, p2, **options)
+        wrote_any = True
+    if not wrote_any:
+        raise ValueError("failed to find any files for {} in {}".format(
+            p.source, source_dir))
+
+
 def _write_members(f, source_dir, members):
     with GroupSwitcher(f) as g:
         for n, p in members:
             if isinstance(p, File):
                 g.switch_to("ItemGroup")
-                wrote_any = bool(p.options.get("allow_none"))
-                flat_char = p.options.get("flatten")
-                name = p.options.get("Name")
-                exclude = ()
-                condition = None
-                if getattr(p, "has_condition", False):
-                    condition = getattr(p, "condition", None)
-                    pattern = getattr(p, "exclude", None)
-                    if pattern:
-                        exclude = {p2 for n2, p2 in _resolve_wildcards(n, source_dir, pattern)}
-                for n2, p2 in _resolve_wildcards(n, source_dir, p.source):
-                    if p2 in exclude:
-                        continue
-                    if isinstance(name, str):
-                        n2 = n2.with_name(name)
-                    if flat_char is True:
-                        n2 = n2.parts[-1]
-                    elif isinstance(flat_char, str):
-                        n2 = flat_char.join(n2.parts)
-                    options = {
+                if "$(" not in str(p.source):
+                    _write_file_with_wildcards(f, source_dir, n, p)
+                else:
+                    f.add_item(p._ITEMNAME, p.source, **{
                         "SourceDir": source_dir,
                         **p.options,
-                        "Name": n2,
-                        "allow_none": None,
-                        "flatten": None,
-                    }
-                    if name is not None and not isinstance(name, str):
-                        options["Name"] = name
-                    if condition:
-                        p2 = ConditionalValue(p2, condition=condition)
-                    f.add_item(p._ITEMNAME, p2, **options)
-                    wrote_any = True
-                if not wrote_any:
-                    raise ValueError("failed to find any files for {} in {}".format(
-                        p.source, source_dir))
+                        "Name": n,
+                    })
             elif isinstance(p, Property):
                 g.switch_to("PropertyGroup")
                 f.add_property(p.name, p.value)
@@ -190,19 +202,6 @@ def _generate_pyd(project, build_dir, root_dir):
             f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
             f.add_property("SourceRootDir", ConditionalValue(root_dir, if_empty=True))
             f.add_property("__TargetExt", tdot + text)
-            for k, v in project.options.items():
-                if k not in {"ConfigurationType", "TargetExt"}:
-                    f.add_property(k, v)
-        f.add_import(f"$(PyMsbuildTargets){SEP}common.props")
-        f.add_import(f"$(PyMsbuildTargets){SEP}cpp-default-$(Platform).props")
-        with f.group("PropertyGroup", Label="Configuration"):
-            f.add_property("ConfigurationType", project.options.get("ConfigurationType", "DynamicLibrary"))
-            f.add_property("PlatformToolset", "$(DefaultPlatformToolset)")
-            f.add_property("BasePlatformToolset", "$(DefaultPlatformToolset)")
-            f.add_property("CharacterSet", "Unicode")
-        f.add_import(f"$(PyMsbuildTargets){SEP}cpp-$(Platform).props")
-        f.add_import(f"$(PyMsbuildTargets){SEP}pyd.props")
-
         _write_members(f, source_dir, _all_members(project, recurse_if=lambda m: m is project))
         for n, p in _all_members(project, recurse_if=lambda m: m is project, return_if=lambda m: isinstance(m, Package)):
             _write_members(
@@ -210,10 +209,6 @@ def _generate_pyd(project, build_dir, root_dir):
                 source_dir,
                 _all_members(p, recurse_if=lambda m: not isinstance(m, PydFile), prefix=f"{project.name}/")
             )
-
-        f.add_import(f"$(PyMsbuildTargets){SEP}common.targets")
-        f.add_import(f"$(PyMsbuildTargets){SEP}cpp-$(Platform).targets")
-        f.add_import(f"$(PyMsbuildTargets){SEP}pyd.targets")
 
     return proj
 

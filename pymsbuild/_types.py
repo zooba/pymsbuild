@@ -7,16 +7,31 @@ __all__ = [
     "PydFile",
     "LiteralXML",
     "ConditionalValue",
+    "ExactNameMatchMixin",
     "Prepend",
     "Property",
     "ItemDefinition",
+    "ImportGroup",
     "PyFile",
     "SourceFile",
     "CSourceFile",
     "IncludeFile",
     "File",
+    "Midl",
+    "Manifest",
     "RemoveFile",
 ]
+
+
+def _recursive_iter(it):
+    for m in it:
+        yield m
+        try:
+            it = iter(m)
+        except TypeError:
+            pass
+        else:
+            yield from it
 
 
 class _Project:
@@ -31,14 +46,7 @@ class _Project:
         self.members = list(members)
 
     def __iter__(self):
-        for m in self.members:
-            yield m
-            try:
-                it = iter(m)
-            except TypeError:
-                pass
-            else:
-                yield from it
+        return _recursive_iter(self.members)
 
     @staticmethod
     def _match_item(o, key):
@@ -80,14 +88,28 @@ All matching levels of the path are collected. So a path of 'A/B/C'
 will match multiple 'A's and 'B's return all the members beneath them
 that match the full path 'A/B/C'.
 
-A segment of '*' will match all members. Recursive wildcards are not
-supported.
+A segment of '*' will match all members. Recursive wildcard segments
+'**' are supported, but unlikely to be efficient (they perform a full
+search of the remaining segments at every node).
 """
         if not member_path:
             return
         if isinstance(member_path, str):
             member_path = member_path.replace("\\", "/").split("/")
         p = member_path[0]
+
+        if p == "**":
+            next_path = member_path[1:]
+            yield from self.findall(next_path)
+            for m in _recursive_iter(self.members):
+                try:
+                    findall = m.findall
+                except AttributeError:
+                    pass
+                else:
+                    yield from findall(next_path)
+            return
+
         matches = (m for m in self.members if self._match_item(m, p))
         if len(member_path) == 1:
             yield from matches
@@ -100,6 +122,69 @@ supported.
                     pass
                 else:
                     yield from findall(next_path)
+
+    def insert(self, member_path, member, *, offset=0, range=False):
+        """Finds a member by path and inserts one before it.
+
+Raises LookupError if no matching member could be found.
+'offset' is added to the found member's index before inserting. Set to
+1 to insert after the element."""
+        if not member_path:
+            self.members.append(member)
+            return
+        if isinstance(member_path, str):
+            member_path = member_path.replace("\\", "/").split("/")
+        p = member_path[0]
+        if len(member_path) == 1:
+            for i, m in enumerate(self.members):
+                if self._match_item(m, p):
+                    if range:
+                        self.members[i + offset:i + offset] = member
+                    else:
+                        self.members.insert(i + offset, member)
+                    return
+        else:
+            next_path = member_path[1:]
+            for m in self.members:
+                if self._match_item(m, p):
+                    try:
+                        insert = m.insert
+                    except AttributeError:
+                        pass
+                    else:
+                        return insert(next_path, member, offset=offset, range=range)
+        raise LookupError("unable to locate requested member")
+
+
+class ExactNameMatchMixin:
+    r"""Mix-in class to suppress wildcards in findall()"""
+    def _match(self, key):
+        return key.casefold() == self.name.casefold()
+
+
+class ImportGroup(ExactNameMatchMixin):
+    r"""Helper for declaring a group of custom imports"""
+    name = "ImportGroup"
+    members = ()
+    imports = ()
+
+    def __init__(self, *imports):
+        self.imports = [*self.imports, *imports]
+
+    def write_member(self, f, g):
+        from os import fsdecode
+        from os.path import sep as SEP
+        g.switch_to("ImportGroup")
+        for n in self.imports:
+            c = None
+            if getattr(n, "has_condition", False):
+                c = n.condition
+                n = n.value
+            try:
+                n = fsdecode(n).replace("/", SEP)
+            except TypeError:
+                n = str(n)
+            f.add_import(n, c)
 
 
 class Package(_Project):
@@ -141,7 +226,83 @@ Specify `source` to find sources in a subdirectory.
 
 Other options will be added to the project as properties.
 """
-    options = {"TargetExt": None}
+    options = {
+        "ConfigurationType": "DynamicLibrary",
+        "TargetExt": None,
+    }
+
+    def __init__(self, name, *members, **options):
+        super().__init__(name, *members, **options)
+        self.members = [
+            self.GlobalProperties(self),
+            self.CommonCppImports(),
+            self.ConfigurationProperties(self),
+            self.CppImports(),
+            *self.members,
+            self.CppTargets(),
+        ]
+
+
+    class CommonCppImports(ImportGroup):
+        name = "$PydFile.CommonCppImports"
+        imports = [
+            "$(PyMsbuildTargets)/common.props",
+            "$(PyMsbuildTargets)/cpp-default-$(Platform).props",
+        ]
+
+
+    class CppImports(ImportGroup):
+        name = "$PydFile.CppImports"
+        imports = [
+            "$(PyMsbuildTargets)/cpp-$(Platform).props",
+            "$(PyMsbuildTargets)/pyd.props",
+        ]
+
+
+    class CppTargets(ImportGroup):
+        name = "$PydFile.CppTargets"
+        imports = [
+            "$(PyMsbuildTargets)/common.targets",
+            "$(PyMsbuildTargets)/cpp-$(Platform).targets",
+            "$(PyMsbuildTargets)/pyd.targets",
+        ]
+
+
+    class GlobalProperties(ExactNameMatchMixin):
+        r"""Special handling for C++ properties.
+
+We need to defer some options until after the default imports. These
+will be added by ConfigurationProperties. We also need to defer reading
+from project.options until we're actually writing, as the author may
+modify its contents.
+"""
+        members = ()
+        name = "$PydFile.GlobalProperties"
+        defer = {"ConfigurationType", "TargetExt"}
+
+        def __init__(self, project):
+            self.project = project
+
+        def write_member(self, f, g):
+            g.switch_to("PropertyGroup")
+            for k, v in self.project.options.items():
+                if k not in self.defer:
+                    f.add_property(k, v)
+
+
+    class ConfigurationProperties(ExactNameMatchMixin):
+        members = ()
+        name = "$PydFile.ConfigurationProperties"
+
+        def __init__(self, project):
+            self.project = project
+
+        def write_member(self, f, g):
+            g.switch_to("PropertyGroup")
+            f.add_property("ConfigurationType", self.project.options.get("ConfigurationType") or "DynamicLibrary")
+            f.add_property("PlatformToolset", "$(DefaultPlatformToolset)")
+            f.add_property("BasePlatformToolset", "$(DefaultPlatformToolset)")
+            f.add_property("CharacterSet", "Unicode")
 
 
 class VersionInfo:
@@ -375,7 +536,12 @@ project treats "Content" elements.
         self.source = PurePath(source)
         self.name = name or self.source.name
         self.members = []
-        self.options = {**self.options, **metadata}
+        overrides = {}
+        if self.source.parts[0].startswith("$("):
+            overrides["IncludeInSdist"] = False
+        if self.name.startswith("$("):
+            self.name = self.name.partition(")")[2]
+        self.options = {**self.options, **overrides, **metadata}
 
     def excluding(self, pattern):
         self.has_condition = True
@@ -487,3 +653,31 @@ a string or the type object, but is not used.
             name, 
             Kind=getattr(kind, "_ITEMNAME", None) or str(kind),
         )
+
+class Midl(File):
+    r"""Add an interface definition language source.
+
+These files are compiled using the MIDL tool to generate headers that
+are included by your own code.
+
+See https://learn.microsoft.com/uwp/midl-3/ for more information.
+"""
+    _ITEMNAME = "Midl"
+    options = {
+        **File.options,
+        "Subtype": "Code",
+    }
+
+
+class Manifest(File):
+    r"""Add an application manifest file.
+
+The manifest is embedded into a Windows executable file to provide
+additional settings.
+
+See https://learn.microsoft.com/windows/win32/sbscs/application-manifests
+for more information.
+"""
+    _ITEMNAME = "Manifest"
+
+
