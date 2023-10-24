@@ -69,8 +69,8 @@ def test_pyd_generation(tmp_path):
     none = pf.get("./x:ItemGroup/x:None[@Include]")
     assert Path(tmp_path / "m.txt") == Path(none.get("Include"))
 
-    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets){SEP}common.targets']") is not None
-    assert pf.get("./x:Import[@Project='$(PyMsbuildTargets){SEP}pyd.targets']") is not None
+    assert pf.get("./x:ImportGroup/x:Import[@Project='$(PyMsbuildTargets){SEP}common.targets']") is not None
+    assert pf.get("./x:ImportGroup/x:Import[@Project='$(PyMsbuildTargets){SEP}pyd.targets']") is not None
 
 
 def test_package_generation(tmp_path):

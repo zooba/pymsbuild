@@ -317,9 +317,10 @@ PACKAGE = Package(
 )
 ```
 
-Package members can be located during the dynamic stage using the `find` and
-`findall` functions. These take a path of member identifiers (typically their
-name property) and will return those that match.
+Package members can be located during the dynamic stage using the
+`find` and `findall` functions. These take a path of member identifiers
+(typically their name property) and will return those that match.
+`'**'` segments are supported for recursive searches.
 
 ```python
 PACKAGE = Package(
@@ -331,6 +332,27 @@ PACKAGE = Package(
 def init_PACKAGE(tag=None):
     for e in PACKAGE.findall("sub*/license.txt"):
         e.name = "LICENSE"
+```
+
+When inserting members, the `insert` function combines a `find` with
+the insert, and supports offset and range options. In general, only
+subclassed element types should insert additional elements, and only
+into themselves at construction.
+
+```python
+class MyPydFile(PydFile):
+    def __init__(self, name, *members, **options):
+        super().__init__(name, *members, **options)
+        self.insert(
+            # Member path to insert before - this one is a well-known name
+            "$PydFile.CommonCppImports",
+            # Member to insert (in this case, an iterable)
+            [Property(PROP1, VALUE1), Property(PROP2, VALUE2)],
+            # Offset it by 1, so inserts after the found element (default 0)
+            offset = 1,
+            # Iterate over the insertion value; otherwise insert it as-is
+            range = True
+        )
 ```
 
 ## Source offsets

@@ -7,6 +7,7 @@ __all__ = [
     "PydFile",
     "LiteralXML",
     "ConditionalValue",
+    "ExactNameMatchMixin",
     "Prepend",
     "Property",
     "ItemDefinition",
@@ -86,14 +87,28 @@ All matching levels of the path are collected. So a path of 'A/B/C'
 will match multiple 'A's and 'B's return all the members beneath them
 that match the full path 'A/B/C'.
 
-A segment of '*' will match all members. Recursive wildcards are not
-supported.
+A segment of '*' will match all members. Recursive wildcard segments
+'**' are supported, but unlikely to be efficient (they perform a full
+search of the remaining segments at every node).
 """
         if not member_path:
             return
         if isinstance(member_path, str):
             member_path = member_path.replace("\\", "/").split("/")
         p = member_path[0]
+
+        if p == "**":
+            next_path = member_path[1:]
+            yield from self.findall(next_path)
+            for m in _recursive_iter(self.members):
+                try:
+                    findall = m.findall
+                except AttributeError:
+                    pass
+                else:
+                    yield from findall(next_path)
+            return
+
         matches = (m for m in self.members if self._match_item(m, p))
         if len(member_path) == 1:
             yield from matches
@@ -138,7 +153,29 @@ Raises LookupError if no matching member could be found.
                     else:
                         return insert(next_path, member, offset=offset, range=range)
         raise LookupError("unable to locate requested member")
-        
+
+
+class ExactNameMatchMixin:
+    r"""Mix-in class to suppress wildcards in findall()"""
+    def _match(self, key):
+        return key.casefold() == self.name.casefold()
+
+
+class ImportGroup(ExactNameMatchMixin):
+    r"""Helper for declaring a group of custom imports"""
+    name = "ImportGroup"
+    members = ()
+    imports = ()
+
+    def __init__(self, *imports):
+        self.imports = [*self.imports, *imports]
+
+    def write_member(self, f, g):
+        from os.path import sep as SEP
+        g.switch_to("ImportGroup")
+        for n in self.imports:
+            f.add_import(str(n).replace("/", SEP))
+
 
 class Package(_Project):
     r"""Represents a Python package.
@@ -179,7 +216,10 @@ Specify `source` to find sources in a subdirectory.
 
 Other options will be added to the project as properties.
 """
-    options = {"TargetExt": None}
+    options = {
+        "ConfigurationType": "DynamicLibrary",
+        "TargetExt": None,
+    }
 
     def __init__(self, name, *members, **options):
         super().__init__(name, *members, **options)
@@ -193,38 +233,23 @@ Other options will be added to the project as properties.
         ]
 
 
-    class CommonCppImports:
-        members = ()
+    class CommonCppImports(ImportGroup):
         name = "$PydFile.CommonCppImports"
         imports = [
             "$(PyMsbuildTargets)/common.props",
             "$(PyMsbuildTargets)/cpp-default-$(Platform).props",
         ]
 
-        def write_member(self, f, g):
-            from os.path import sep as SEP
-            g.switch_to(None)
-            for n in self.imports:
-                f.add_import(n.replace("/", SEP))
 
-
-    class CppImports:
-        members = ()
+    class CppImports(ImportGroup):
         name = "$PydFile.CppImports"
         imports = [
             "$(PyMsbuildTargets)/cpp-$(Platform).props",
             "$(PyMsbuildTargets)/pyd.props",
         ]
 
-        def write_member(self, f, g):
-            from os.path import sep as SEP
-            g.switch_to(None)
-            for n in self.imports:
-                f.add_import(n.replace("/", SEP))
 
-
-    class CppTargets:
-        members = ()
+    class CppTargets(ImportGroup):
         name = "$PydFile.CppTargets"
         imports = [
             "$(PyMsbuildTargets)/common.targets",
@@ -232,16 +257,18 @@ Other options will be added to the project as properties.
             "$(PyMsbuildTargets)/pyd.targets",
         ]
 
-        def write_member(self, f, g):
-            from os.path import sep as SEP
-            g.switch_to(None)
-            for n in self.imports:
-                f.add_import(n.replace("/", SEP))
 
+    class GlobalProperties(ExactNameMatchMixin):
+        r"""Special handling for C++ properties.
 
-    class GlobalProperties:
+We need to defer some options until after the default imports. These
+will be added by ConfigurationProperties. We also need to defer reading
+from project.options until we're actually writing, as the author may
+modify its contents.
+"""
         members = ()
         name = "$PydFile.GlobalProperties"
+        defer = {"ConfigurationType", "TargetExt"}
 
         def __init__(self, project):
             self.project = project
@@ -249,11 +276,11 @@ Other options will be added to the project as properties.
         def write_member(self, f, g):
             g.switch_to("PropertyGroup")
             for k, v in self.project.options.items():
-                if k not in {"ConfigurationType", "TargetExt"}:
+                if k not in self.defer:
                     f.add_property(k, v)
 
 
-    class ConfigurationProperties:
+    class ConfigurationProperties(ExactNameMatchMixin):
         members = ()
         name = "$PydFile.ConfigurationProperties"
 
@@ -262,7 +289,7 @@ Other options will be added to the project as properties.
 
         def write_member(self, f, g):
             g.switch_to("PropertyGroup")
-            f.add_property("ConfigurationType", self.project.options.get("ConfigurationType", "DynamicLibrary"))
+            f.add_property("ConfigurationType", self.project.options.get("ConfigurationType") or "DynamicLibrary")
             f.add_property("PlatformToolset", "$(DefaultPlatformToolset)")
             f.add_property("BasePlatformToolset", "$(DefaultPlatformToolset)")
             f.add_property("CharacterSet", "Unicode")
@@ -499,7 +526,12 @@ project treats "Content" elements.
         self.source = PurePath(source)
         self.name = name or self.source.name
         self.members = []
-        self.options = {**self.options, **metadata}
+        overrides = {}
+        if self.source.parts[0].startswith("$("):
+            overrides["IncludeInSdist"] = False
+        if self.name.startswith("$("):
+            self.name = self.name.partition(")")[2]
+        self.options = {**self.options, **overrides, **metadata}
 
     def excluding(self, pattern):
         self.has_condition = True
