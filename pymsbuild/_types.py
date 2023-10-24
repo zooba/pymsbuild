@@ -172,10 +172,19 @@ class ImportGroup(ExactNameMatchMixin):
         self.imports = [*self.imports, *imports]
 
     def write_member(self, f, g):
+        from os import fsdecode
         from os.path import sep as SEP
         g.switch_to("ImportGroup")
         for n in self.imports:
-            f.add_import(str(n).replace("/", SEP))
+            c = None
+            if getattr(n, "has_condition", False):
+                c = n.condition
+                n = n.value
+            try:
+                n = fsdecode(n).replace("/", SEP)
+            except TypeError:
+                n = str(n)
+            f.add_import(n, c)
 
 
 class Package(_Project):

@@ -126,8 +126,11 @@ class ProjectFileWriter:
     def add_item_property(self, kind, name, value):
         self._write_value(name, value, "%")
 
-    def add_import(self, project):
-        self.write('<Import Project="', project, '" />')
+    def add_import(self, project, condition=None):
+        if condition:
+            self.write('<Import Project="', project, '" Condition="', condition, '"/>')
+        else:
+            self.write('<Import Project="', project, '" />')
 
     def add_vc_platforms(self, platforms=None, configurations=None):
         if not platforms:
