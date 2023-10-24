@@ -2,6 +2,7 @@
   <Target Name="_DownloadRuntime_Properties">
     <PropertyGroup>
       <PythonRuntimeDir Condition="$(PythonRuntimeDir) == ''">$(IntDir)python</PythonRuntimeDir>
+      <PythonRuntimeExecutables Condition="$(PythonRuntimeExecutables) != 'true'">false</PythonRuntimeExecutables>
       <PythonRuntimeEmbeddable Condition="$(PythonRuntimeEmbeddable) != 'true'">false</PythonRuntimeEmbeddable>
     </PropertyGroup>
     <ItemGroup>
@@ -20,13 +21,21 @@
     </PropertyGroup>
     <Exec Command="$(_Cmd)" />
     <ItemGroup>
-      <PythonRuntime Include="$(PythonRuntimeDir)/**/*">
+      <FileWrites Include="$(PythonRuntimeDir)/**/*" />
+    </ItemGroup>
+  </Target>
+  <Target Name="DownloadRuntime" DependsOnTargets="_DownloadRuntime_Properties;_DownloadRuntime_Exec">
+    <ItemGroup>
+      <PythonRuntime Include="$(PythonRuntimeDir)/**/*" Exclude="$(PythonRuntimeDir)/*.exe">
         <TargetDir>%(RecursiveDir)</TargetDir>
         <TargetName>%(Filename)</TargetName>
         <TargetExt>%(Extension)</TargetExt>
       </PythonRuntime>
-      <FileWrites Include="@(PythonRuntime)" />
+      <PythonRuntime Include="$(PythonRuntimeDir)/*.exe" Condition="$(PythonRuntimeExecutables)">
+        <TargetDir>%(RecursiveDir)</TargetDir>
+        <TargetName>%(Filename)</TargetName>
+        <TargetExt>%(Extension)</TargetExt>
+      </PythonRuntime>
     </ItemGroup>
   </Target>
-  <Target Name="DownloadRuntime" DependsOnTargets="_DownloadRuntime_Properties;_DownloadRuntime_Exec" />
 </Project>

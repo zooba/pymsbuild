@@ -8,7 +8,7 @@ import sys
 import zipfile
 from urllib.request import urlopen
 
-DEFAULT_TAG = "py{0}{1}-cp{0}{1}-{2}".format(
+DEFAULT_TAG = "cp{0}{1}-cp{0}{1}-{2}".format(
     sys.version_info[0],
     sys.version_info[1],
     {"": "win_amd64", "32": "win32", "-arm64": "win_arm64"}.get(sys.winver.partition("-")[2]),
@@ -24,9 +24,9 @@ parser.add_argument("--version", required=False, help="Override version")
 parser.add_argument("--dry-run", action="store_true", help="Do not write files to disk")
 args = parser.parse_args()
 
-m = re.match(r"py(\d)(\d+)-.+?-(win_?.+)", args.tag)
+m = re.match(r"(cp|py)(\d)(\d+)-.+?-(win_?.+)", args.tag)
 if not m:
-    print("ERROR: Unsupported tag", TAG, file=sys.stderr)
+    print("ERROR: Unsupported tag", args.tag, file=sys.stderr)
     sys.exit(1)
 if not args.version:
     args.version = f"{m.group(1)}.{m.group(2)}"
@@ -100,7 +100,7 @@ def from_nuget(version, platform):
         for n in zf.namelist():
             if not n.startswith("tools/") or ".." in n:
                 continue
-            yield n, zf.read(n)
+            yield n.partition("/")[2], zf.read(n)
 
 
 def from_embed(version, platform):
@@ -159,7 +159,7 @@ try:
             dest.parent.mkdir(parents=True, exist_ok=True)
             with open(dest, "wb") as f:
                 f.write(content)
+
 except Exception as ex:
     print(ex, file=sys.stderr)
     sys.exit(1)
-
