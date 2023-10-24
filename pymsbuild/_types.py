@@ -11,6 +11,7 @@ __all__ = [
     "Prepend",
     "Property",
     "ItemDefinition",
+    "ImportGroup",
     "PyFile",
     "SourceFile",
     "CSourceFile",
