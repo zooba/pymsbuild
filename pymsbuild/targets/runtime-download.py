@@ -24,7 +24,7 @@ parser.add_argument("--version", required=False, help="Override version")
 parser.add_argument("--dry-run", action="store_true", help="Do not write files to disk")
 args = parser.parse_args()
 
-m = re.match(r"(cp|py)(\d)(\d+)-.+?-(win_?.+)", args.tag)
+m = re.match(r"(?:cp|py)(\d)(\d+)-.+?-(win.+)", args.tag)
 if not m:
     print("ERROR: Unsupported tag", args.tag, file=sys.stderr)
     sys.exit(1)
@@ -161,5 +161,7 @@ try:
                 f.write(content)
 
 except Exception as ex:
+    if type(ex) is not Exception:
+        raise
     print(ex, file=sys.stderr)
     sys.exit(1)
