@@ -41,7 +41,7 @@ class ProjectFileWriter:
 
     def __enter__(self):
         Path(self.filename).parent.mkdir(parents=True, exist_ok=True)
-        self._file = io.StringIO() #open(self.filename, "w", encoding="utf-8")
+        self._file = io.StringIO()
         print(PROLOGUE, file=self._file)
         if self._vc_platforms is True:
             self.add_vc_platforms()
@@ -58,8 +58,11 @@ class ProjectFileWriter:
 
     def __exit__(self, *exc_info):
         print("</Project>", file=self._file)
-        with open(self.filename, "r", encoding="utf-8-sig") as f:
-            old = f.read()
+        try:
+            with open(self.filename, "r", encoding="utf-8-sig") as f:
+                old = f.read()
+        except Exception:
+            old = None
         if old != self._file.getvalue():
             with open(self.filename, "w", encoding="utf-8") as f:
                 f.write(self._file.getvalue())
