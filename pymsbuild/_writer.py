@@ -1,4 +1,5 @@
 import contextlib
+import io
 import uuid
 
 from pathlib import Path
@@ -40,7 +41,7 @@ class ProjectFileWriter:
 
     def __enter__(self):
         Path(self.filename).parent.mkdir(parents=True, exist_ok=True)
-        self._file = open(self.filename, "w", encoding="utf-8")
+        self._file = io.StringIO() #open(self.filename, "w", encoding="utf-8")
         print(PROLOGUE, file=self._file)
         if self._vc_platforms is True:
             self.add_vc_platforms()
@@ -57,8 +58,11 @@ class ProjectFileWriter:
 
     def __exit__(self, *exc_info):
         print("</Project>", file=self._file)
-        self._file.flush()
-        self._file.close()
+        with open(self.filename, "r", encoding="utf-8-sig") as f:
+            old = f.read()
+        if old != self._file.getvalue():
+            with open(self.filename, "w", encoding="utf-8") as f:
+                f.write(self._file.getvalue())
         self._file = None
 
     def write(self, *text):
