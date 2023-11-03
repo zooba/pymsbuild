@@ -20,8 +20,12 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install packaging
-    - name: Build
-      run: python -m pymsbuild -d dist sdist wheel
+    - name: Build sdist
+      run: python -m pymsbuild -d dist sdist
+      env:
+        GITHUB_REF: ${{ github.ref }}
+    - name: Build wheel
+      run: python -m pymsbuild -d dist wheel
       env:
         GITHUB_REF: ${{ github.ref }}
     - name: Publish
