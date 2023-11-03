@@ -344,8 +344,8 @@ class MyPydFile(PydFile):
     def __init__(self, name, *members, **options):
         super().__init__(name, *members, **options)
         self.insert(
-            # Member path to insert before - this one is a well-known name
-            "$PydFile.CommonCppImports",
+            # Member path to insert before - this one is inherited from PydFile
+            self.CommonToolsetImports.name,
             # Member to insert (in this case, an iterable)
             [Property(PROP1, VALUE1), Property(PROP2, VALUE2)],
             # Offset it by 1, so inserts after the found element (default 0)
