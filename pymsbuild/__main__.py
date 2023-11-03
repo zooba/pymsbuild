@@ -85,8 +85,7 @@ def parse_args():
     parser.add_argument(
         "command",
         type=str,
-        nargs="*",
-        help="""one or more of 'init', 'generate', 'sdist', 'wheel', 'pack', 'distinfo', 'clean'
+        help="""one of 'init', 'generate', 'sdist', 'wheel', 'pack', 'distinfo', 'clean'
 
 init: Initialise a new _msbuild.py file.
 generate: Generate the build files without building.
@@ -152,7 +151,7 @@ else:
     }
 
 
-for cmd in ns.command:
-    cmd = COMMANDS.get(cmd, cmd)
-    f = getattr(bs, cmd)
-    f()
+cmd = ns.command
+cmd = COMMANDS.get(cmd, cmd)
+f = getattr(bs, cmd)
+f()
