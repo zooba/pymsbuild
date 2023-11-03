@@ -85,6 +85,8 @@ def parse_args():
     parser.add_argument(
         "command",
         type=str,
+        default="build_in_place",
+        nargs="?",
         help="""one of 'init', 'generate', 'sdist', 'wheel', 'pack', 'distinfo', 'clean'
 
 init: Initialise a new _msbuild.py file.
@@ -112,7 +114,7 @@ clean: Clean any builds.
 
 ns = parse_args()
 if not getattr(ns, "command", None):
-    ns.command = ["build_in_place"]
+    ns.command = "build_in_place"
 
 if ns.verbose:
     print("pymsbuild", pymsbuild.__version__, "running on", sys.version.partition("\n")[0])
