@@ -235,23 +235,23 @@ Other options will be added to the project as properties.
         super().__init__(name, *members, **options)
         self.members = [
             self.GlobalProperties(self),
-            self.CommonCppImports(),
+            self.DefaultToolsetImports(),
             self.ConfigurationProperties(self),
-            self.CppImports(),
+            self.ToolsetImports(),
             *self.members,
-            self.CppTargets(),
+            self.ToolsetTargets(),
         ]
 
 
-    class CommonCppImports(ImportGroup):
-        name = "$PydFile.CommonCppImports"
+    class DefaultToolsetImports(ImportGroup):
+        name = "$PydFile.DefaultCppImports"
         imports = [
             "$(PyMsbuildTargets)/common.props",
             "$(PyMsbuildTargets)/cpp-default-$(Platform).props",
         ]
 
 
-    class CppImports(ImportGroup):
+    class ToolsetImports(ImportGroup):
         name = "$PydFile.CppImports"
         imports = [
             "$(PyMsbuildTargets)/cpp-$(Platform).props",
@@ -259,7 +259,7 @@ Other options will be added to the project as properties.
         ]
 
 
-    class CppTargets(ImportGroup):
+    class ToolsetTargets(ImportGroup):
         name = "$PydFile.CppTargets"
         imports = [
             "$(PyMsbuildTargets)/common.targets",
