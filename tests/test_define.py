@@ -22,11 +22,11 @@ def test_iterable_project():
         T.PyFile,
         T.PydFile,
         T.PydFile.GlobalProperties,
-        T.PydFile.CommonCppImports,
+        T.PydFile.DefaultToolsetImports,
         T.PydFile.ConfigurationProperties,
-        T.PydFile.CppImports,
+        T.PydFile.ToolsetImports,
         T.CSourceFile,
-        T.PydFile.CppTargets,
+        T.PydFile.ToolsetTargets,
     ] == [type(p) for p in package]
 
 
