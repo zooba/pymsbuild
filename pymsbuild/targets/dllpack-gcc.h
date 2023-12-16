@@ -70,8 +70,14 @@ get_origin_root()
         return NULL;
     }
     const char *end = strrchr(info.dli_fname, '/');
-    Py_ssize_t len = end ? (end - info.dli_fname) : -1;
-    return PyUnicode_FromStringAndSize(info.dli_fname, len);
+    if (end) {
+        Py_ssize_t len = end - info.dli_fname + 1;
+        return PyUnicode_FromStringAndSize(info.dli_fname, len);
+    } else if (info.dli_fname[0]) {
+        return PyUnicode_FromFormat("%s/", info.dli_fname);
+    } else {
+        return PyUnicode_FromStringAndSize(NULL, 0);
+    }
 }
 
 
