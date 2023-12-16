@@ -154,7 +154,7 @@ class RedirectInfo:
     resid = 0
 
     def __init__(self, line):
-        _, name, self.origin = line.split(":", 2)
+        _, name, self.origin, root = line.split(":", 3)
         if not name or name.endswith("."):
             name = name or ""
             p = Path(self.origin)
@@ -164,6 +164,8 @@ class RedirectInfo:
                     break
             else:
                 self.name = name + p.name
+            if not name and not self.name.startswith(f"{root}."):
+                self.name = f"{root}.{self.name}"
         else:
             self.name = name
 

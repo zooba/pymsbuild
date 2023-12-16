@@ -42,6 +42,11 @@
       <DllPackRedirect>
         <ImportName Condition="%(DllPackRedirect.ImportName) == ''"></ImportName>
       </DllPackRedirect>
+      <DllPackRedirect>
+        <_DisplayImportName>%(ImportName)</_DisplayImportName>
+        <_DisplayImportName Condition="$([System.String]::new(%(ImportName)).EndsWith('.'))">%(ImportName)&lt;%(Name)&gt;</_DisplayImportName>
+        <_DisplayImportName Condition="%(ImportName) == ''">&lt;%(Name)&gt;</_DisplayImportName>
+      </DllPackRedirect>
       <Content Include="@(DllPackRedirect)">
         <TargetDir Condition="%(DllPackRedirect.TargetDir) == ''">$(_TargetDir)</TargetDir>
         <IncludeInSdist>false</IncludeInSdist>
@@ -49,7 +54,7 @@
         <IncludeInWheel>true</IncludeInWheel>
       </Content>
     </ItemGroup>
-    <Message Text="Generating Pyd redirects for%0A@(DllPackRedirect->'%(ImportName)->%(Identity)','%0A')" Importance="$(_Low)" />
+    <Message Text="Generating redirects for%0A@(DllPackRedirect->'%(_DisplayImportName)->%(Identity)','%0A')" Importance="$(_Low)" />
   </Target>
 
   <Target Name="_GetDllPackSourceFiles">
@@ -75,7 +80,7 @@
       <_DllPackRspLines Include="encrypt:$(EncryptionKeyVariable)" Condition="$(EncryptionKeyVariable) != ''" />
       <_DllPackRspLines Include="@(_DllPackSourceFiles->'%(Kind):%(Name):%(FullPath)')" />
       <_DllPackRspLines Include="@(DllPackFunction->'function:%(Identity)')" />
-      <_DllPackRspLines Include="@(DllPackRedirect->'redirect:%(ImportName):%(Name)')" />
+      <_DllPackRspLines Include="@(DllPackRedirect->'redirect:%(ImportName):%(Name):$(RootNamespace)')" />
     </ItemGroup>
     <WriteLinesToFile File="@(_DllPackRsp)"
                       Lines="@(_DllPackRspLines)"
