@@ -3,6 +3,13 @@
     <MakeDir Directories="$(IntDir);$(OutDir)" />
   </Target>
 
+  <Target Name="GetTargetPath" Returns="@(_TargetPathItem)">
+    <ItemGroup>
+      <_TargetPathItem Remove="@(_TargetPathItem)" />
+      <_TargetPathItem Include="$(TargetPath)" />
+    </ItemGroup>
+  </Target>
+
   <Target Name="_CalculateClCompileItems">
     <ItemGroup>
       <ClCompile>
