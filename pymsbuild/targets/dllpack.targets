@@ -31,6 +31,8 @@
     <ItemGroup>
       <DllPackRedirect Include="@(_RedirectFromDependencies)">
         <Name>%(Filename)%(Extension)</Name>
+        <TargetDir>$(_TargetDir)</TargetDir>
+        <ImportName Condition="%(_RedirectFromDependencies.ImportName) == '' and $(RootNamespace) != ''">$(RootNamespace).</ImportName>
       </DllPackRedirect>
     </ItemGroup>
   </Target>
@@ -38,9 +40,14 @@
   <Target Name="_ConvertPydRedirectToContent" DependsOnTargets="_GetPydRedirectFromDependencies">
     <ItemGroup>
       <DllPackRedirect>
-        <ImportName Condition="%(DllPackRedirect.ImportName) == ''">$(TargetName).</ImportName>
+        <ImportName Condition="%(DllPackRedirect.ImportName) == ''"></ImportName>
       </DllPackRedirect>
-      <Content Include="@(DllPackRedirect)" />
+      <Content Include="@(DllPackRedirect)">
+        <TargetDir Condition="%(DllPackRedirect.TargetDir) == ''">$(_TargetDir)</TargetDir>
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>true</IncludeInLayout>
+        <IncludeInWheel>true</IncludeInWheel>
+      </Content>
     </ItemGroup>
     <Message Text="Generating Pyd redirects for%0A@(DllPackRedirect->'%(ImportName)->%(Identity)','%0A')" Importance="$(_Low)" />
   </Target>
