@@ -163,7 +163,21 @@ class ExactNameMatchMixin:
 
 
 class ImportGroup(ExactNameMatchMixin):
-    r"""Helper for declaring a group of custom imports"""
+    r"""Helper for declaring a group of custom imports.
+
+This is mainly intended for extenders, as most projects should not need
+custom MSBuild imports. However, there's nothing stopping you from
+using it!
+
+Subclass this type and override 'name' and 'imports', then add an
+instance into your Package definition.
+
+class MyImport(ImportGroup):
+    name = "$MyImport" # dollar sign avoids conflicts with filenames
+    imports = [
+        "path/to/my.targets",
+    ]
+"""
     name = "ImportGroup"
     members = ()
     imports = ()

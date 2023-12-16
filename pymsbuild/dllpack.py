@@ -12,11 +12,15 @@ Add `Function` elements to link """
         "EncryptionKeyVariable": "",
     }
 
+    class Imports(ImportGroup):
+        name = "$DllPackage.Imports"
+        imports = ["$(PyMsbuildTargets)/dllpack.targets"]
+
     def __init__(self, name, *members, project_file=None, **kwargs):
         super().__init__(
             name,
             *members,
-            LiteralXML('<Import Project="$(PyMsbuildTargets)/dllpack.targets" />'),
+            self.Imports(),
             project_file=project_file,
             **kwargs
         )

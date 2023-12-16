@@ -106,7 +106,9 @@ least as many segments as remain in 'pattern'.
     yield from ((bn / (finalname or p.name), p) for bn, d in roots for p in d.glob(r) if not p.is_dir())
 
 
-def _all_members(item, recurse_if=None, return_if=None, *, prefix=""):
+def _all_members(item, recurse_if=None, return_if=None, *, prefix="", make_prefix=None):
+    if make_prefix is None:
+        make_prefix = lambda p, i: "{}{}/".format(p, i.name)
     if not return_if or return_if(item):
         yield "{}{}".format(prefix, item.name), item
     if not recurse_if or recurse_if(item):
@@ -115,7 +117,8 @@ def _all_members(item, recurse_if=None, return_if=None, *, prefix=""):
                 m,
                 recurse_if,
                 return_if,
-                prefix="{}{}/".format(prefix, item.name),
+                prefix=make_prefix(prefix, item),
+                make_prefix=make_prefix,
             )
 
 
@@ -155,7 +158,7 @@ def _write_file_with_wildcards(f, source_dir, name, item):
         wrote_any = True
     if not wrote_any:
         raise ValueError("failed to find any files for {} in {}".format(
-            p.source, source_dir))
+            item.source, source_dir))
 
 
 def _write_members(f, source_dir, members):
@@ -202,6 +205,7 @@ def _generate_pyd(project, build_dir, root_dir):
             f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
             f.add_property("SourceRootDir", ConditionalValue(root_dir, if_empty=True))
             f.add_property("__TargetExt", tdot + text)
+        _write_project_references(f, project, build_dir, source_dir)
         _write_members(f, source_dir, _all_members(project, recurse_if=lambda m: m is project))
         for n, p in _all_members(project, recurse_if=lambda m: m is project, return_if=lambda m: isinstance(m, Package)):
             _write_members(
@@ -216,9 +220,12 @@ def _generate_pyd(project, build_dir, root_dir):
 def _generate_pyd_reference_metadata(relname, project, source_dir):
     output = project.options.get("TargetName", relname.stem) + project.options.get("TargetExt", DEFAULT_PYD_SUFFIX)
     tname, tdot, text = output.rpartition(".")
+    tdir = relname.parent
+    if str(tdir) == ".":
+        tdir = ""
     return {
         **dict(
-            TargetDir=relname.parent,
+            TargetDir=tdir,
             IntDir="$(IntDir)" + tname,
         ),
         **project.options,
@@ -228,6 +235,27 @@ def _generate_pyd_reference_metadata(relname, project, source_dir):
             SourceDir=source_dir / project.source,
         ),
     }
+
+
+def _write_project_references(f, project, build_dir, source_dir):
+    with f.group("ItemGroup", Label="ProjectReferences"):
+        for n, p in _all_members(
+            project,
+            return_if=lambda m: m is not project and isinstance(m, PydFile),
+            make_prefix=lambda prefix, item: "{}{}/".format(prefix, item.name) if not isinstance(item, PydFile) else prefix,
+        ):
+            fn = PurePath(n)
+            pdir = _generate_pyd(p, build_dir, source_dir)
+            try:
+                pdir = pdir.relative_to(Path(f.filename).parent)
+            except ValueError:
+                pass
+            f.add_item(
+                "Project",
+                pdir,
+                Name=n,
+                **_generate_pyd_reference_metadata(fn, p, source_dir),
+            )
 
 
 def generate(project, build_dir, source_dir, config_file=None):
@@ -251,20 +279,7 @@ def generate(project, build_dir, source_dir, config_file=None):
                 f.add_property(k, v)
         f.add_import(f"$(PyMsbuildTargets){SEP}common.props")
         f.add_import(f"$(PyMsbuildTargets){SEP}package.props")
-        with f.group("ItemGroup", Label="ProjectReferences"):
-            for n, p in _all_members(project, return_if=lambda m: m is not project and isinstance(m, PydFile)):
-                fn = PurePath(n)
-                pdir = _generate_pyd(p, build_dir, source_dir)
-                try:
-                    pdir = pdir.relative_to(proj.parent)
-                except ValueError:
-                    pass
-                f.add_item(
-                    "Project",
-                    pdir,
-                    Name=n,
-                    **_generate_pyd_reference_metadata(fn, p, source_dir),
-                )
+        _write_project_references(f, project, build_dir, source_dir)
         with f.group("ItemGroup", Label="Sdist metadata"):
             f.add_item("Sdist", build_dir / "PKG-INFO", RelativeSource="PKG-INFO")
             f.add_item("Sdist", config_file, RelativeSource="_msbuild.py")

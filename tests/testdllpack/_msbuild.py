@@ -18,6 +18,7 @@ PACKAGE = DllPackage(
     # Pretend this is a .pyd
     PydRedirect("pretend-pyd.txt", name="pretend.pyd", flatten="_"),
     PydRedirect("pretend-pyd.txt", name="pretend.pyd", flatten=True),
+    PydFile("real-module", CSourceFile("mod.c"), ImportName="testdllpack.real"),
 )
 
 METADATA = {

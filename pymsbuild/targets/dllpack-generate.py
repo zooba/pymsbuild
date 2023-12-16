@@ -155,14 +155,15 @@ class RedirectInfo:
 
     def __init__(self, line):
         _, name, self.origin = line.split(":", 2)
-        if not name:
+        if not name or name.endswith("."):
+            name = name or ""
             p = Path(self.origin)
             for ext in sorted(EXTENSION_SUFFIXES, reverse=True, key=len):
                 if p.match(f"*{ext}"):
-                    self.name = p.name[:-len(ext)]
+                    self.name = name + p.name[:-len(ext)]
                     break
             else:
-                self.name = p.name
+                self.name = name + p.name
         else:
             self.name = name
 

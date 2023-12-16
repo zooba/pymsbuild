@@ -21,13 +21,28 @@
     </Link>
   </ItemDefinitionGroup>
 
-  <Target Name="_ConvertPydRedirectToContent">
+  <Target Name="_GetPydRedirectFromDependencies" DependsOnTargets="BuildDependencies" Condition="@(Project) != ''">
+    <ItemGroup>
+      <_RedirectFromDependencies Remove="@(_RedirectFromDependencies)" />
+    </ItemGroup>
+    <MSBuild Projects="@(Project)" Targets="GetTargetPath" Properties="%(Project.Properties)">
+      <Output TaskParameter="TargetOutputs" ItemName="_RedirectFromDependencies" />
+    </MSBuild>
+    <ItemGroup>
+      <DllPackRedirect Include="@(_RedirectFromDependencies)">
+        <Name>%(Filename)%(Extension)</Name>
+      </DllPackRedirect>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_ConvertPydRedirectToContent" DependsOnTargets="_GetPydRedirectFromDependencies">
     <ItemGroup>
       <DllPackRedirect>
-        <ImportName Condition="%(DllPackRedirect.ImportName) == ''"></ImportName>
+        <ImportName Condition="%(DllPackRedirect.ImportName) == ''">$(TargetName).</ImportName>
       </DllPackRedirect>
       <Content Include="@(DllPackRedirect)" />
     </ItemGroup>
+    <Message Text="Generating Pyd redirects for%0A@(DllPackRedirect->'%(ImportName)->%(Identity)','%0A')" Importance="$(_Low)" />
   </Target>
 
   <Target Name="_GetDllPackSourceFiles">
@@ -46,7 +61,7 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="_CalculateDllPackResponseFile">
+  <Target Name="_CalculateDllPackResponseFile" DependsOnTargets="_ConvertPydRedirectToContent">
     <ItemGroup>
       <_DllPackRspLines Include="platform:gcc" Condition="$(PlatformToolset) == 'gcc'" />
       <_DllPackRspLines Include="platform:windows" Condition="$(PlatformToolset) != 'gcc'" />

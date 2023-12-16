@@ -73,6 +73,27 @@ them as `BuildSdistRequires` or `BuildWheelRequires` values in `METADATA`. They
 will be parsed after `init_METADATA` and/or `init_PACKAGE` have been called, so
 may be modified by these functions.
 
+## [project] table support
+
+There is no support for the
+[`[project]`](https://packaging.python.org/en/latest/specifications/pyproject-toml/#declaring-project-metadata-the-project-table)
+table at this time. All metadata that is written into the final distribution
+files comes from your `_msbuild.py` file.
+
+However, the `pyproject.toml` included in sdists is a direct copy of the one
+from the root of your project. Other than the project table, sdists have no
+predictable metadata for analysis tools to use, so if you want your project to
+provide that metadata, feel free to list it in the `pyproject.toml` as well as
+in your `_msbuild.py` (remembering to mark as
+[dynamic](https://packaging.python.org/en/latest/specifications/pyproject-toml/#dynamic)
+anything that is updated by your build process).
+
+A future release may automatically use `_msbuild.py` metadata to fill out
+missing fields in a `pyproject.toml` project table, and `pymsbuild init` may use
+the project table to initialise the configuration file. However, at this point,
+both files are totally independent and the configuration file is the canonical
+source of metadata.
+
 # Usage
 
 ## Rebuild the current project in-place.
@@ -150,11 +171,16 @@ def init_METADATA():
     # Updated METADATA directly, so no need to return anything
 ```
 
+Also see the earlier section regarding the `pyproject.toml` project table (and
+the fact that it is not used by `pymsbuild`, but will be added to your sdist
+without modification).
+
 ## Separate packages
 
 Packages are just Python objects, so they may be kept in variables and
 used later. They also expose a `members` attribute, which is a list, so
-that members can be added or inserted later.
+that members can be added or inserted later, as well as `find`, `findall` and
+`insert` methods to help (see the **Dynamic Packages** section below).
 
 After the entire module is executed, the package in `PACKAGE` is the
 only one used to generate output.
@@ -393,8 +419,11 @@ including providing a number of undocumented and unsupported targets.
 Recommendations:
 * lock your `pymsbuild` dependency to a specific version in `pyproject.toml`
 * generate project files first and modify, rather than writing by hand
+  (pass `--temp-dir` to specify the path where they will be generated)
 * read the `pymsbuild` source code, especially the `targets` folder
-* consider contributing/requesting your feature
+* consider contributing/requesting your feature or developing an extension
+  (see [pymsbuild-winui](https://github.com/zooba/pymsbuild-winui) and
+  [pymsbuild-rust](https://github.com/zooba/pymsbuild-rust) for examples)
 
 ```python
 PACKAGE = Package(
@@ -419,14 +448,17 @@ properties, so the two properties shown here are equivalent.
 PYD = PydFile(
     "module",
     Property("WindowsSdkVersion", "10.0.18363.0"),
-    WindowsSdkVersion="10.0.18363.0",
     ...
+    # Alternative to Property(), but named arguments must be
+    # specified last, so using Property() may be more readable
+    WindowsSdkVersion="10.0.18363.0",
 )
 ```
 
 The `ItemDefinition` element inserts an `<ItemDefinitionGroup>` with
 the type and metadata you specify at the position in the project the
-element appears.
+element appears. These generally apply metadata to all subsequent items
+of that type.
 
 ```python
 PYD = PydFile(
@@ -456,7 +488,8 @@ arguments for file elements.
 ```
 
 The `Prepend` shortcut may be used to reduce the amount of text for
-property values. Remember to include the appropriate separator.
+property values. Remember to include the appropriate separator. It is
+usually a semicolon.
 
 ```python
     ...
@@ -467,12 +500,17 @@ property values. Remember to include the appropriate separator.
     ),
     ...
 ```
+
 `ConditionalValue` may also be used to dynamically update values in the
 `init_PACKAGE` function, allowing you to keep the structure mostly
 static but insert values from the current `METADATA` (which is fully
 evaluated by the time `init_PACKAGE` is called). This saves having to
 access internal members of other types in order to replace literal
 values.
+
+Assign a `ConditionalValue` to a variable without specifying any
+condition, then use the variable in a later `Property` element and
+modify its `value` attribute in `init_PACKAGE`.
 
 ```python
 VER = ConditionalValue("1.0.0")
@@ -500,15 +538,17 @@ top-level `Project` element.
 
 ## Version info for DLLs/PYDs
 
-To embed version info into a compiled extension module (on Windows),
-add a `VersionInfo` element into the `PydFile`. All the fields from
+**Platform: Windows**
+
+To embed version info into a compiled extension module, add a `VersionInfo`
+element into the `PydFile`. All the fields from
 https://learn.microsoft.com/en-us/windows/win32/menurc/versioninfo-resource
 are available, using the names as shown in the tables (e.g.
 `FILEVERSION` for the `'1,0,0,0'` fields and `FileVersion` for the string
 table entry).
 
 The recommended usage is to add a default instance into your project and then
-use 'init_METADATA' to find it again and update the final metadata.
+use `init_METADATA` to find it again and update based on the final metadata.
 
 ```
 PACKAGE = Package(
@@ -518,7 +558,9 @@ PACKAGE = Package(
 )
 
 def init_METADATA():
+    # Update our metadata
     METADATA["Version"] = calculate_current_version()
+    # Ensure built modules reflect these updates
     for vi in PACKAGE.findall("*/VersionInfo"):
         vi.from_metadata(METADATA)
 ```
@@ -659,6 +701,10 @@ python -m pymsbuild sdist --layout-dir tmp
 # Generate additional metadata in tmp/EXTRA.txt
 
 python -m pymsbuild pack --layout-dir tmp --add tmp/EXTRA.txt
+
+# List many additional files in build/TO_ADD.txt
+
+python -m pymsbuild pack --layout-dir tmp --add @build/TO_ADD.txt
 ```
 
 # Experimental Features
@@ -675,7 +721,7 @@ cryptographically signed and validated by the operating system.
 
 `DllPackage` is a drop-in substitute for the `Package` type. It will
 generate a native extension module the same as the `PydFile` type,
-but only supports Python source and resource files.
+but only includes Python source and resource files.
 
 ```python
 from pymsbuild import *
@@ -742,14 +788,37 @@ PACKAGE = DllPackage(
 To allow referencing other extension modules that would normally be
 nested within the module, add a `PydRedirect` element and reference the
 extension module. The filename does not have to match the original
-name, as it will be passed directly to the module loader, and the file
-will be included in your wheel in the expected location (alongside the
-packed DLL). Wildcards are supported.
+name, or even need to be a normally importable name, as it will be
+passed directly to the module loader. The file will be included in your
+wheel in the expected location (alongside the packed DLL). Wildcards
+are supported.
 
 ```python
 PACKAGE = DllPackage(
     "packed",
     PydRedirect(source="packed/nested.pyd", name="packed-nested.pyd"),
+    ...
+)
+```
+
+Other `PydFile` modules may be nested inside the `DllPackage`, which
+will automatically add a redirect, as well as building the module.
+The nested module will be built using the name specified and sit
+adjacent to the packed module, but should be imported via the
+packed module.
+
+The `ImportName` metadata may be specified on either a `PydRedirect` or
+a `PydFile` to specify the name that must be used to import the module.
+Redirected extension modules do not need to have an importable name
+when `ImportName` is specified. You might include an invalid character
+in the filename to ensure the module is not importable directly.
+When specifying `ImportName`, the name of the packed DLL must be used
+as the first part.
+
+```python
+PACKAGE = DllPackage(
+    "packed",
+    PydRedirect("module/nested.pyd", ImportName="packed.nested"),
     ...
 )
 ```
@@ -784,6 +853,8 @@ PACKAGE = DllPackage(
 > python -c "import package"
 ImportError: Module cannot be decrypted
 ```
+
+Redirected or nested extension modules are not encrypted.
 
 ## Cross-platform builds
 

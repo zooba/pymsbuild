@@ -49,6 +49,11 @@ def build_state(tmp_path, testdata):
     return bs
 
 
+def dump_layout_dir(bs):
+    print(bs.layout_dir)
+    print(*[f"- {f.relative_to(bs.layout_dir)}" for f in bs.layout_dir.rglob("*")], sep="\n")
+
+
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
 def test_build(build_state, configuration):
     os.environ["BUILD_BUILDNUMBER"] = "1"
@@ -178,8 +183,7 @@ def test_dllpack(build_state, configuration):
     bs.generate()
     bs.configuration = configuration
     bs.build()
-    print(bs.layout_dir)
-    print(list(bs.layout_dir.glob("*")))
+    dump_layout_dir(bs)
     subprocess.check_call(
         [sys.executable, str(bs.source_dir / "test-dllpack.py")],
         env={**os.environ, "PYTHONPATH": str(bs.layout_dir)}
@@ -203,14 +207,15 @@ def test_dllpack_encrypted(build_state, configuration, encrypt):
     os.environ["PYMSBUILD_ENCRYPT_KEY"] = encrypt
     bs.build()
     del os.environ["PYMSBUILD_ENCRYPT_KEY"]
-    print(bs.layout_dir)
-    print(list(bs.layout_dir.glob("*")))
-    subprocess.check_call(
-        [sys.executable, str(bs.source_dir / "test-dllpack.py")],
-        env={**os.environ, "PYTHONPATH": str(bs.layout_dir), "PYMSBUILD_ENCRYPT_KEY": encrypt}
-    )
+    dump_layout_dir(bs)
     with pytest.raises(subprocess.CalledProcessError):
         subprocess.check_call(
-            [sys.executable, str(bs.source_dir / "test-dllpack.py")],
-            env={**os.environ, "PYTHONPATH": str(bs.layout_dir)}
+            [sys.executable, str(bs.source_dir / "test-dllpack.py"), "-p"],
+            cwd=bs.layout_dir,
+            env={**os.environ, "PYTHONPATH": str(bs.layout_dir), "PYMSBUILD_ENCRYPT_KEY": ""}
         )
+    subprocess.check_call(
+        [sys.executable, str(bs.source_dir / "test-dllpack.py"), "-p"],
+        cwd=bs.layout_dir,
+        env={**os.environ, "PYTHONPATH": str(bs.layout_dir), "PYMSBUILD_ENCRYPT_KEY": encrypt}
+    )
