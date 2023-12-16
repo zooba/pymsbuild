@@ -86,7 +86,7 @@ END]]></_PydVersionInfoLines>
   <Target Name="_GetPydPackageFiles">
     <ItemGroup>
       <AllSourceFiles Include="$(OutDir)$(TargetName)$(TargetExt)">
-        <TargetDir></TargetDir>
+        <TargetDir>$(_TargetDir)</TargetDir>
         <TargetName>$(TargetName)</TargetName>
         <TargetExt>$(TargetExt)</TargetExt>
         <IncludeInWheel>true</IncludeInWheel>

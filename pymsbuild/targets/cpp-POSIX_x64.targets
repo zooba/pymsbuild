@@ -3,6 +3,9 @@
     <MakeDir Directories="$(IntDir);$(OutDir)" />
   </Target>
 
+  <Target Name="GetTargetPath" Returns="$(TargetPath)">
+  </Target>
+
   <Target Name="_CalculateClCompileItems">
     <ItemGroup>
       <ClCompile>

@@ -5,22 +5,22 @@
       <_LayoutFiles Remove="@(_LayoutFiles)" />
     </ItemGroup>
     <Message Text="Getting package files from %(Project.Name)" />
-    <MSBuild Projects="%(Project.Identity)" Properties="%(Project.Properties)" Targets="GetPackageFiles"
+    <MSBuild Projects="%(Project.Identity)"
+             Properties="%(Project.Properties)"
+             Targets="GetPackageFiles"
              RebaseOutputs="True">
       <Output TaskParameter="TargetOutputs" ItemName="_PackageFiles" />
     </MSBuild>
-    <MSBuild Projects="%(Project.Identity)" Properties="%(Project.Properties)" Targets="GetLayoutFiles"
+    <MSBuild Projects="%(Project.Identity)"
+             Properties="%(Project.Properties)"
+             Targets="GetLayoutFiles"
              RebaseOutputs="True">
       <Output TaskParameter="TargetOutputs" ItemName="_LayoutFiles" />
     </MSBuild>
     <ItemGroup>
-      <PyMSBuild_PackageFiles Include="@(_PackageFiles)">
-        <TargetDir>$([msbuild]::EnsureTrailingSlash($(TargetName)))%(_PackageFiles.TargetDir)</TargetDir>
-      </PyMSBuild_PackageFiles>
+      <PyMSBuild_PackageFiles Include="@(_PackageFiles)" />
       <_PackageFiles Remove="@(_PackageFiles)" />
-      <PyMSBuild_LayoutFiles Include="@(_LayoutFiles)">
-        <TargetDir>$([msbuild]::EnsureTrailingSlash($(TargetName)))%(_LayoutFiles.TargetDir)</TargetDir>
-      </PyMSBuild_LayoutFiles>
+      <PyMSBuild_LayoutFiles Include="@(_LayoutFiles)" />
       <_LayoutFiles Remove="@(_LayoutFiles)" />
     </ItemGroup>
   </Target>

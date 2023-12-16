@@ -10,6 +10,11 @@ def event_hook(event_name, args):
 
 sys.addaudithook(event_hook)
 
+print("sys.path =")
+print(*[f"- {p}" for p in sys.path], sep="\n")
+if "-p" in sys.argv:
+    sys.path.pop(0)
+
 #######################################
 # Check testdllpack
 #######################################
@@ -121,7 +126,7 @@ assert c
 #######################################
 
 try:
-    import testdllpack_pretend
+    import testdllpack.testdllpack_pretend
 except ModuleNotFoundError:
     # We expect the module to be found ...
     raise
@@ -130,10 +135,17 @@ except ImportError:
     pass
 
 try:
-    import pretend
+    import testdllpack.pretend
 except ModuleNotFoundError:
     # We expect the module to be found ...
     raise
 except ImportError:
     # ... but it should fail to load (because it's not real)
     pass
+
+#######################################
+# Check real.pyd
+#######################################
+
+import testdllpack.real as real
+assert real.roj(1, 2) is None

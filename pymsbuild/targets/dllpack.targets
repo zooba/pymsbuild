@@ -21,13 +21,40 @@
     </Link>
   </ItemDefinitionGroup>
 
-  <Target Name="_ConvertPydRedirectToContent">
+  <Target Name="_GetPydRedirectFromDependencies" DependsOnTargets="BuildDependencies" Condition="@(Project) != ''">
+    <ItemGroup>
+      <_RedirectFromDependencies Remove="@(_RedirectFromDependencies)" />
+    </ItemGroup>
+    <MSBuild Projects="@(Project)" Targets="GetTargetPath" Properties="%(Project.Properties)">
+      <Output TaskParameter="TargetOutputs" ItemName="_RedirectFromDependencies" />
+    </MSBuild>
+    <ItemGroup>
+      <DllPackRedirect Include="@(_RedirectFromDependencies)">
+        <Name>%(Filename)%(Extension)</Name>
+        <TargetDir>$(_TargetDir)</TargetDir>
+        <ImportName Condition="%(_RedirectFromDependencies.ImportName) == '' and $(RootNamespace) != ''">$(RootNamespace).</ImportName>
+      </DllPackRedirect>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_ConvertPydRedirectToContent" DependsOnTargets="_GetPydRedirectFromDependencies">
     <ItemGroup>
       <DllPackRedirect>
         <ImportName Condition="%(DllPackRedirect.ImportName) == ''"></ImportName>
       </DllPackRedirect>
-      <Content Include="@(DllPackRedirect)" />
+      <DllPackRedirect>
+        <_DisplayImportName>%(ImportName)</_DisplayImportName>
+        <_DisplayImportName Condition="$([System.String]::new(%(ImportName)).EndsWith('.'))">%(ImportName)&lt;%(Name)&gt;</_DisplayImportName>
+        <_DisplayImportName Condition="%(ImportName) == ''">&lt;%(Name)&gt;</_DisplayImportName>
+      </DllPackRedirect>
+      <Content Include="@(DllPackRedirect)">
+        <TargetDir Condition="%(DllPackRedirect.TargetDir) == ''">$(_TargetDir)</TargetDir>
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>true</IncludeInLayout>
+        <IncludeInWheel>true</IncludeInWheel>
+      </Content>
     </ItemGroup>
+    <Message Text="Generating redirects for%0A@(DllPackRedirect->'%(_DisplayImportName)->%(Identity)','%0A')" Importance="$(_Low)" />
   </Target>
 
   <Target Name="_GetDllPackSourceFiles">
@@ -46,14 +73,14 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="_CalculateDllPackResponseFile">
+  <Target Name="_CalculateDllPackResponseFile" DependsOnTargets="_ConvertPydRedirectToContent">
     <ItemGroup>
       <_DllPackRspLines Include="platform:gcc" Condition="$(PlatformToolset) == 'gcc'" />
       <_DllPackRspLines Include="platform:windows" Condition="$(PlatformToolset) != 'gcc'" />
       <_DllPackRspLines Include="encrypt:$(EncryptionKeyVariable)" Condition="$(EncryptionKeyVariable) != ''" />
       <_DllPackRspLines Include="@(_DllPackSourceFiles->'%(Kind):%(Name):%(FullPath)')" />
       <_DllPackRspLines Include="@(DllPackFunction->'function:%(Identity)')" />
-      <_DllPackRspLines Include="@(DllPackRedirect->'redirect:%(ImportName):%(Name)')" />
+      <_DllPackRspLines Include="@(DllPackRedirect->'redirect:%(ImportName):%(Name):$(RootNamespace)')" />
     </ItemGroup>
     <WriteLinesToFile File="@(_DllPackRsp)"
                       Lines="@(_DllPackRspLines)"
