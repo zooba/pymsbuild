@@ -1,3 +1,4 @@
+import importlib.machinery
 import os
 import pytest
 import shutil
@@ -49,6 +50,14 @@ def fresh_copy(sample, tmp_path):
     return TMP
 
 
+def rglob_ext(root):
+    root = Path(root)
+    exts = set()
+    for suffix in importlib.machinery.EXTENSION_SUFFIXES:
+        exts.update(root.rglob(f"*{suffix}"))
+    return exts
+
+
 @all_samples
 def test_sample_build_inplace(sample, tmp_path):
     maybe_skip(sample)
@@ -62,16 +71,24 @@ def test_sample_build_inplace(sample, tmp_path):
             [sys.executable, "-m", "pip", "install", "-r", DIR / "requirements.txt", "--target", PACKAGES],
             env=env,
         )
-        env["PYTHONPATH"] = f"{PACKAGES}{os.pathsep}{env['PYTHONPATH']}"
+        env["PYTHONPATH"] = os.pathsep.join(str(s) for s in [PACKAGES, env["PYTHONPATH"]] if s)
 
     subprocess.check_call(
         [sys.executable, "-m", "pymsbuild"],
         cwd=DIR,
         env=env,
     )
-    modules = {f.relative_to(DIR) for f in DIR.rglob("*.pyd")}
+    modules = {f.relative_to(DIR) for f in rglob_ext(DIR)}
     without_temp = {f for f in modules if f.parts[0] != "build"}
     assert without_temp
+
+    env["BUILD_PREFIX"] = str(DIR)
+    env["PYTHONPATH"] = ""
+    subprocess.check_call(
+        [sys.executable, DIR / "tests/test-sample.py"],
+        cwd=DIR,
+        env=env,
+    )
 
 @all_samples
 def test_sample_sdist(sample, tmp_path):
