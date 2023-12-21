@@ -16,7 +16,7 @@ METADATA = {
     "Description-Content-Type": "text/markdown",
     "Keywords": "build,pep-517,msbuild,packaging,cython",
     "Classifier": [
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Operating System :: Microsoft :: Windows",
