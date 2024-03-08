@@ -86,15 +86,20 @@ def _generate_module(root, offset=None, build_requires=None, _indent="    ", _ro
         yield f'{_indent}source={offset!r},'
 
 
-def run(root, config_name="_msbuild.py", force=False):
-    if not config_name:
-        config_name = "_msbuild.py"
+def run(build_state):
+    root = build_state.source_dir
+    config_name = "_msbuild.py"
+    force =  build_state.force
+
+    if build_state.config_file:
+        root = (root / build_state.config_file).parent
+        config_name = build_state.config_file.name
+
     if (root / config_name).is_file():
         if force:
             (root / config_name).unlink()
         else:
-            print(config_name, "already exists. Delete the file before using 'init'", file=sys.stderr)
-            return
+            raise RuntimeError(f"{config_name} already exists. Delete the file before using 'init'")
 
     substitutions = {}
     build_requires = [PYMSBUILD_REQUIRES_SPEC]

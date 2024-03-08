@@ -377,8 +377,11 @@ class BuildState:
 
     def build_sdist(self):
         self.finalize(sdist=True)
-        self.layout_sdist(statefile=False)
-        return self.pack_sdist()
+        if self.layout_dir:
+            self.layout_sdist(statefile=True)
+        else:
+            self.layout_sdist(statefile=False)
+            return self.pack_sdist()
 
     def pack_sdist(self, files=None):
         self.finalize(sdist=True)
@@ -444,8 +447,11 @@ class BuildState:
                 self.prepare_wheel_distinfo()
         else:
             self.prepare_wheel_distinfo()
-        self.layout_wheel()
-        return self.pack_wheel()
+        if self.layout_dir:
+            self.layout_wheel(statefile=True)
+        else:
+            self.layout_wheel(statefile=False)
+            return self.pack_wheel()
 
     def pack_wheel(self, files=None):
         self.finalize()
@@ -508,11 +514,7 @@ class BuildState:
     def pack(self):
         self.finalize()
         if not self.state_file or not self.state_file.is_file():
-            print(
-                "'--layout-dir' argument is required when invoking the 'pack' command",
-                file=sys.stderr
-            )
-            return
+            raise RuntimeError("'--layout-dir' argument is required when invoking the 'pack' command")
         cmd = None
         with self.state_file.open("r", encoding="utf-8-sig") as f:
             for i in f:
