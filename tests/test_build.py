@@ -29,6 +29,7 @@ def build_state(tmp_path, testdata):
     bs.output_dir = tmp_path / "out"
     bs.build_dir = tmp_path / "build"
     bs.layout_dir = tmp_path / "layout"
+    bs._perform_layout = False  # allows us to override layout_dir
     bs.temp_dir = tmp_path / "temp"
     bs.package = T.Package("package",
         T.PyFile(testdata / "empty.py", "__init__.py"),
@@ -59,6 +60,7 @@ def test_build(build_state, configuration):
     os.environ["BUILD_BUILDNUMBER"] = "1"
     bs = build_state
     bs.finalize(in_place=True)
+    assert not bs._perform_layout
     bs.generate()
     del os.environ["BUILD_BUILDNUMBER"]
     bs.target = "Build"
@@ -91,6 +93,7 @@ def test_build(build_state, configuration):
 def test_build_sdist(build_state, configuration):
     bs = build_state
     bs.finalize(sdist=True)
+    assert not bs._perform_layout
     bs.generate()
     bs.configuration = configuration
     bs.build_sdist()
