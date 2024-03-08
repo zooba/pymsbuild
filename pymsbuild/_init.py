@@ -86,20 +86,17 @@ def _generate_module(root, offset=None, build_requires=None, _indent="    ", _ro
         yield f'{_indent}source={offset!r},'
 
 
-def run(build_state):
+def run(build_state, config_name="_msbuild.py"):
     root = build_state.source_dir
-    config_name = "_msbuild.py"
-    force =  build_state.force
+    force = build_state.force
 
-    if build_state.config_file:
-        root = (root / build_state.config_file).parent
-        config_name = build_state.config_file.name
+    config_file = root / (build_state.config_file or config_name)
 
-    if (root / config_name).is_file():
+    if config_file.is_file():
         if force:
-            (root / config_name).unlink()
+            config_file.unlink()
         else:
-            raise RuntimeError(f"{config_name} already exists. Delete the file before using 'init'")
+            raise RuntimeError(f"{config_file} already exists. Delete the file before using 'init'")
 
     substitutions = {}
     build_requires = [PYMSBUILD_REQUIRES_SPEC]
@@ -134,12 +131,12 @@ def run(build_state):
     substitutions["BUILD_REQUIRES"] = repr(build_requires)
 
     code = re.sub(r"\<(\w+)\>", lambda m: substitutions.get(m.group(1)), TEMPLATE)
-    with open(root / config_name, "w", encoding="utf-8") as f:
+    with open(config_file, "w", encoding="utf-8") as f:
         print(code, file=f, end="")
-    print("Wrote", root / config_name)
+    print("Wrote", root / config_file)
 
     toml = re.sub(r"\<(\w+)\>", lambda m: substitutions.get(m.group(1)), TOML_TEMPLATE)
-    pyproject = (root / config_name).parent / "pyproject.toml"
+    pyproject = config_file.parent / "pyproject.toml"
     if pyproject.is_file():
         if force:
             pyproject.unlink()
