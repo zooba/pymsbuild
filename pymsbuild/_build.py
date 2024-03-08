@@ -108,7 +108,8 @@ class BuildState:
 
         self.output_dir = self.source_dir / (self.output_dir or "dist")
         self.build_dir = self.source_dir / (self.build_dir or "build/bin")
-        self.layout_dir = self.source_dir / (self.layout_dir or "build/layout")
+        if self.layout_dir:
+            self.layout_dir = self.source_dir / self.layout_dir
         self.temp_dir = self.source_dir / (self.temp_dir or "build/temp")
         self.pkginfo = self.source_dir / (self.pkginfo or "PKG-INFO")
         self.metadata_dir = self.temp_dir / (self.metadata_dir or "metadata")
