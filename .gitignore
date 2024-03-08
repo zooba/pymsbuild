@@ -1,5 +1,6 @@
 /build
 /dist
-/env
+/env*
 __pycache__/
 /.vscode
+/pymsbuild/__init__.py.ver

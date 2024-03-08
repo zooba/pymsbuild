@@ -8,13 +8,17 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import pymsbuild
+from pymsbuild._build import BuildState
 from pymsbuild._init import run
 
 @pytest.fixture
 def init_project(inittestprojects, tmp_path):
     def do_init(name):
-        output = tmp_path / "_msbuild.py"
-        run(inittestprojects / name, output)
+        bs = BuildState()
+        bs.source_dir = inittestprojects / name
+        bs.config_file = output = (tmp_path / "_msbuild.py").absolute()
+        bs.force = True
+        run(bs)
         assert output.is_file()
         pyproj = output.parent / "pyproject.toml"
         assert pyproj.is_file()
@@ -39,14 +43,21 @@ class Validator(ast.NodeVisitor):
     def visit_METADATA(self, n):
         assert isinstance(n, ast.Dict)
         for k, v in zip(n.keys, n.values):
-            assert isinstance(k, ast.Str)
-            try:
-                expect = self.metadata[k.s]
-            except LookupError:
-                pass
+            assert isinstance(k, (ast.Constant, ast.Str))
+            if isinstance(k, ast.Str):
+                try:
+                    expect = self.metadata[k.s]
+                except LookupError:
+                    pass
+                else:
+                    assert expect == v.s
             else:
-                assert isinstance(v, ast.Str)
-                assert expect == v.s
+                try:
+                    expect = self.metadata[k.value]
+                except LookupError:
+                    pass
+                else:
+                    assert expect == v.value
 
     def visit_PACKAGE(self, n, path):
         assert isinstance(n, ast.Call)

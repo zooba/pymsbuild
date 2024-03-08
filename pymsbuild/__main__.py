@@ -5,6 +5,7 @@ import sys
 from os import getenv
 from pathlib import PurePath, Path
 from pymsbuild._build import BuildState
+from pymsbuild._init import run as run_init
 
 
 def _env(var, default=None):
@@ -30,8 +31,11 @@ def _envbool(var, default=None, is_true=True, is_false=False):
     return is_true
 
 
-def parse_args():
-    parser = argparse.ArgumentParser("pymsbuild",)
+def parse_args(commands):
+    parser = argparse.ArgumentParser(
+        "pymsbuild",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
     parser.add_argument(
         "--force", "-f", action="store_true", help="Force a full rebuild"
     )
@@ -82,21 +86,14 @@ def parse_args():
         nargs="*",
         help="Specify additional file(s) to package when using the 'pack' command."
     )
+    cmd_help_1 = ", ".join(f"'{k}'" for k, (f, doc) in commands.items() if doc)
+    cmd_help_2 = "\n".join(f"{k}: {doc}" for k, (f, doc) in commands.items() if doc)
     parser.add_argument(
         "command",
         type=str,
         default="build_in_place",
         nargs="?",
-        help="""one of 'init', 'generate', 'sdist', 'wheel', 'pack', 'distinfo', 'clean'
-
-init: Initialise a new _msbuild.py file.
-generate: Generate the build files without building.
-sdist: Build an sdist.
-wheel: Build a wheel.
-pack: Perform the second step of a two-step build.
-distinfo: Build just the wheel metadata.
-clean: Clean any builds.
-""",
+        help=f"one of {cmd_help_1}.\n\n{cmd_help_2}",
     )
 
     ns = parser.parse_args()
@@ -112,17 +109,24 @@ clean: Clean any builds.
     return ns
 
 
-ns = parse_args()
-if not getattr(ns, "command", None):
-    ns.command = "build_in_place"
+COMMANDS = {
+    "init": (run_init, "Initialise a new _msbuild.py file."),
+    "generate": (BuildState.generate, "Generate the build files without building."),
+    "sdist": (BuildState.build_sdist, "Build an sdist."),
+    "wheel": (BuildState.build_wheel, "Build a wheel."),
+    "pack": (BuildState.pack, "Perform the second step of a two-step build."),
+    "distinfo": (BuildState.prepare_wheel_distinfo, "Build just the wheel metadata"),
+    "clean": (BuildState.clean, "Clean any builds."),
+    "build_in_place": (BuildState.build_in_place, None),
+}
+
+
+ns = parse_args(COMMANDS)
+
 
 if ns.verbose:
     print("pymsbuild", pymsbuild.__version__, "running on", sys.version.partition("\n")[0])
 
-if "init" in ns.command:
-    from . import _init
-    _init.run(Path.cwd(), ns.config, ns.force)
-    sys.exit(0)
 
 bs = BuildState()
 bs.source_dir = Path.cwd() / (ns.source_dir or "")
@@ -139,21 +143,29 @@ bs.force = ns.force
 if ns.debug:
     bs.configuration = "Debug"
 
-if ns.layout_dir:
-    COMMANDS = {
-        "sdist": "layout_sdist",
-        "wheel": "layout_wheel",
-        "distinfo": "prepare_wheel_distinfo",
-    }
-else:
-    COMMANDS = {
-        "sdist": "build_sdist",
-        "wheel": "build_wheel",
-        "distinfo": "prepare_wheel_distinfo",
-    }
+
+if _envbool("PYMSBUILD_SHOW_TRACEBACKS"):
+    f, doc = COMMANDS[ns.command]
+    f(bs)
+    sys.exit(0)
 
 
-cmd = ns.command
-cmd = COMMANDS.get(cmd, cmd)
-f = getattr(bs, cmd)
-f()
+try:
+    f, doc = COMMANDS[ns.command]
+except KeyError:
+    print(
+        "ERROR: Unrecognised command. See 'python -m pymsbuild --help' " +
+        "for the list of valid commands.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+try:
+    f(bs)
+except Exception as ex:
+    print("ERROR", ex, file=sys.stderr)
+    if getattr(ex, "winerror", 0):
+        sys.exit(ex.winerror)
+    if getattr(ex, "errno", 0):
+        sys.exit(ex.errno)
+    sys.exit(1)
