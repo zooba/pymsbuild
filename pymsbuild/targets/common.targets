@@ -1,36 +1,45 @@
 <Project>
-  <Target Name="_GetPackageFilesFromProjects" Condition="@(Project) != ''">
+  <Target Name="_GetPackageFilesFromEachProject" Inputs="@(Project)" Outputs="%(Project.Identity).__donotbuild">
+    <Message Text="Getting package files from %(Project.Name) %(Project.TargetDir)" Importance="high" />
     <ItemGroup>
       <_PackageFiles Remove="@(_PackageFiles)" />
       <_LayoutFiles Remove="@(_LayoutFiles)" />
     </ItemGroup>
-    <Message Text="Getting package files from %(Project.Name)" />
-    <MSBuild Projects="%(Project.Identity)"
-             Properties="%(Project.Properties)"
+    <MSBuild Projects="@(Project)"
+             Properties="%(Properties)"
              Targets="GetPackageFiles"
              RebaseOutputs="True">
       <Output TaskParameter="TargetOutputs" ItemName="_PackageFiles" />
     </MSBuild>
-    <MSBuild Projects="%(Project.Identity)"
-             Properties="%(Project.Properties)"
+    <MSBuild Projects="@(Project)"
+             Properties="%(Properties)"
              Targets="GetLayoutFiles"
              RebaseOutputs="True">
       <Output TaskParameter="TargetOutputs" ItemName="_LayoutFiles" />
     </MSBuild>
     <ItemGroup>
-      <PyMSBuild_PackageFiles Include="@(_PackageFiles)" />
+      <PyMSBuild_PackageFiles Include="@(_PackageFiles)">
+        <TargetDir Condition="%(TargetDir) == ''">%(Project.TargetDir)</TargetDir>
+      </PyMSBuild_PackageFiles>
+      <PyMSBuild_LayoutFiles Include="@(_LayoutFiles)">
+        <TargetDir Condition="%(TargetDir) == ''">%(Project.TargetDir)</TargetDir>
+      </PyMSBuild_LayoutFiles>
       <_PackageFiles Remove="@(_PackageFiles)" />
-      <PyMSBuild_LayoutFiles Include="@(_LayoutFiles)" />
       <_LayoutFiles Remove="@(_LayoutFiles)" />
     </ItemGroup>
   </Target>
 
-  <Target Name="_GetSdistFilesFromProjects" Condition="@(Project) != ''">
+  <Target Name="_GetPackageFilesFromProjects" DependsOnTargets="_GetPackageFilesFromEachProject">
+  </Target>
+
+  <Target Name="_GetSdistFilesFromEachProject" Inputs="@(Project)" Outputs="%(Project.Identity).__donotbuild">
+    <Message Text="Getting sdist files from %(Project.FullName)" />
     <ItemGroup>
       <_PackageFiles Remove="@(_PackageFiles)" />
     </ItemGroup>
-    <Message Text="Getting sdist files from %(Project.FullName)" />
-    <MSBuild Projects="%(Project.Identity)" Properties="%(Project.Properties)" Targets="GetSdistFiles"
+    <MSBuild Projects="@(Project)"
+             Properties="%(Project.Properties)"
+             Targets="GetSdistFiles"
              RebaseOutputs="True">
       <Output TaskParameter="TargetOutputs" ItemName="_PackageFiles" />
     </MSBuild>
@@ -42,6 +51,9 @@
       </PyMSBuild_SdistFiles>
       <_PackageFiles Remove="@(_PackageFiles)" />
     </ItemGroup>
+  </Target>
+
+  <Target Name="_GetSdistFilesFromProjects" DependsOnTargets="_GetSdistFilesFromEachProject">
   </Target>
 
   <Target Name="GetPackageFiles" DependsOnTargets="$(GetPackageFilesTargets)" Returns="@(PyMSBuild_PackageFiles)">

@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <ConfigurationType>Application</ConfigurationType>
+
+    <EntrypointModule Condition="$(EntrypointModule) == ''">app</EntrypointModule>
+    <EntrypointFunction Condition="$(EntrypointFunction) == ''">main</EntrypointFunction>
+
+    <PythonRuntimeEmbeddable Condition="$(PythonRuntimeEmbeddable) == ''">true</PythonRuntimeEmbeddable>
+    <PythonRuntimeExecutables Condition="$(PythonRuntimeExecutables) == ''">false</PythonRuntimeExecutables>
+  </PropertyGroup>
+</Project>

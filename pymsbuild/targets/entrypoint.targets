@@ -1,0 +1,47 @@
+<Project>
+  <ItemGroup Condition="$(PlatformToolset) != 'gcc'">
+    <ClCompile Include="$(MSBuildThisFileDirectory)/entrypoint-windows.cpp">
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);_ENTRYPOINT_MODULE=$(EntrypointModule);_ENTRYPOINT_FUNCTION=$(EntryPointFunction)</PreprocessorDefinitions>
+    </ClCompile>
+    <ResourceCompile Include="$(MSBuildThisFileDirectory)/entrypoint-windows.rc" Condition="@(EntrypointIcon) != ''">
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);_ENTRYPOINT_ICON=@(EntrypointIcon)</PreprocessorDefinitions>
+    </ResourceCompile>
+  </ItemGroup>
+
+  <ItemGroup Condition="$(PlatformToolset) == 'gcc'">
+    <ClCompile Include="$(MSBuildThisFileDirectory)/entrypoint-gcc.c">
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);_ENTRYPOINT_MODULE=$(EntryPointModule);_ENTRYPOINT_FUNCTION=$(EntryPointFunction)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <GetSdistFilesTargets>$(GetSdistFilesTargets)</GetSdistFilesTargets>
+    <GetPackageFilesTargets>_GetEntryPointPackageFiles;$(GetPackageFilesTargets)</GetPackageFilesTargets>
+  </PropertyGroup>
+
+  <Target Name="_EntryPoint_DownloadRuntime"
+          DependsOnTargets="DownloadRuntime"
+          Condition="$(IncludePythonRuntime) != 'false'" />
+
+  <Target Name="_GetEntryPointPackageFiles"
+          DependsOnTargets="_EntryPoint_DownloadRuntime">
+    <CallTarget Targets="GetCopyToOutputDirectoryItems">
+      <Output TaskParameter="TargetOutputs" ItemName="_GetCopyToOutputDirectoryItemsOutput"/>
+    </CallTarget>
+
+    <ItemGroup>
+      <AllSourceFiles Include="@(_GetCopyToOutputDirectoryItemsOutput)">
+        <Name>%(TargetPath)</Name>
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>true</IncludeInLayout>
+        <IncludeInWheel>true</IncludeInWheel>
+      </AllSourceFiles>
+      <AllSourceFiles Include="@(PythonRuntime)" Condition="$(IncludePythonRuntime) != 'false'">
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>true</IncludeInLayout>
+        <IncludeInWheel>true</IncludeInWheel>
+      </AllSourceFiles>
+    </ItemGroup>
+  </Target>
+  <Import Project="$(PyMSBuildTargets)/runtime.targets" />
+</Project>

@@ -5,6 +5,7 @@ __all__ = [
     "Package",
     "Project",
     "PydFile",
+    "VersionInfo",
     "LiteralXML",
     "ConditionalValue",
     "ExactNameMatchMixin",
@@ -383,11 +384,11 @@ for the full list of metadata.
                 break
             else:
                 vv.append(v)
-        return ", ".join((vv + ("0", "0", "0", "0"))[:4])
+        return ", ".join((*vv, "0", "0", "0", "0")[:4])
 
     def from_metadata(self, metadata):
         ver = metadata["Version"]
-        self.update(False, dict(
+        self.update(False, **dict(
             FILEVERSION=self._read_version(ver),
             PRODUCTVERSION=self._read_version(ver),
             CompanyName=metadata.get("Author"),
@@ -682,7 +683,6 @@ See https://learn.microsoft.com/uwp/midl-3/ for more information.
         "Subtype": "Code",
     }
 
-
 class Manifest(File):
     r"""Add an application manifest file.
 
@@ -693,5 +693,3 @@ See https://learn.microsoft.com/windows/win32/sbscs/application-manifests
 for more information.
 """
     _ITEMNAME = "Manifest"
-
-

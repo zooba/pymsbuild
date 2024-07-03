@@ -26,12 +26,12 @@
   </Target>
   <Target Name="DownloadRuntime" DependsOnTargets="_DownloadRuntime_Properties;_DownloadRuntime_Exec">
     <ItemGroup>
-      <PythonRuntime Include="$(PythonRuntimeDir)/**/*" Exclude="$(PythonRuntimeDir)/*.exe">
+      <PythonRuntime Include="$(PythonRuntimeDir)/**/*" Exclude="$(PythonRuntimeDir)/**/*.exe">
         <TargetDir>%(RecursiveDir)</TargetDir>
         <TargetName>%(Filename)</TargetName>
         <TargetExt>%(Extension)</TargetExt>
       </PythonRuntime>
-      <PythonRuntime Include="$(PythonRuntimeDir)/*.exe" Condition="$(PythonRuntimeExecutables)">
+      <PythonRuntime Include="$(PythonRuntimeDir)/**/*.exe" Condition="$(PythonRuntimeExecutables)">
         <TargetDir>%(RecursiveDir)</TargetDir>
         <TargetName>%(Filename)</TargetName>
         <TargetExt>%(Extension)</TargetExt>
