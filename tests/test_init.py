@@ -11,6 +11,15 @@ import pymsbuild
 from pymsbuild._build import BuildState
 from pymsbuild._init import run
 
+if sys.version_info >= (3, 12):
+    def ast_Str(n):
+        assert isinstance(n, ast.Constant)
+        return n.value
+else:
+    def ast_Str(n):
+        assert isinstance(n, ast.Str)
+        return n.s
+
 @pytest.fixture
 def init_project(inittestprojects, tmp_path):
     def do_init(name):
@@ -43,26 +52,25 @@ class Validator(ast.NodeVisitor):
     def visit_METADATA(self, n):
         assert isinstance(n, ast.Dict)
         for k, v in zip(n.keys, n.values):
-            assert isinstance(k, (ast.Constant, ast.Str))
-            if isinstance(k, ast.Str):
-                try:
-                    expect = self.metadata[k.s]
-                except LookupError:
-                    pass
-                else:
-                    assert expect == v.s
-            else:
+            if isinstance(k, ast.Constant):
                 try:
                     expect = self.metadata[k.value]
                 except LookupError:
                     pass
                 else:
                     assert expect == v.value
+            else:
+                assert isinstance(k, ast.Str)
+                try:
+                    expect = self.metadata[k.s]
+                except LookupError:
+                    pass
+                else:
+                    assert expect == v.s
 
     def visit_PACKAGE(self, n, path):
         assert isinstance(n, ast.Call)
-        assert isinstance(n.args[0], ast.Str)
-        name = n.args[0].s
+        name = ast_Str(n.args[0])
         path = f"{path}/{n.func.id}[{name}]"
         self._package.append(path)
         for a in n.args[1:]:

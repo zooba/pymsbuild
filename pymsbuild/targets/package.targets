@@ -79,7 +79,7 @@
     <ItemGroup>
       <_DistFiles Remove="@(_DistFiles)" />
       <_DistFiles Include="@(PyMSBuild_LayoutFiles)" Condition="%(IncludeInLayout)">
-        <Destination>$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(SourceDir)))%(TargetDir)))%(TargetName)%(TargetExt)</Destination>
+        <Destination>$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(_SourceLayoutDir)))%(TargetDir)))%(TargetName)%(TargetExt)</Destination>
       </_DistFiles>
       <!-- Remove anything that is being copied directly from the source tree -->
       <_Removing Include="@(_DistFiles)" Condition="%(FullPath) == %(Destination)" />

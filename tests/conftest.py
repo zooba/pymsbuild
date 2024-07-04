@@ -1,11 +1,15 @@
+import os
 import pytest
 
 from pathlib import Path
 
 @pytest.fixture(scope="session")
 def testdata():
-    return Path(__file__).absolute().parent / "testdata"
+    try:
+        return Path(os.environ["PYMSBUILD_TEST_TESTDATA"])
+    except KeyError:
+        return Path(__file__).absolute().parent
 
 @pytest.fixture(scope="session")
-def inittestprojects():
-    return Path(__file__).absolute().parent / "testinit"
+def inittestprojects(testdata):
+    return testdata / "testinit"

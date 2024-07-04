@@ -4,7 +4,7 @@
       <PythonRuntimeDir Condition="$(PythonRuntimeDir) == ''">$(IntDir)python</PythonRuntimeDir>
       <PythonRuntimeExecutables Condition="$(PythonRuntimeExecutables) != 'true'">false</PythonRuntimeExecutables>
       <PythonRuntimeEmbeddable Condition="$(PythonRuntimeEmbeddable) != 'true'">false</PythonRuntimeEmbeddable>
-      <Python_PthFile Condition="$(Python_PthFile) != 'true'">false</Python_PthFile>
+      <Python_PthFile Condition="$(Python_PthFile) != 'false'">true</Python_PthFile>
       <PythonRuntimeRenameStdlibZip Condition="$(PythonRuntimeRenameStdlibZip) != 'true'">false</PythonRuntimeRenameStdlibZip>
     </PropertyGroup>
     <ItemGroup>
