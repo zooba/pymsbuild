@@ -38,3 +38,22 @@ class Icon(File):
         "IncludeInLayout": False,
         "IncludeInWheel": False,
     }
+
+class SearchPath:
+    r"""Represents a search path in an entrypoint executable.
+
+Paths are relative to the location of the executable."""
+    _ITEMNAME = "EntrypointPythonPath"
+    members = ()
+    options = {}
+
+    def __init__(self, name, **options):
+        self.name = name
+        self.options = {
+            **self.options,
+            **options,
+        }
+
+    def write_member(self, project, group):
+        group.switch_to("ItemGroup")
+        project.add_item(self._ITEMNAME, self.name, **self.options)

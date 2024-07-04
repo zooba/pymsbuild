@@ -1,23 +1,42 @@
 <Project>
-  <ItemGroup Condition="$(PlatformToolset) != 'gcc'">
-    <ClCompile Include="$(MSBuildThisFileDirectory)/entrypoint-windows.cpp">
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);_ENTRYPOINT_MODULE=$(EntrypointModule);_ENTRYPOINT_FUNCTION=$(EntryPointFunction)</PreprocessorDefinitions>
-    </ClCompile>
-    <ResourceCompile Include="$(MSBuildThisFileDirectory)/entrypoint-windows.rc" Condition="@(EntrypointIcon) != ''">
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);_ENTRYPOINT_ICON=@(EntrypointIcon)</PreprocessorDefinitions>
-    </ResourceCompile>
-  </ItemGroup>
-
-  <ItemGroup Condition="$(PlatformToolset) == 'gcc'">
-    <ClCompile Include="$(MSBuildThisFileDirectory)/entrypoint-gcc.c">
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);_ENTRYPOINT_MODULE=$(EntryPointModule);_ENTRYPOINT_FUNCTION=$(EntryPointFunction)</PreprocessorDefinitions>
-    </ClCompile>
-  </ItemGroup>
+  <PropertyGroup>
+    <_EntrypointSource Condition="$(PlatformToolset) == 'gcc'">$(MSBuildThisFileDirectory)/entrypoint-gcc.c</_EntrypointSource>
+    <_EntrypointSource Condition="$(PlatformToolset) != 'gcc'">$(MSBuildThisFileDirectory)/entrypoint-windows.cpp</_EntrypointSource>
+    <_EntrypointResource Condition="$(PlatformToolset) != 'gcc'">$(MSBuildThisFileDirectory)/entrypoint-windows.rc</_EntrypointResource>
+  </PropertyGroup>
 
   <PropertyGroup>
     <GetSdistFilesTargets>$(GetSdistFilesTargets)</GetSdistFilesTargets>
     <GetPackageFilesTargets>_GetEntryPointPackageFiles;$(GetPackageFilesTargets)</GetPackageFilesTargets>
+    <BeforeBuildGenerateSourcesTargets>_UpdateEntrypointSources;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
   </PropertyGroup>
+
+  <Target Name="_UpdateEntrypointSources">
+    <PropertyGroup>
+      <_EntrypointDef>_ENTRYPOINT_MODULE=$(EntrypointModule)</_EntrypointDef>
+      <_EntrypointDef>$(_EntrypointDef);_ENTRYPOINT_FUNCTION=$(EntryPointFunction)</_EntrypointDef>
+    </PropertyGroup>
+    <ItemGroup Condition="@(EntrypontPythonPath) == ''">
+      <EntrypointPythonPath Include="." />
+      <EntrypointPythonPath Include="stdlib.zip" Condition="$(PythonRuntimeEmbeddable) == 'true' and $(PythonRuntimeRenameStdlibZip) == 'true'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_EntrypointDef>$(_EntrypointDef);_ENTRYPOINT_PYTHONPATH=@(EntrypointPythonPath, '\0')\0</_EntrypointDef>
+    </PropertyGroup>
+    <PropertyGroup Condition="@(EntrypointIcon) != ''">
+      <_EntrypointDef>$(_EntrypointDef);_ENTRYPOINT_ICON=@(EntrypointIcon)</_EntrypointDef>
+    </PropertyGroup>
+    <ItemGroup>
+      <ClCompile Include="$(_EntrypointSource)">
+        <PreprocessorDefinitions>%(PreprocessorDefinitions);$(_EntrypointDef)</PreprocessorDefinitions>
+      </ClCompile>
+    </ItemGroup>
+    <ItemGroup Condition="$(_EntrypointResource) != ''">
+      <ResourceCompile Include="$(_EntrypointResource)">
+        <PreprocessorDefinitions>%(PreprocessorDefinitions);$(_EntrypointDef)</PreprocessorDefinitions>
+      </ResourceCompile>
+    </ItemGroup>
+  </Target>
 
   <Target Name="_EntryPoint_DownloadRuntime"
           DependsOnTargets="DownloadRuntime"

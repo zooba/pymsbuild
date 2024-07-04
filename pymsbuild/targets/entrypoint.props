@@ -7,5 +7,6 @@
 
     <PythonRuntimeEmbeddable Condition="$(PythonRuntimeEmbeddable) == ''">true</PythonRuntimeEmbeddable>
     <PythonRuntimeExecutables Condition="$(PythonRuntimeExecutables) == ''">false</PythonRuntimeExecutables>
+    <PythonRuntimeRenameStdlibZip Condition="$(PythonRuntimeRenameStdlibZip) == ''">true</PythonRuntimeRenameStdlibZip>
   </PropertyGroup>
 </Project>

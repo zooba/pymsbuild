@@ -10,10 +10,15 @@ PACKAGE = Package(
             LegalCopyright="Copyright Me",
         ),
         Icon("Globe1.ico"),
+        SearchPath("."),
+        SearchPath("stdlib.zip"),
+        SearchPath("files"),
     ),
-    DllPackage(
-        "app",
-        PyFile("app.py", name="__init__.py"),
+    Package("files",
+        DllPackage(
+            "app",
+            PyFile("app.py", name="__init__.py"),
+        ),
     ),
 )
 
