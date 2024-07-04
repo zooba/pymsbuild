@@ -116,25 +116,25 @@ def from_embed(version, platform):
     with urlopen(url) as r:
         versions = [s.decode() for s in re.findall(rb'<a\s+href="(\d+\.\d+\.\d+)', r.read())]
 
-    if version not in versions:
-        released = [v for v in versions if v.startswith(f"{version}.")]
-        if released:
-            version = max(released, key=ver_key)
-        else:
-            raise Exception(f"ERROR: No matching versions found for package {package}")
-
-    print("Selected", version)
-    url = f"{url}{version}/"
+    if version in versions:
+        released = [version]
+    else:
+        released = sorted((v for v in versions if v.startswith(f"{version}.")), reverse=True, key=ver_key)
 
     pattern = re.escape(package).replace("VERSION", "(.+?)")
     pattern = f'a href="({pattern})"'
-    with urlopen(url) as r:
-        files = [(i[1].decode(), i[0].decode()) for i in re.findall(pattern.encode(), r.read())]
+    for version in released:
+        with urlopen(f"{url}{version}/") as r:
+            files = [(i[1].decode(), i[0].decode()) for i in re.findall(pattern.encode(), r.read())]
 
-    files = sorted(files, key=lambda i: ver_key(i[0]), reverse=True)
-    if not files:
-        raise Exception(f"ERROR: No matching versions found for {version}")
-    url += files[0][1]
+        files = sorted(files, key=lambda i: ver_key(i[0]), reverse=True)
+        if files:
+            url = f"{url}{version}/{files[0][1]}"
+            break
+    else:
+        raise Exception(f"ERROR: No matching versions found for package {package}")
+
+    print("Selected", version)
     print("Downloading from", url)
     buffer = io.BytesIO()
     with urlopen(url) as r:
