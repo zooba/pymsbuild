@@ -303,7 +303,9 @@ class BuildState:
             base_host = getattr(sys, "_base_executable", None)
             if not base_host or base_host == sys.executable:
                 base_host = Path(sys.base_prefix) / Path(sys.executable).relative_to(sys.prefix)
-        properties.setdefault("BaseHostPython", base_host)
+            properties.setdefault("BaseHostPython", base_host)
+        else:
+            properties.setdefault("BaseHostPython", sys.executable)
         properties.setdefault("PyMsbuildTargets", self.targets)
         properties.setdefault("_ProjectBuildTarget", self.target)
         properties.setdefault("SourceRootDir", self.source_dir)
