@@ -60,11 +60,20 @@ int wmain(int argc, wchar_t **argv)
 #endif
     config.install_signal_handlers = 1;
 
-    for (const wchar_t *p = entrypointPythonPath; p && *p; p += wcslen(p) + 1) {
+    for (const wchar_t *p = entrypointPythonPath; p;) {
         wchar_t searchPath[maxPath];
+        wchar_t path[maxPath];
+        const wchar_t *p2 = wcschr(p, L'|');
+        if (p2) {
+            wcsncpy_s(path, maxPath, p, (size_t)(p2 - p));
+            p = p2 + 1;
+        } else {
+            wcscpy_s(path, maxPath, p);
+            p = NULL;
+        }
         searchPath[0] = L'\0';
-        if (FAILED(PathCchCombineEx(searchPath, maxPath, home, p, PATHCCH_ALLOW_LONG_PATHS))) {
-            fprintf(stderr, "WARN: failed to add search path %S\n", p);
+        if (FAILED(PathCchCombineEx(searchPath, maxPath, home, path, PATHCCH_ALLOW_LONG_PATHS))) {
+            fprintf(stderr, "WARN: failed to add search path %S\n", path);
         } else {
             CHECK_STATUS(PyWideStringList_Append(&config.module_search_paths, searchPath));
         }

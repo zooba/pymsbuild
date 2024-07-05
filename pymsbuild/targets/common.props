@@ -5,6 +5,8 @@
     <_Sep Condition="$([msbuild]::IsOSUnixLike())">/</_Sep>
     <!-- Use EscapeSep after an EnsureTrailingSlash to double the backslash when needed -->
     <_EscapeSep Condition="$([msbuild]::EnsureTrailingSlash(`a`)) == 'a\'">\</_EscapeSep>
+    <_PathSep>;</_PathSep>
+    <_PathSep Condition="$([msbuild]::IsOSUnixLike())">:</_PathSep>
 
     <LayoutDir Condition="$(LayoutDir) == ''">layout$(_Sep)</LayoutDir>
     <OutDir Condition="$(OutDir) == ''">bin$(_Sep)</OutDir>

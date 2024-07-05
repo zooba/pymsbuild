@@ -1,6 +1,15 @@
 <Project>
   <PropertyGroup>
-    <PythonConfig Condition="$(PythonConfig) == ''">$(HostPython)-config</PythonConfig>
+    <PythonConfig Condition="$(PythonConfig) == '' and Exists('$(HostPython)-config')">$(HostPython)-config</PythonConfig>
+    <PythonConfig Condition="$(PythonConfig) == '' and Exists('$(BaseHostPython)-config')">$(BaseHostPython)-config</PythonConfig>
+    <PythonConfig Condition="$(PythonConfig) == ''">python3-config</PythonConfig>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(ConfigurationType) == 'Application'">
+    <CC_Cmd Condition="$(CC_Cmd) == ''">gcc -pthread -fPIE</CC_Cmd>
+    <CPP_Cmd Condition="$(CPP_Cmd) == ''">g++ -pthread -fPIE</CPP_Cmd>
+    <Link_Cmd Condition="$(Link_Cmd) == ''">gcc -pthread</Link_Cmd>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(ConfigurationType) != 'Application'">
     <CC_Cmd Condition="$(CC_Cmd) == ''">gcc -pthread -fPIC</CC_Cmd>
     <CPP_Cmd Condition="$(CPP_Cmd) == ''">g++ -pthread -fPIC</CPP_Cmd>
     <Link_Cmd Condition="$(Link_Cmd) == ''">gcc -pthread -shared</Link_Cmd>

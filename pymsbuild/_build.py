@@ -299,6 +299,11 @@ class BuildState:
                 self.write("WARNING:", self.platform, "is not a known platform. Projects may not compile")
                 properties["Platform"] = self.platform
         properties.setdefault("HostPython", sys.executable)
+        if sys.base_prefix != sys.prefix:
+            base_host = getattr(sys, "_base_executable", None)
+            if not base_host or base_host == sys.executable:
+                base_host = Path(sys.base_prefix) / Path(sys.executable).relative_to(sys.prefix)
+        properties.setdefault("BaseHostPython", base_host)
         properties.setdefault("PyMsbuildTargets", self.targets)
         properties.setdefault("_ProjectBuildTarget", self.target)
         properties.setdefault("SourceRootDir", self.source_dir)

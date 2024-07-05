@@ -16,12 +16,11 @@
       <_EntrypointDef>_ENTRYPOINT_MODULE=$(EntrypointModule)</_EntrypointDef>
       <_EntrypointDef>$(_EntrypointDef);_ENTRYPOINT_FUNCTION=$(EntryPointFunction)</_EntrypointDef>
     </PropertyGroup>
-    <ItemGroup Condition="@(EntrypontPythonPath) == ''">
-      <EntrypointPythonPath Include="." />
-      <EntrypointPythonPath Include="stdlib.zip" Condition="$(PythonRuntimeEmbeddable) == 'true' and $(PythonRuntimeRenameStdlibZip) == 'true'" />
-    </ItemGroup>
     <PropertyGroup>
-      <_EntrypointDef>$(_EntrypointDef);_ENTRYPOINT_PYTHONPATH=@(EntrypointPythonPath, '\0')\0</_EntrypointDef>
+      <_EntrypointPaths>@(EntrypointPythonPath, '|')</_EntrypointPaths>
+      <_EntrypointPaths Condition="$(_EntrypointPaths) == '' and $(PythonRuntimeEmbeddable) == 'true' and $(PythonRuntimeRenameStdlibZip) == 'true'">.|stdlib.zip</_EntrypointPaths>
+      <_EntrypointPaths Condition="$(_EntrypointPaths) == '' and ($(PythonRuntimeEmbeddable) != 'true' or $(PythonRuntimeRenameStdlibZip) != 'true')">.</_EntrypointPaths>
+      <_EntrypointDef>$(_EntrypointDef);_ENTRYPOINT_PYTHONPATH=$(_EntrypointPaths)</_EntrypointDef>
     </PropertyGroup>
     <PropertyGroup Condition="@(EntrypointIcon) != ''">
       <_EntrypointDef>$(_EntrypointDef);_ENTRYPOINT_ICON=@(EntrypointIcon)</_EntrypointDef>
@@ -29,6 +28,8 @@
     <ItemGroup>
       <ClCompile Include="$(_EntrypointSource)">
         <PreprocessorDefinitions>%(PreprocessorDefinitions);$(_EntrypointDef)</PreprocessorDefinitions>
+        <ObjectFile Condition="$(PlatformToolset) == 'gcc'">$([msbuild]::EnsureTrailingSlash($(IntDir)))entrypoint.o</ObjectFile>
+        <ObjectFile Condition="$(PlatformToolset) != 'gcc'">$([msbuild]::EnsureTrailingSlash($(IntDir)))entrypoint.obj</ObjectFile>
       </ClCompile>
     </ItemGroup>
     <ItemGroup Condition="$(_EntrypointResource) != ''">

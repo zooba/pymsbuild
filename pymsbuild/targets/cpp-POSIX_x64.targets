@@ -28,11 +28,14 @@
 
   <Target Name="_CalculateFlags">
     <Message Text="Executing $(PythonConfig). If this fails, you may need to set PYTHON_CONFIG to the correct command." />
-    <Exec Command="$(PythonConfig) --cflags" ConsoleToMsBuild="true" Condition="$(PythonCFlags) == ''"
+    <PropertyGroup>
+      <_Embed Condition="$(ConfigurationType) == 'Application'">--embed</_Embed>
+    </PropertyGroup>
+    <Exec Command="$(PythonConfig) --cflags $(_Embed)" ConsoleToMsBuild="true" Condition="$(PythonCFlags) == ''"
           StandardOutputImportance="low">
       <Output TaskParameter="ConsoleOutput" PropertyName="PythonCFlags" />
     </Exec>
-    <Exec Command="$(PythonConfig) --ldflags" ConsoleToMsBuild="true" Condition="$(PythonLDFlags) == ''"
+    <Exec Command="$(PythonConfig) --ldflags $(_Embed)" ConsoleToMsBuild="true" Condition="$(PythonLDFlags) == ''"
           StandardOutputImportance="low">
       <Output TaskParameter="ConsoleOutput" PropertyName="PythonLDFlags" />
     </Exec>
@@ -106,7 +109,58 @@
   <Target Name="Link" DependsOnTargets="$(BeforeLinkTargets);_CalculateLinkerInputsItems;_Link">
   </Target>
 
-  <Target Name="CoreBuild" DependsOnTargets="_CalculateFlags;PrepareForBuild;$(BeforeBuildGenerateSourcesTargets);ClCompile;Link" />
+  <Target Name="GetCopyToOutputDirectoryItems"
+          DependsOnTargets="$(GetCopyToOutputDirectoryItemsDependsOn)"
+          Returns="@(CopyToOutputItems)">
+    <ItemGroup>
+      <CopyToOutputItems Include="@(Content)" Condition="%(Content.CopyToOutputDirectory) == 'Always'" />
+      <CopyToOutputItems_Update Include="@(Content)" Condition="%(Content.CopyToOutputDirectory) == 'PreserveNewest'" />
+
+      <CopyToOutputItems Include="@(None)" Condition="%(None.CopyToOutputDirectory) == 'Always'" />
+      <CopyToOutputItems_Update Include="@(None)" Condition="%(None.CopyToOutputDirectory) == 'PreserveNewest'" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_AssignCopyToOutputDirectoryItems">
+    <ItemGroup>
+      <CopyToOutputItems>
+        <_CopyTo Condition="%(TargetDir) != ''">$(OutDir)/%(TargetDir)/%(TargetNem)%(TargetExt)</_CopyTo>
+        <_CopyTo Condition="%(TargetDir) == ''">$(OutDir)/%(TargetNem)%(TargetExt)</_CopyTo>
+      </CopyToOutputItems>
+      <CopyToOutputItems_Update>
+        <_CopyTo Condition="%(TargetDir) != ''">$(OutDir)/%(TargetDir)/%(TargetNem)%(TargetExt)</_CopyTo>
+        <_CopyTo Condition="%(TargetDir) == ''">$(OutDir)/%(TargetNem)%(TargetExt)</_CopyTo>
+      </CopyToOutputItems_Update>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_MaybeCopyToOutputDirectory"
+          Inputs="@(CopyToOutputItems_Update)"
+          Outputs="%(CopyToOutputItems_Update._CopyTo)">
+    <Copy SourceFiles="@(CopyToOutputItems_Update)"
+          DestinationFiles="%(CopyToOutputItems_Update._CopyTo)"
+          OverwriteReadOnlyFiles="true"
+          Retries="$(CopyRetryCount)" />
+    <ItemGroup>
+      <FileWrites Include="%(CopyToOutputItems_Update._CopyTo)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_ForceCopyToOutputDirectory">
+    <Copy SourceFiles="@(CopyToOutputItems)"
+          DestinationFiles="%(CopyToOutputItems._CopyTo)"
+          OverwriteReadOnlyFiles="true"
+          Retries="$(CopyRetryCount)" />
+    <ItemGroup>
+      <FileWrites Include="%(CopyToOutputItems._CopyTo)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_CopyToOutputDirectory"
+          DependsOnTargets="GetCopyToOutputDirectoryItems;_AssignCopyToOutputDirectoryItems;_MaybeCopyToOutputDirectory;_ForceCopyToOutputDirectory">
+  </Target>
+
+  <Target Name="CoreBuild" DependsOnTargets="_CalculateFlags;PrepareForBuild;$(BeforeBuildGenerateSourcesTargets);ClCompile;Link;_CopyToOutputDirectory" />
   <Target Name="Build" DependsOnTargets="CoreBuild;_SaveFileWrites" />
   <Target Name="Clean" DependsOnTargets="_CleanFileWrites">
     <RemoveDir Directories="$(IntDir)" />
