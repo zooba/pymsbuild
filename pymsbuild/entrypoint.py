@@ -2,6 +2,7 @@ import os
 
 from pymsbuild._types import *
 
+
 class Entrypoint(PydFile):
     r"""Represents an executable that loads Python and calls your function.
 """
@@ -29,6 +30,7 @@ class Entrypoint(PydFile):
         )
         self.members.append(self.Imports())
 
+
 class Icon(File):
     r"""Represents an icon resource.
 """
@@ -38,6 +40,7 @@ class Icon(File):
         "IncludeInLayout": False,
         "IncludeInWheel": False,
     }
+
 
 class SearchPath:
     r"""Represents a search path in an entrypoint executable.

@@ -9,7 +9,7 @@ try:
 except ValueError:
     PYC_OPTIMIZATION = 0
 
-RESID_COUNTER = iter(range(1001, 9999))
+RESID_COUNTER = iter(range(1001, 999999))
 IMPORTERS_RESID = next(RESID_COUNTER)
 
 

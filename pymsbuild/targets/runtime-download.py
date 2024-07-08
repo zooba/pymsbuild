@@ -6,6 +6,7 @@ import pathlib
 import re
 import sys
 import zipfile
+from fnmatch import fnmatch
 from urllib.request import urlopen
 
 DEFAULT_TAG = "cp{0}{1}-cp{0}{1}-{2}".format(
@@ -14,14 +15,22 @@ DEFAULT_TAG = "cp{0}{1}-cp{0}{1}-{2}".format(
     {"": "win_amd64", "32": "win32", "-arm64": "win_arm64"}.get(sys.winver.partition("-")[2]),
 )
 
+DEFAULT_VERSIONLESS_STDLIB = "stdlib.zip"
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-o", metavar="PATH", type=pathlib.Path, default=".", required=False, help="Output directory")
+parser.add_argument("--skip-download", action="store_true", help="Assume already downloaded and extracted")
 parser.add_argument("--nuget", action="store_true", help="Acquire from Nuget")
 parser.add_argument("--embed", action="store_true", help="Acquire embeddable from python.org")
 parser.add_argument("--tag", default=DEFAULT_TAG, required=False, help="Specific wheel tag")
 parser.add_argument("--platform", required=False, help="Override platform (win32, win_amd64, win_arm64)")
 parser.add_argument("--version", required=False, help="Override version")
 parser.add_argument("--dry-run", action="store_true", help="Do not write files to disk")
+parser.add_argument("--exclude", required=False, help=";/: separated path globs to omit")
+parser.add_argument("--versionless", action="store_true", help="Remove version numbers from runtime files")
+parser.add_argument("--versionless-stdlib-zip", metavar="FILENAME", default="stdlib.zip", type=str, help="Versionless name for stdlib ZIP")
+parser.add_argument("--versionless-runtime-dll", metavar="FILENAME", default="python.dll", type=str, help="Versionless name for runtime DLL")
+parser.add_argument("--versionless-runtime-so", metavar="FILENAME", default="libpython.so", type=str, help="Versionless name for runtime SO")
 args = parser.parse_args()
 
 m = re.match(r"(?:cp|py)(\d)(\d+)-.+?-(win.+)", args.tag)
@@ -147,18 +156,44 @@ def from_embed(version, platform):
             yield n, zf.read(n)
 
 
+def from_dir(version, platform):
+    dest = args.o
+    return ((x.name, x.read_bytes()) for x in dest.rglob("*"))
+
+
 try:
-    func = from_nuget if args.nuget else from_embed if args.embed else None
+    func = from_dir if args.skip_download else from_nuget if args.nuget else from_embed if args.embed else None
     if not func:
         raise Exception("ERROR: No source specified (pass --nuget or --embed)")
+    args.o = args.o.absolute()
+    exclusions = [x for x in args.exclude.split(os.pathsep) if x] if args.exclude else ()
     for name, content in func(args.version, args.platform):
+        dest = args.o / name
         if args.dry_run:
             print("Write", name, len(content), "bytes")
         else:
-            dest = args.o / name
+            target = dest
+            if args.versionless:
+                if dest.match("python3*.zip"):
+                    target = dest.with_name(args.versionless_stdlib_zip)
+                """DISABLED: the effect of --versionless on the DLL or the SO.
+
+                elif dest.match("python3.dll"):
+                    continue
+                elif dest.match("python3*.dll"):
+                    target = dest.with_name(args.versionless_runtime_dll)
+                elif dest.match("python3*._pth"):
+                    target = dest.with_name(args.versionless_runtime_dll).with_suffix("._pth")
+                elif dest.match("libpython3.*.so"):
+                    target = dest.with_name(args.versionless_runtime_so)
+                elif dest.match("libpython3.*._pth"):
+                    target = dest.with_name(args.versionless_runtime_so).with_suffix("._pth")
+                """
             dest.parent.mkdir(parents=True, exist_ok=True)
             with open(dest, "wb") as f:
                 f.write(content)
+            if not any(dest.match(x) for x in exclusions):
+                print("FILE:{}{}{}".format(dest, os.pathsep, target.relative_to(args.o)))
 
 except Exception as ex:
     if type(ex) is not Exception:

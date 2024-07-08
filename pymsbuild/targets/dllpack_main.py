@@ -1,10 +1,7 @@
 def _init():
     import sys
-
-    from importlib import import_module
     from importlib.abc import Loader, MetaPathFinder, ResourceReader
-    from importlib.machinery import ExtensionFileLoader, ModuleSpec
-    from ntpath import split as nt_split
+    from importlib.machinery import ExtensionFileLoader
 
     _NAME = __NAME()
     _NAME_DOT = _NAME + "."
@@ -54,7 +51,6 @@ def _init():
 
     LOADER = DllPackLoader()
 
-
     class DllPackFinder(MetaPathFinder):
         def find_spec(self, fullname, path, target=None):
             if fullname.startswith(_NAME_DOT) or fullname == _NAME:
@@ -66,10 +62,8 @@ def _init():
     DllPackFinder.__name__ += "_" + _NAME
     DllPackFinder.__qualname__ = "<generated>." + DllPackFinder.__name__
 
-    FINDER = next((getattr(m, "__name__", None) == DllPackFinder.__name__ for m in sys.meta_path), None)
-    if not FINDER:
-        FINDER = DllPackFinder()
-        sys.meta_path.insert(0, FINDER)
+    if not any(getattr(m, "__name__", None) == DllPackFinder.__name__ for m in sys.meta_path):
+        sys.meta_path.insert(0, DllPackFinder())
 
     return _MAKESPEC(__name__, LOADER)
 

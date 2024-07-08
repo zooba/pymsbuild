@@ -56,10 +56,13 @@ lookup_redirect(const char *name)
 
 
 static PyObject *
-mod_load_impl(ModuleState *ms, const char *name, PyObject *mod, int is_main) {
+mod_exec_module_impl(ModuleState *ms, const char *name, PyObject *mod, int is_main) {
     int is_package = 0;
     const struct ENTRY *e = lookup_import(name, &is_package);
     if (!e) {
+        if (is_package) {
+            return mod;
+        }
         PyErr_Format(PyExc_ModuleNotFoundError, "'%s' is not part of this package", name);
         return NULL;
     }
@@ -104,20 +107,20 @@ mod_load_impl(ModuleState *ms, const char *name, PyObject *mod, int is_main) {
 }
 
 static PyObject *
-mod_load(PyObject *self, PyObject *args)
+mod_exec_module(PyObject *self, PyObject *args)
 {
     PyObject *mod = NULL;
     if (!PyArg_ParseTuple(args, "O", &mod)) {
         return NULL;
     }
-    mod = mod_load_impl((ModuleState*)PyModule_GetState(self), PyModule_GetName(mod), mod, 0);
+    mod = mod_exec_module_impl((ModuleState*)PyModule_GetState(self), PyModule_GetName(mod), mod, 0);
     Py_XINCREF(mod);
     return mod;
 }
 
 
 static PyObject *
-mod_new(PyObject *self, PyObject *args)
+mod_create_module(PyObject *self, PyObject *args)
 {
     PyObject *spec;
     if (!PyArg_ParseTuple(args, "O", &spec)) {
@@ -196,6 +199,7 @@ mod_makespec(PyObject *self, PyObject *args)
     const char *name;
     PyObject *loader;
     PyObject *ilib_m = NULL, *mspec = NULL, *kwargs = NULL, *origin = NULL, *r = NULL;
+    PyObject *free_args = NULL;
 
     if (!PyArg_ParseTuple(args, "sO", &name, &loader)) {
         return NULL;
@@ -224,17 +228,19 @@ mod_makespec(PyObject *self, PyObject *args)
         if (PyErr_Occurred()) {
             goto error;
         }
-        e = lookup_redirect(name);
-        if (!e) {
-            if (!PyErr_Occurred()) {
-                r = Py_None;
-                Py_INCREF(r);
+        if (!is_package) {
+            e = lookup_redirect(name);
+            if (!e) {
+                if (!PyErr_Occurred()) {
+                    r = Py_None;
+                    Py_INCREF(r);
+                }
+                goto error;
             }
-            goto error;
-        }
-        args = Py_BuildValue("sO", name, Py_None);
-        if (!args) {
-            goto error;
+            args = free_args = Py_BuildValue("sO", name, Py_None);
+            if (!args) {
+                goto error;
+            }
         }
     }
     origin = PyObject_GetAttrString(self, "_origin_root");
@@ -251,7 +257,11 @@ mod_makespec(PyObject *self, PyObject *args)
         }
     }
     if (origin) {
-        Py_SETREF(origin, PyUnicode_FromFormat("%U%s", origin, e->origin));
+        if (e) {
+            Py_SETREF(origin, PyUnicode_FromFormat("%U%s", origin, e->origin));
+        } else {
+            Py_SETREF(origin, PyUnicode_FromFormat("%U%s", origin, name));
+        }
     }
     if (!origin) {
         goto error;
@@ -271,6 +281,7 @@ error:
     Py_XDECREF(kwargs);
     Py_XDECREF(mspec);
     Py_XDECREF(ilib_m);
+    Py_XDECREF(free_args);
 
     return r;
 }
@@ -334,7 +345,7 @@ mod_exec(PyObject *m)
         return -1;
     if (dllpack_exec_module(ms) < 0)
         return -1;
-    return mod_load_impl(ms, PyModule_GetName(m), m, 1) ? 0 : -1;
+    return mod_exec_module_impl(ms, PyModule_GetName(m), m, 1) ? 0 : -1;
 }
 
 
@@ -352,8 +363,8 @@ static struct PyMethodDef mod_meth[] = {
     {"__MAKESPEC", mod_makespec, METH_VARARGS, NULL},
     {"__DATA", mod_data, METH_VARARGS, NULL},
     {"__DATA_NAMES", mod_data_names, METH_NOARGS, NULL},
-    {"__CREATE_MODULE", mod_new, METH_VARARGS, NULL},
-    {"__EXEC_MODULE", mod_load, METH_VARARGS, NULL},
+    {"__CREATE_MODULE", mod_create_module, METH_VARARGS, NULL},
+    {"__EXEC_MODULE", mod_exec_module, METH_VARARGS, NULL},
     MOD_METH_TAIL
 };
 
