@@ -36,6 +36,9 @@ int wmain(int argc, wchar_t **argv)
         home[0] = L'\0';
     }
     progname = &executable[wcslen(home)];
+    if (executable[0]) {
+        wcscat_s(executable, maxPath, L".donotexecute");
+    }
     if (*progname == L'\\') ++progname;
 
     PyPreConfig_InitIsolatedConfig(&preconfig);
@@ -89,7 +92,13 @@ int wmain(int argc, wchar_t **argv)
     CHECK_STATUS(Py_InitializeFromConfig(&config));
 
     PyObject *mod = PyImport_ImportModule(entrypointModule);
-    PyObject *r = mod ? PyObject_CallMethod(mod, entrypointFunction, NULL) : NULL;
+    PyObject *r;
+    if (entrypointFunction && entrypointFunction[0]) {
+        r = mod ? PyObject_CallMethod(mod, entrypointFunction, NULL) : NULL;
+    } else {
+        r = mod ? Py_None : NULL;
+        Py_XINCREF(r);
+    }
     if (!r) {
         PyErr_Print();
         return 1;

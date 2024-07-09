@@ -59,10 +59,7 @@ static PyObject *
 mod_exec_module_impl(ModuleState *ms, const char *name, PyObject *mod, int is_main) {
     int is_package = 0;
     const struct ENTRY *e = lookup_import(name, &is_package);
-    if (!e) {
-        if (is_package) {
-            return mod;
-        }
+    if (!e && !is_package) {
         PyErr_Format(PyExc_ModuleNotFoundError, "'%s' is not part of this package", name);
         return NULL;
     }
@@ -79,6 +76,10 @@ mod_exec_module_impl(ModuleState *ms, const char *name, PyObject *mod, int is_ma
             return NULL;
         }
         Py_DECREF(r);
+    }
+
+    if (!e && is_package) {
+        return mod;
     }
 
     pyc = load_pyc(ms, e);
@@ -197,11 +198,11 @@ static PyObject *
 mod_makespec(PyObject *self, PyObject *args)
 {
     const char *name;
-    PyObject *loader;
+    PyObject *loader, *path_prefix;
     PyObject *ilib_m = NULL, *mspec = NULL, *kwargs = NULL, *origin = NULL, *r = NULL;
-    PyObject *free_args = NULL;
+    PyObject *args2 = NULL;
 
-    if (!PyArg_ParseTuple(args, "sO", &name, &loader)) {
+    if (!PyArg_ParseTuple(args, "sOO", &name, &loader, &path_prefix)) {
         return NULL;
     }
 
@@ -237,10 +238,7 @@ mod_makespec(PyObject *self, PyObject *args)
                 }
                 goto error;
             }
-            args = free_args = Py_BuildValue("sO", name, Py_None);
-            if (!args) {
-                goto error;
-            }
+            Py_SETREF(loader, Py_None);
         }
     }
     origin = PyObject_GetAttrString(self, "_origin_root");
@@ -269,20 +267,94 @@ mod_makespec(PyObject *self, PyObject *args)
     if (PyDict_SetItemString(kwargs, "origin", origin) < 0) {
         goto error;
     }
-    if (is_package) {
-        if (PyDict_SetItemString(kwargs, "is_package", Py_True) < 0) {
-            goto error;
-        }
+
+    args2 = Py_BuildValue("sO", name, loader);
+    if (!args2) {
+        goto error;
     }
 
-    r = PyObject_Call(mspec, args, kwargs);
+    r = PyObject_Call(mspec, args2, kwargs);
+
+    if (is_package) {
+        PyObject *paths = PyList_New(0);
+        if (!paths) {
+            Py_CLEAR(r);
+            goto error;
+        }
+        if (PyObject_IsTrue(path_prefix) && PyList_Append(paths, path_prefix) < 0) {
+            Py_DECREF(paths);
+            Py_CLEAR(r);
+            goto error;
+        }
+        if (PyObject_SetAttrString(r, "submodule_search_locations", paths) < 0) {
+            Py_DECREF(paths);
+            Py_CLEAR(r);
+            goto error;
+        }
+        Py_DECREF(paths);
+    }
 error:
     Py_XDECREF(origin);
     Py_XDECREF(kwargs);
     Py_XDECREF(mspec);
     Py_XDECREF(ilib_m);
-    Py_XDECREF(free_args);
+    Py_XDECREF(args2);
 
+    return r;
+}
+
+static int
+_mod_module_names_append(PyObject *list, struct ENTRY *found, struct ENTRY *next)
+{
+    int fnlen = strlen(found->name);
+    int is_pkg = next && !strncmp(next->name, found->name, fnlen) && next->name[fnlen + 1] == '.';
+    PyObject *o = Py_BuildValue("si", found->name, is_pkg);
+    int r = -1;
+    if (o) {
+        r = PyList_Append(list, o);
+        Py_DECREF(o);
+    }
+    return r;
+}
+
+
+static PyObject *
+mod_module_names(PyObject *self, PyObject *args)
+{
+    const char *prefix;
+    if (!PyArg_ParseTuple(args, "s", &prefix)) {
+        return NULL;
+    }
+    size_t cchPrefix = strlen(prefix);
+    if (prefix[cchPrefix - 1] != '.') {
+        PyErr_SetString(PyExc_ValueError, "prefix must end with a dot");
+        return NULL;
+    }
+    if (PySys_Audit("pymsbuild.dllpack.module_names", "ss", _DLLPACK_NAME, prefix) < 0) {
+        return NULL;
+    }
+    struct ENTRY *found = NULL;
+    PyObject *r = PyList_New(0);
+    if (!r) {
+        return NULL;
+    }
+    for (struct ENTRY *entry = IMPORT_TABLE; entry->name; ++entry) {
+        // Add the previous match, now we know whether it could be a package
+        if (found) {
+            if (_mod_module_names_append(r, found, entry) < 0) {
+                Py_DECREF(r);
+                return NULL;
+            }
+            found = NULL;
+        }
+        // Check whether entry matches
+        if (!strncmp(entry->name, prefix, cchPrefix) && !strchr(&entry->name[cchPrefix], '.')) {
+            found = entry;
+        }
+    }
+    if (found && _mod_module_names_append(r, found, NULL) < 0) {
+        Py_CLEAR(r);
+    }
     return r;
 }
 
@@ -365,6 +437,7 @@ static struct PyMethodDef mod_meth[] = {
     {"__DATA_NAMES", mod_data_names, METH_NOARGS, NULL},
     {"__CREATE_MODULE", mod_create_module, METH_VARARGS, NULL},
     {"__EXEC_MODULE", mod_exec_module, METH_VARARGS, NULL},
+    {"__MODULE_NAMES", mod_module_names, METH_VARARGS, NULL},
     MOD_METH_TAIL
 };
 

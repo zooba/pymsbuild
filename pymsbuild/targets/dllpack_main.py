@@ -1,6 +1,6 @@
 def _init():
     import sys
-    from importlib.abc import Loader, MetaPathFinder, ResourceReader
+    from importlib.abc import Loader, MetaPathFinder, PathEntryFinder, ResourceReader
     from importlib.machinery import ExtensionFileLoader
 
     _NAME = __NAME()
@@ -10,6 +10,7 @@ def _init():
     _DATA_NAMES = set(__DATA_NAMES())
     _CREATE_MODULE = __CREATE_MODULE
     _EXEC_MODULE = __EXEC_MODULE
+    _MODULE_NAMES = __MODULE_NAMES
 
     class DllPackReader(ResourceReader):
         def __init__(self, prefix):
@@ -39,7 +40,7 @@ def _init():
 
         def get_resource_reader(self, fullname):
             try:
-                spec = _MAKESPEC(fullname, LOADER)
+                spec = _MAKESPEC(fullname, LOADER, None)
                 if spec.submodule_search_locations is None:
                     return None
             except Exception:
@@ -52,20 +53,34 @@ def _init():
     LOADER = DllPackLoader()
 
     class DllPackFinder(MetaPathFinder):
-        def find_spec(self, fullname, path, target=None):
+        _PATH_HOOK_PREFIX = "pymsbuild.dllpack:" + _NAME
+
+        @classmethod
+        def find_spec(cls, fullname, path=None, target=None):
             if fullname.startswith(_NAME_DOT) or fullname == _NAME:
-                spec = _MAKESPEC(fullname, LOADER)
+                spec = _MAKESPEC(fullname, LOADER, cls._PATH_HOOK_PREFIX)
                 if spec and not spec.loader:
                     spec.loader = ExtensionFileLoader(spec.name, spec.origin)
                 return spec
+
+        @classmethod
+        def iter_modules(cls, prefix):
+            return _MODULE_NAMES(prefix + ".")
+
+        @classmethod
+        def hook(cls, path):
+            if path != cls._PATH_HOOK_PREFIX:
+                raise ImportError()
+            return cls
 
     DllPackFinder.__name__ += "_" + _NAME
     DllPackFinder.__qualname__ = "<generated>." + DllPackFinder.__name__
 
     if not any(getattr(m, "__name__", None) == DllPackFinder.__name__ for m in sys.meta_path):
-        sys.meta_path.insert(0, DllPackFinder())
+        sys.meta_path.insert(0, DllPackFinder)
+        sys.path_hooks.append(DllPackFinder.hook)
 
-    return _MAKESPEC(__name__, LOADER)
+    return _MAKESPEC(__name__, LOADER, DllPackFinder._PATH_HOOK_PREFIX)
 
 
 __spec__ = _init()
@@ -73,4 +88,4 @@ __file__ = __spec__.origin
 __loader__ = __spec__.loader
 __package__ = getattr(__spec__, "parent", None)
 __path__ = []
-del _init, __CREATE_MODULE, __DATA, __DATA_NAMES, __EXEC_MODULE, __MAKESPEC, __NAME
+del _init, __CREATE_MODULE, __DATA, __DATA_NAMES, __EXEC_MODULE, __MODULE_NAMES, __MAKESPEC, __NAME

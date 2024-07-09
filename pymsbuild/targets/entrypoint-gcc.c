@@ -36,6 +36,7 @@ int main(int argc, char **argv)
         strcat(executable, argv[0]);
     }
     strcpy(home, executable);
+    strcat(executable, ".donotexecute");
     progname = strrchr(home, '/');
     if (progname) {
         *progname++ = '\0';

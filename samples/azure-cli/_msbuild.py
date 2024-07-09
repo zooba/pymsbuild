@@ -1,8 +1,10 @@
 import os
-from pathlib import Path
+import re
+from pathlib import Path, PurePath
 from pymsbuild import *
 from pymsbuild.dllpack import DllPackage, PydRedirect
 from pymsbuild.entrypoint import Entrypoint, SearchPath
+from pymsbuild.vendor import *
 
 METADATA = {
     "Metadata-Version": "2.1",
@@ -17,90 +19,74 @@ METADATA = {
     "Summary": "A sample of packing the Azure CLI",
 }
 
-PACKAGES = [
-    "adal",
-    "adodbapi",
-    "antlr4",
-    "applicationinsights",
-    "argcomplete",
-    "azure",
-    "bcrypt",
-    "certifi",
-    "cffi",
-    "chardet",
-    "charset_normalizer",
-    "colorama",
-    "cryptography",
-    "dateutil",
-    "deprecated",
-    "fabric",
-    "github",
-    "humanfriendly",
-    "idna",
-    "invoke",
-    "isapi",
-    "isodate",
-    "javaproperties",
-    "jmespath",
-    "jsondiff",
-    "jwt",
-    "knack",
-    "msal",
-    "msal_extensions",
-    "msrest",
-    "msrestazure",
-    "nacl",
-    "oauthlib",
-    "OpenSSL",
-    "packaging",
-    "paramiko",
-    "pip",
-    "pkginfo",
-    "portalocker",
-    "psutil",
-    "pycomposefile",
-    "pycparser",
-    "pygments",
-    "pymsalruntime",
-    "pyreadline3",
-    "pythonwin",
-    "requests",
-    "requests_oauthlib",
-    "samples",
-    "tabulate",
-    "tests",
-    "urllib3",
-    "websocket",
-    "wrapt",
-    "yaml",
-    "_yaml",
-]
+
+with open("requirements.txt", "r", encoding="utf-8") as f:
+    METADATA["BuildWheelRequires"] = list(map(str.strip, f))
+
+
+def spec_name(spec):
+    return re.sub(r'[^a-z0-9]', '_', re.match(r'([a-z0-9.\-_]+)', spec.lower()).groups()[0])
+
+
+PACKAGE_SPECS = {spec_name(s): s for s in METADATA["BuildWheelRequires"] if not s.startswith("azure-")}
+
+# Packages where the package name doesn't match the import name.
+NAME_FIXUPS = {
+    "antlr4_python3_runtime": "antlr4",
+    "pygithub": "github",
+    "pyjwt": "jwt",
+    "pynacl": "nacl",
+    "pyopenssl": "OpenSSL",
+    "pysocks": "socks",
+    "python_dateutil": "dateutil",
+    "pyyaml": "yaml",
+    "websocket_client": "websocket",
+}
+
+for n in NAME_FIXUPS:
+    assert n in PACKAGE_SPECS, n
+
+PACKAGES = {
+    **{n: VendoredDllPackage(s, NAME_FIXUPS.get(n)) for n, s in PACKAGE_SPECS.items()},
+
+    # Override some packages that won't work as DLLs
+    "setuptools": VendoredPackage(PACKAGE_SPECS["setuptools"]),
+    "_distutils_hack": VendoredPackage(PACKAGE_SPECS["setuptools"], "_distutils_hack"),
+
+    # pywin32 is so messy we just put it all in its own search path
+    "pywin32": VendoredPackage(PACKAGE_SPECS["pywin32"], as_search_path=True),
+}
+
 
 class SiteFile(File):
-    options = {"IncludeInSdist": False}
-
-class SiteModule(File):
-    options = {"IncludeInSdist": False }
+    def _match(self, key):
+        if key == "$SITEFILE":
+            return True
+        return PurePath(self.name).match(key)
 
 
 PACKAGE = Package("azure-cli",
     SourceFile("requirements.txt"),
-    *[DllPackage(p) for p in PACKAGES],
-    SiteFile("*.py"),
-    SiteModule("_cffi_backend"),
-    SiteFile("pywin32_system32/*.dll"),
-    SiteFile("win32/*.pyd"),
-    SiteFile("win32/lib/*.py"),
-    Package("setuptools", SiteFile("setuptools/**/*.py")),
-    Package("_distutils_hack", SiteFile("_distutils_hack/**/*.py")),
+    PyFile("main.py"),
+    DllPackage("azure"),
+    Package("azurecli", PyFile("azurecli.py", "__init__.py")),
+    Package("vendored", *[p for p in PACKAGES.values() if p]),
+    #SiteFile("pywin32_system32/*.dll"),
+    
     Entrypoint(
-        "az", "azure.cli", "main",
+        "az", "main", "main",
         VersionInfo(
             LegalCopyright="Copyright Me",
         ),
         #Icon("Globe1.ico"),
         SearchPath("."),
         SearchPath("stdlib.zip"),
+        SearchPath("vendored"),
+        # We won't get pywin32.pth automatically, so add its paths instead
+        SearchPath("vendored/pywin32"),
+        SearchPath("vendored/pywin32/pythonwin"),
+        SearchPath("vendored/pywin32/win32"),
+        SearchPath("vendored/pywin32/win32/lib"),
     ),
 )
 
@@ -112,47 +98,26 @@ def init_METADATA():
         # Looks like a version tag
         METADATA["Version"] = version
 
-    with open("requirements.txt", "r", encoding="utf-8") as f:
-        METADATA["BuildWheelRequires"] = list(map(str.strip, f))
-
-
-def find_spec(name):
-    from importlib.util import find_spec
-    spec = find_spec(str(name))
-    if not spec:
-        raise RuntimeError(f"Cannot find {name!r}. Ensure it is listed in requirements.txt")
-    return spec
-
 
 def init_PACKAGE(tag=None):
     if not tag:
         return
 
-    spec = find_spec("six")
-    site = Path(spec.origin).parent
-    queue = PACKAGE.members[:]
-    while queue:
-        m = queue.pop(0)
-        if isinstance(m, SiteFile):
-            m.source = site / m.source
-        elif isinstance(m, SiteModule):
-            spec = find_spec(m.source)
-            m.source = spec.origin
-            m.name = Path(spec.origin).name
-        elif isinstance(m, Package):
-            queue.extend(m.members)
+    VendoredPackage.collect_all(PACKAGE, tag)
 
-    for p in PACKAGES:
-        if p == 'distutils':
-            spec = find_spec('setuptools._distutils')
-        else:
-            spec = find_spec(p)
-        v = PACKAGE.find(p)
-        if not spec.submodule_search_locations:
-            raise ValueError(spec)
-        for src in spec.submodule_search_locations:
-            if v.source:
-                v.members.append(PyFile(Path(src) / "**/*.py", allow_none=True, IncludeInSdist=False))
-            else:
-                v.source = src
-                v.members.append(PyFile("**/*.py", allow_none=True, IncludeInSdist=False))
+    azure = PACKAGE.find('azure')
+    import azure as azure_module
+    for p in azure_module.__path__:
+        azure.members.append(PyFile(
+            Path(p) / "**/*.py",
+            allow_none=True,
+            exclude=Path(p) / "cli/**/*.py",
+        ))
+
+    azurecli = PACKAGE.find('azurecli')
+    import azure.cli as azurecli_module
+    for p in azurecli_module.__path__:
+        azurecli.members.append(PyFile(
+            Path(p) / "**/*.py",
+            allow_none=True,
+        ))
