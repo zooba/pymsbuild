@@ -1,6 +1,6 @@
 <Project>
   <Target Name="_GetPackageFilesFromEachProject" Inputs="@(Project)" Outputs="%(Project.Identity).__donotbuild">
-    <Message Text="Getting package files from %(Project.Name) %(Project.TargetDir)" Importance="high" />
+    <Message Text="Getting package files from %(Project.Name) %(Project.TargetDir)" Importance="$(_Low)" />
     <ItemGroup>
       <_PackageFiles Remove="@(_PackageFiles)" />
       <_LayoutFiles Remove="@(_LayoutFiles)" />

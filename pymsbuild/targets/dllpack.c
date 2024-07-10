@@ -3,27 +3,67 @@
 
 #include "dllpack.h"
 
+#define MATCH_NONE 0
+#define MATCH_FULL 1
+#define MATCH_FULL_PACKAGE 2
+#define MATCH_PARENT 3
+#define MATCH_PREFIX 4
+
+static int
+entry_matches(const struct ENTRY *entry, const char *name, size_t cchName)
+{
+    if (!cchName) {
+        cchName = strlen(name);
+    }
+    if (!cchName) {
+        if (strchr(entry->name, '.')) {
+            return MATCH_PARENT;
+        }
+        return MATCH_NONE;
+    }
+
+    if (!strcmp(entry->name, name)) {
+        // Full name match
+        if (entry->origin[cchName] == '/' || entry->origin[cchName] == '\\'){
+            // Origin is a directory, which means this is a package
+            return MATCH_FULL_PACKAGE;
+        }
+        return MATCH_FULL;
+    }
+    if (strncmp(entry->name, name, cchName) || entry->name[cchName] != '.') {
+        return MATCH_NONE;
+    }
+    // Prefix match
+    if (!strchr(&entry->name[cchName + 1], '.')) {
+        // name is direct parent of this entry
+        return MATCH_PARENT;
+    }
+    return MATCH_PREFIX;
+}
+
 static const struct ENTRY *
 lookup_import(const char *name, int *is_package)
 {
-    struct ENTRY *found = NULL;
     int cchName = strlen(name);
     *is_package = 0;
     if (PySys_Audit("pymsbuild.dllpack.lookup_import", "ss", _DLLPACK_NAME, name) < 0) {
         return NULL;
     }
     for (struct ENTRY *entry = IMPORT_TABLE; entry->name; ++entry) {
-        if (!strcmp(entry->name, name)) {
-            found = entry;
-        }
-        if (!strncmp(entry->name, name, cchName) && entry->name[cchName] == '.') {
+        switch (entry_matches(entry, name, cchName)) {
+        case MATCH_FULL:
+            *is_package = 0;
+            return entry;
+        case MATCH_FULL_PACKAGE:
             *is_package = 1;
-            if (found) {
-                break;
-            }
+            return entry;
+        case MATCH_PARENT:
+        case MATCH_PREFIX:
+            *is_package = 1;
+            return NULL;
         }
     }
-    return found;
+    return NULL;
 }
 
 static const struct ENTRY *
@@ -268,6 +308,10 @@ mod_makespec(PyObject *self, PyObject *args)
         goto error;
     }
 
+    if (is_package && PyDict_SetItemString(kwargs, "is_package", Py_True) < 0) {
+        goto error;
+    }
+
     args2 = Py_BuildValue("sO", name, loader);
     if (!args2) {
         goto error;
@@ -304,11 +348,20 @@ error:
 }
 
 static int
-_mod_module_names_append(PyObject *list, struct ENTRY *found, struct ENTRY *next)
+_mod_module_names_append(PyObject *list, struct ENTRY *entry, const char *prefix, size_t cchPrefix)
 {
-    int fnlen = strlen(found->name);
-    int is_pkg = next && !strncmp(next->name, found->name, fnlen) && next->name[fnlen + 1] == '.';
-    PyObject *o = Py_BuildValue("si", found->name, is_pkg);
+    if (entry->name[0] == '.') {
+        return 0;
+    }
+    int cchName = strlen(entry->name);
+    int is_package = entry_matches(entry, entry->name, cchName) == MATCH_FULL_PACKAGE;
+    if (!cchPrefix) {
+        cchPrefix = strlen(prefix);
+    }
+    if (cchPrefix) {
+        cchPrefix += 1;
+    }
+    PyObject *o = Py_BuildValue("si", &entry->name[cchPrefix], is_package);
     int r = -1;
     if (o) {
         r = PyList_Append(list, o);
@@ -326,34 +379,22 @@ mod_module_names(PyObject *self, PyObject *args)
         return NULL;
     }
     size_t cchPrefix = strlen(prefix);
-    if (prefix[cchPrefix - 1] != '.') {
-        PyErr_SetString(PyExc_ValueError, "prefix must end with a dot");
-        return NULL;
-    }
     if (PySys_Audit("pymsbuild.dllpack.module_names", "ss", _DLLPACK_NAME, prefix) < 0) {
         return NULL;
     }
-    struct ENTRY *found = NULL;
     PyObject *r = PyList_New(0);
     if (!r) {
         return NULL;
     }
     for (struct ENTRY *entry = IMPORT_TABLE; entry->name; ++entry) {
-        // Add the previous match, now we know whether it could be a package
-        if (found) {
-            if (_mod_module_names_append(r, found, entry) < 0) {
+        switch (entry_matches(entry, prefix, cchPrefix)) {
+        case MATCH_PARENT:
+            if (_mod_module_names_append(r, entry, prefix, cchPrefix) < 0) {
                 Py_DECREF(r);
                 return NULL;
             }
-            found = NULL;
+            break;
         }
-        // Check whether entry matches
-        if (!strncmp(entry->name, prefix, cchPrefix) && !strchr(&entry->name[cchPrefix], '.')) {
-            found = entry;
-        }
-    }
-    if (found && _mod_module_names_append(r, found, NULL) < 0) {
-        Py_CLEAR(r);
     }
     return r;
 }

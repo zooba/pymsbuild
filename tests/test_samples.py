@@ -24,6 +24,7 @@ ENV = {
 
 WIN32_SAMPLES = {
     "azure-pack",
+    "azure-cli",
 }
 
 

@@ -3,6 +3,7 @@ import re
 import sys
 
 from pathlib import PurePath, Path
+from pymsbuild import get_current_build_state
 from pymsbuild._types import *
 from pymsbuild.dllpack import DllPackage, PydRedirect
 
@@ -68,7 +69,8 @@ class _VendoredMixin:
                     continue
                 if self._add_vendor_member(source / filename, filename, filehash, filesize):
                     found += 1
-        print(f"Added {found} file{'s' if found != 1 else ''} for {self.name}")
+        if get_current_build_state().verbose and not get_current_build_state().quiet:
+            print(f"Added {found} file{'s' if found != 1 else ''} for {self.name}")
 
 
 class VendoredPackage(Package, _VendoredMixin):

@@ -1,5 +1,6 @@
 import os
 import re
+from importlib.util import find_spec
 from pathlib import Path, PurePath
 from pymsbuild import *
 from pymsbuild.dllpack import DllPackage, PydRedirect
@@ -52,6 +53,7 @@ PACKAGES = {
     # Override some packages that won't work as DLLs
     "setuptools": VendoredPackage(PACKAGE_SPECS["setuptools"]),
     "_distutils_hack": VendoredPackage(PACKAGE_SPECS["setuptools"], "_distutils_hack"),
+    "_cffi_backend": File("_cffi_backend", IncludeInSdist=False),
 
     # pywin32 is so messy we just put it all in its own search path
     "pywin32": VendoredPackage(PACKAGE_SPECS["pywin32"], as_search_path=True),
@@ -65,24 +67,28 @@ class SiteFile(File):
         return PurePath(self.name).match(key)
 
 
-PACKAGE = Package("azure-cli",
+PACKAGE = Package(
+    "azure-cli",
     SourceFile("requirements.txt"),
-    PyFile("main.py"),
+
+    # Specify no contents here, but will add it during init_PACKAGE
     DllPackage("azure"),
-    Package("azurecli", PyFile("azurecli.py", "__init__.py")),
+
+    # Put all vendored packages in their own directory, and add a search path below
     Package("vendored", *[p for p in PACKAGES.values() if p]),
-    #SiteFile("pywin32_system32/*.dll"),
     
+    PyFile("main.py"),
     Entrypoint(
-        "az", "main", "main",
+        "az", "main", "run",
         VersionInfo(
-            LegalCopyright="Copyright Me",
+            LegalCopyright="Copyright Microsoft",
         ),
         #Icon("Globe1.ico"),
         SearchPath("."),
         SearchPath("stdlib.zip"),
         SearchPath("vendored"),
         # We won't get pywin32.pth automatically, so add its paths instead
+        # We also add its 'import pywin32_bootstrap' to our main.py
         SearchPath("vendored/pywin32"),
         SearchPath("vendored/pywin32/pythonwin"),
         SearchPath("vendored/pywin32/win32"),
@@ -105,19 +111,14 @@ def init_PACKAGE(tag=None):
 
     VendoredPackage.collect_all(PACKAGE, tag)
 
+    spec = find_spec("_cffi_backend")
+    PACKAGES["_cffi_backend"].source = spec.origin
+    PACKAGES["_cffi_backend"].name = Path(spec.origin).name
+
     azure = PACKAGE.find('azure')
     import azure as azure_module
     for p in azure_module.__path__:
         azure.members.append(PyFile(
-            Path(p) / "**/*.py",
-            allow_none=True,
-            exclude=Path(p) / "cli/**/*.py",
-        ))
-
-    azurecli = PACKAGE.find('azurecli')
-    import azure.cli as azurecli_module
-    for p in azurecli_module.__path__:
-        azurecli.members.append(PyFile(
             Path(p) / "**/*.py",
             allow_none=True,
         ))

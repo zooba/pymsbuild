@@ -53,25 +53,29 @@ def _init():
     LOADER = DllPackLoader()
 
     class DllPackFinder(MetaPathFinder):
-        _PATH_HOOK_PREFIX = "pymsbuild.dllpack:" + _NAME
+        _PATH_HOOK_PREFIX = "$dllpack:" + _NAME
+
+        def __init__(self, prefix):
+            self._prefix = prefix
 
         @classmethod
         def find_spec(cls, fullname, path=None, target=None):
             if fullname.startswith(_NAME_DOT) or fullname == _NAME:
-                spec = _MAKESPEC(fullname, LOADER, cls._PATH_HOOK_PREFIX)
+                spec = _MAKESPEC(fullname, LOADER, "$dllpack:" + fullname)
                 if spec and not spec.loader:
                     spec.loader = ExtensionFileLoader(spec.name, spec.origin)
                 return spec
 
-        @classmethod
-        def iter_modules(cls, prefix):
-            return _MODULE_NAMES(prefix + ".")
+        def iter_modules(self, prefix):
+            if not prefix:
+                prefix = self._prefix
+            return _MODULE_NAMES(prefix)
 
         @classmethod
         def hook(cls, path):
-            if path != cls._PATH_HOOK_PREFIX:
-                raise ImportError()
-            return cls
+            if path.startswith(cls._PATH_HOOK_PREFIX):
+                return cls(path[len("$dllpack:"):])
+            raise ImportError()
 
     DllPackFinder.__name__ += "_" + _NAME
     DllPackFinder.__qualname__ = "<generated>." + DllPackFinder.__name__

@@ -99,8 +99,8 @@ class CodeFileInfo:
             return "Missing input: {}".format(self.sourcefile)
 
     @classmethod
-    def get_builtin(cls, resid, sourcefile):
-        return cls("code:${}:{}".format(sourcefile.stem, sourcefile), resid=resid)
+    def get_builtin(cls, resid, sourcefile, name):
+        return cls("code:${}:{}".format(name or sourcefile.stem, sourcefile), resid=resid)
 
 
 class DataFileInfo:
@@ -275,7 +275,7 @@ def _c_str(s):
 
 
 def _generate_windows_files(module, files, targets, encrypt=None):
-    files.append(CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py"))
+    files.append(CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py", f"dllpack.{module}"))
 
     with open("dllpack.rc", "w", encoding="ascii", errors="backslashescape") as rc_file:
         print("#define PYCFILE 257", file=rc_file)
@@ -320,7 +320,7 @@ def _generate_windows_files(module, files, targets, encrypt=None):
 
 
 def _generate_gcc_files(module, files, targets, encrypt=None):
-    importer = CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py")
+    importer = CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py", f"dllpack.{module}")
     files.append(importer)
 
     with open("dllpack.rc", "w", encoding="utf-8", errors="strict") as rc_file:
