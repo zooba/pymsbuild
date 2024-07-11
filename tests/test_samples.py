@@ -69,6 +69,10 @@ def with_simpleindex(tmp_path_factory):
         env={**ENV, **si_env},
     )
     try:
+        try:
+            si_proc.wait(1)
+        except subprocess.TimeoutExpired:
+            pass
         urlopen(si_env["PIP_INDEX_URL"] + "pymsbuild", timeout=5.0).close()
         yield si_env
     except urllib.error.URLError:
