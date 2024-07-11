@@ -81,8 +81,13 @@ class BuildState:
         self.target = None
         self.msbuild_exe = None
         self.output_dir = Path(output_dir) if output_dir else None
-        self.build_dir = None
-        self.temp_dir = None
+        if os.getenv("PYMSBUILD_TEMP_DIR"):
+            root_dir = Path(os.getenv("PYMSBUILD_TEMP_DIR"))
+            self.build_dir = root_dir / "bin"
+            self.temp_dir = root_dir / "temp"
+        else:
+            self.build_dir = None
+            self.temp_dir = None
         self._perform_layout = None
         self.layout_dir = None
         self.layout_extra_files = []
@@ -111,7 +116,7 @@ class BuildState:
         self.build_dir = self.source_dir / (self.build_dir or "build/bin")
         if self._perform_layout is None:
             self._perform_layout = bool(self.layout_dir)
-        self.layout_dir = self.source_dir / (self.layout_dir or "build/layout")
+        self.layout_dir = self.source_dir / (self.layout_dir or (self.build_dir / "layout"))
         self.temp_dir = self.source_dir / (self.temp_dir or "build/temp")
         self.pkginfo = self.source_dir / (self.pkginfo or "PKG-INFO")
         self.metadata_dir = self.temp_dir / (self.metadata_dir or "metadata")
