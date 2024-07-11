@@ -56,6 +56,7 @@ def with_simpleindex(tmp_path_factory):
             **ENV,
             # Lie about the version number so we always select our build
             "BUILD_BUILDNUMBER": "9999.0.0",
+            "GITHUB_REF": "",
             "PYMSBUILD_TEMP_DIR": str(TMP / "pymsbuild_tmp"),
         },
     )
