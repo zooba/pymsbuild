@@ -1,0 +1,11 @@
+[routes."pymsbuild"]
+source = "path"
+to = "../out"
+
+[routes."{project}"]
+source = "http"
+to = "https://pypi.org/simple/{project}/"
+
+[server]
+host = "127.0.0.1"
+port = 65432
