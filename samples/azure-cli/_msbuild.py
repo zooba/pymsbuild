@@ -53,6 +53,7 @@ PACKAGES = {
     # Override some packages that won't work as DLLs
     "setuptools": VendoredPackage(PACKAGE_SPECS["setuptools"]),
     "_distutils_hack": VendoredPackage(PACKAGE_SPECS["setuptools"], "_distutils_hack"),
+    "pkg_resources": VendoredPackage(PACKAGE_SPECS["setuptools"], "pkg_resources"),
     "_cffi_backend": File("_cffi_backend", IncludeInSdist=False),
 
     # pywin32 is so messy we just put it all in its own search path
