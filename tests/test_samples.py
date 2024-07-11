@@ -2,6 +2,7 @@ import importlib.machinery
 import os
 import pytest
 import shutil
+import socket
 import subprocess
 import sys
 
@@ -70,6 +71,11 @@ def with_simpleindex(tmp_path_factory):
     try:
         urlopen(si_env["PIP_INDEX_URL"] + "pymsbuild", timeout=5.0).close()
         yield si_env
+    except socket.ConnectionRefusedError:
+        try:
+            si_proc.wait(5)
+        except Exception:
+            pass
     finally:
         si_proc.kill()
 
