@@ -2,9 +2,9 @@ import importlib.machinery
 import os
 import pytest
 import shutil
-import socket
 import subprocess
 import sys
+import urllib.error
 
 from pathlib import Path
 from urllib.request import urlopen
@@ -71,11 +71,12 @@ def with_simpleindex(tmp_path_factory):
     try:
         urlopen(si_env["PIP_INDEX_URL"] + "pymsbuild", timeout=5.0).close()
         yield si_env
-    except socket.ConnectionRefusedError:
+    except urllib.error.URLError:
         try:
             si_proc.wait(5)
         except Exception:
             pass
+        raise
     finally:
         si_proc.kill()
 
