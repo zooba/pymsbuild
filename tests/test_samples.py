@@ -47,7 +47,6 @@ def maybe_skip(sample):
 
 @pytest.fixture(scope="session")
 def with_simpleindex(tmp_path_factory):
-    DIR = ROOT / "samples" / sample
     TMP = tmp_path_factory.mktemp("with_simpleindex")
     OUT = TMP / "wheelhouse"
     subprocess.check_call(
