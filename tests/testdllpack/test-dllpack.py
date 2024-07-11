@@ -38,7 +38,8 @@ assert os.path.splitext(TDP.__file__)[1].lower() == ".py"
 
 assert TDP.__spec__.origin == TDP.__file__
 assert TDP.__spec__.name == "testdllpack"
-assert TDP.__spec__.submodule_search_locations == TDP.__path__ == []
+assert TDP.__spec__.submodule_search_locations == ["$dllpack:testdllpack"], TDP.__spec__.submodule_search_locations
+assert TDP.__spec__.submodule_search_locations == TDP.__path__, TDP.__path__
 assert TDP.INIT_MEMBER
 
 #######################################

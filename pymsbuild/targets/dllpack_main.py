@@ -91,5 +91,5 @@ __spec__ = _init()
 __file__ = __spec__.origin
 __loader__ = __spec__.loader
 __package__ = getattr(__spec__, "parent", None)
-__path__ = []
+__path__ = __spec__.submodule_search_locations
 del _init, __CREATE_MODULE, __DATA, __DATA_NAMES, __EXEC_MODULE, __MODULE_NAMES, __MAKESPEC, __NAME
