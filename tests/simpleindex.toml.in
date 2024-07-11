@@ -1,6 +1,6 @@
 [routes."pymsbuild"]
 source = "path"
-to = "../out"
+to = "."
 
 [routes."{project}"]
 source = "http"

@@ -46,9 +46,10 @@ def maybe_skip(sample):
 
 
 @pytest.fixture(scope="session")
-def with_simpleindex(tmp_path):
+def with_simpleindex(tmp_path_factory):
     DIR = ROOT / "samples" / sample
-    OUT = tmp_path / "simpleindex_tmp"
+    TMP = tmp_path_factory.mktemp("with_simpleindex")
+    OUT = TMP / "wheelhouse"
     subprocess.check_call(
         [sys.executable, "-m", "pip", "wheel", ROOT, "-w", OUT],
         cwd=ROOT,
@@ -56,7 +57,7 @@ def with_simpleindex(tmp_path):
             **ENV,
             # Lie about the version number so we always select our build
             "BUILD_BUILDNUMBER": "9999.0.0",
-            "PYMSBUILD_TEMP_DIR": str(tmp_path / "pymsbuild_tmp"),
+            "PYMSBUILD_TEMP_DIR": str(TMP / "pymsbuild_tmp"),
         },
     )
     shutil.copy2(ROOT / "tests/simpleindex.toml.in", OUT / "simpleindex.toml")
