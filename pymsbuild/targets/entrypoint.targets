@@ -36,7 +36,7 @@
           StandardOutputImportance="low">
       <Output TaskParameter="ConsoleOutput" PropertyName="_ConfigDir" />
     </Exec>
-    <Exec Command="make -f $(_ConfigDir)/Makefile -E 'print:;@printf $$(LIBDEST)\\n$$(DESTSHARED)\\n' print"
+    <Exec Command="make -f $(_ConfigDir)/Makefile -E 'print:;@printf %24(LIBDEST)\\n%24(DESTSHARED)\\n' print 2>nul"
           ConsoleToMsBuild="true"
           StandardOutputImportance="low">
       <Output TaskParameter="ConsoleOutput" ItemName="_LibDest" />
@@ -48,25 +48,38 @@
 
   <Target Name="_UpdateDefaultEntrypointPythonPath"
           DependsOnTargets="_UpdateDefaultEntrypointPythonPath_Windows;_UpdateDefaultEntrypointPythonPath_Gcc"
-          Condition="@(DefaultEntrypointPythonPath) != ''">
+          Condition="@(DefaultEntrypointPythonPath) != '' or @(EntrypointPythonPath) == ''">
   </Target>
 
   <Target Name="_UpdateEntrypointSources" DependsOnTargets="_UpdateDefaultEntrypointPythonPath">
-    <PropertyGroup>
-      <_EntrypointDef>_ENTRYPOINT_MODULE=$(EntrypointModule)</_EntrypointDef>
-      <_EntrypointDef>$(_EntrypointDef);_ENTRYPOINT_FUNCTION=$(EntryPointFunction)</_EntrypointDef>
-    </PropertyGroup>
-    <PropertyGroup>
-      <_EntrypointPaths>@(EntrypointPythonPath, '|')</_EntrypointPaths>
-      <_EntrypointPaths Condition="$(_EntrypointPaths) == '' and $(PythonRuntimeEmbeddable) == 'true' and $(PythonRuntimeRenameStdlibZip) == 'true'">.|stdlib.zip</_EntrypointPaths>
-      <_EntrypointPaths Condition="$(_EntrypointPaths) == '' and ($(PythonRuntimeEmbeddable) != 'true' or $(PythonRuntimeRenameStdlibZip) != 'true')">.</_EntrypointPaths>
-      <_EntrypointDef>$(_EntrypointDef);_ENTRYPOINT_PYTHONPATH=$(_EntrypointPaths)</_EntrypointDef>
-    </PropertyGroup>
     <PropertyGroup Condition="@(EntrypointIcon) != ''">
       <_EntrypointDef>$(_EntrypointDef);_ENTRYPOINT_ICON=@(EntrypointIcon)</_EntrypointDef>
     </PropertyGroup>
+
+    <PropertyGroup>
+      <_EntrypointH>$(IntDir)/entrypoint.h</_EntrypointH>
+      <_OriginalCode Condition="Exists($(_EntrypointH))">$([System.IO.File]::ReadAllText($(_EntrypointH)))</_OriginalCode>
+      <_EntrypointPaths>@(EntrypointPythonPath->'    PYTHONPATH_ENTRY("%(Identity)"),', '%0A')</_EntrypointPaths>
+      <_NewCode>const char *entrypointModule = "$(EntrypointModule)"%3B
+const char *entrypointFunction = "$(EntrypointFunction)"%3B
+PYTHONPATH_T entrypointPythonPath[] = {
+$(_EntrypointPaths)
+    NULL
+}%3B
+</_NewCode>
+    </PropertyGroup>
+
+    <WriteLinesToFile File="$(_EntrypointH)" Lines="$(_NewCode)"
+                      Overwrite="true"
+                      Condition="$(_NewCode) != $(_OldCode)" />
+    <ItemGroup>
+      <ClInclude Include="$(_EntrypointH)" />
+      <FileWrites Include="$(_EntrypointH)" />
+    </ItemGroup>
+
     <ItemGroup>
       <ClCompile Include="$(_EntrypointSource)">
+        <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
         <PreprocessorDefinitions>%(PreprocessorDefinitions);$(_EntrypointDef)</PreprocessorDefinitions>
         <ObjectFile Condition="$(PlatformToolset) == 'gcc'">$([msbuild]::EnsureTrailingSlash($(IntDir)))entrypoint.o</ObjectFile>
         <ObjectFile Condition="$(PlatformToolset) != 'gcc'">$([msbuild]::EnsureTrailingSlash($(IntDir)))entrypoint.obj</ObjectFile>

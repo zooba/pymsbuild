@@ -5,13 +5,9 @@
 #include <pathcch.h>
 #pragma comment(lib, "pathcch.lib")
 
-#define stringize(x) #x
-#define stringizeL(x) L ## #x
-#define init(x, y) const char *x = stringize(y)
-#define initL(x, y) const wchar_t *x = stringizeL(y)
-init(entrypointModule, _ENTRYPOINT_MODULE);
-init(entrypointFunction, _ENTRYPOINT_FUNCTION);
-initL(entrypointPythonPath, _ENTRYPOINT_PYTHONPATH);
+#define PYTHONPATH_T const wchar_t *
+#define PYTHONPATH_ENTRY(s) L ## s
+#include "entrypoint.h"
 
 #define CHECK_STATUS(op) status = op; \
 if (PyStatus_Exception(status)) { \
@@ -63,20 +59,11 @@ int wmain(int argc, wchar_t **argv)
 #endif
     config.install_signal_handlers = 1;
 
-    for (const wchar_t *p = entrypointPythonPath; p;) {
+    for (PYTHONPATH_T *p = entrypointPythonPath; *p; ++p) {
         wchar_t searchPath[maxPath];
-        wchar_t path[maxPath];
-        const wchar_t *p2 = wcschr(p, L'|');
-        if (p2) {
-            wcsncpy_s(path, maxPath, p, (size_t)(p2 - p));
-            p = p2 + 1;
-        } else {
-            wcscpy_s(path, maxPath, p);
-            p = NULL;
-        }
         searchPath[0] = L'\0';
-        if (FAILED(PathCchCombineEx(searchPath, maxPath, home, path, PATHCCH_ALLOW_LONG_PATHS))) {
-            fprintf(stderr, "WARN: failed to add search path %S\n", path);
+        if (FAILED(PathCchCombineEx(searchPath, maxPath, home, *p, PATHCCH_ALLOW_LONG_PATHS))) {
+            fprintf(stderr, "WARN: failed to add search path %S\n", *p);
         } else {
             CHECK_STATUS(PyWideStringList_Append(&config.module_search_paths, searchPath));
         }

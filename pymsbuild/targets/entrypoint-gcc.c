@@ -4,11 +4,9 @@
 #define _GNU_SOURCE 1
 #include <unistd.h>
 
-#define stringize(x) #x
-#define init(x, y) const char *x = stringize(y)
-init(entrypointModule, _ENTRYPOINT_MODULE);
-init(entrypointFunction, _ENTRYPOINT_FUNCTION);
-init(entrypointPythonPath, _ENTRYPOINT_PYTHONPATH);
+#define PYTHONPATH_T const char *
+#define PYTHONPATH_ENTRY(s) s
+#include "entrypoint.h"
 
 #define CHECK_STATUS(op) status = op; \
 if (PyStatus_Exception(status)) { \
@@ -66,15 +64,12 @@ int main(int argc, char **argv)
 #endif
     config.install_signal_handlers = 1;
 
-    for (const char *p = entrypointPythonPath; p; ) {
+    for (PYTHONPATH_T *p = entrypointPythonPath; *p; ++p) {
         char searchPath[maxPath];
-        const char *p2 = strchr(p, '|');
-        if (p2) {
-            snprintf(searchPath, maxPath, "%s/%.*s", home, (int)(p2 - p), p);
-            p = p2 + 1;
+        if (strcmp(*p, ".")) {
+            snprintf(searchPath, maxPath, "%s/%s", home, *p);
         } else {
-            snprintf(searchPath, maxPath, "%s/%s", home, p);
-            p = NULL;
+            strcpy(searchPath, home);
         }
         const wchar_t *wpath = Py_DecodeLocale(searchPath, NULL);
         if (wpath) {
