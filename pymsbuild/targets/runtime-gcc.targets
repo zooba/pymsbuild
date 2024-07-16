@@ -2,10 +2,10 @@
   <Target Name="_DownloadRuntime_Properties">
     <PropertyGroup>
       <PythonRuntimeDir Condition="$(PythonRuntimeDir) == ''">$(IntDir)python</PythonRuntimeDir>
-      <PythonRuntimeExecutables Condition="$(PythonRuntimeExecutables) != 'true'">false</PythonRuntimeExecutables>
       <PythonRuntimeEmbeddable Condition="$(PythonRuntimeEmbeddable) != 'true'">false</PythonRuntimeEmbeddable>
-      <Python_PthFile Condition="$(Python_PthFile) != 'false'">true</Python_PthFile>
-      <PythonRuntimeRenameStdlibZip Condition="$(PythonRuntimeRenameStdlibZip) != 'true'">false</PythonRuntimeRenameStdlibZip>
+      <PythonRuntimeVersionless Condition="$(PythonRuntimeVersionless) != 'false'">true</PythonRuntimeVersionless>
+      <PythonRuntimeExclude Condition="$(PythonRuntimeExecutables) != 'true'">python*+x|$(PythonRuntimeExclude)</PythonRuntimeExclude>
+      <PythonRuntimeExclude Condition="$(Python_PthFile) == 'false'">*._pth|$(PythonRuntimeExclude)</PythonRuntimeExclude>
     </PropertyGroup>
     <ItemGroup>
       <_ExistingPythonRuntime Include="$(PythonRuntimeDir)/**/*" />

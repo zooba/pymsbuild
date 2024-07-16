@@ -5,7 +5,7 @@ from importlib.util import find_spec
 from pathlib import Path, PurePath
 from pymsbuild import *
 from pymsbuild.dllpack import DllPackage, PydRedirect
-from pymsbuild.entrypoint import Entrypoint, SearchPath
+from pymsbuild.entrypoint import *
 from pymsbuild.vendor import *
 
 METADATA = {
@@ -58,9 +58,20 @@ PACKAGES = {
     "_cffi_backend": File("_cffi_backend", IncludeInSdist=False),
 }
 
+
 if "pywin32" in PACKAGES:
     # pywin32 is so messy we just put it all in its own search path
     PACKAGES["pywin32"] = VendoredPackage(PACKAGE_SPECS["pywin32"], as_search_path=True)
+    # We won't get pywin32.pth automatically, so add its paths instead
+    # We also add its 'import pywin32_bootstrap' to our main.py
+    PYWIN32_SEARCH_PATHS = [
+        SearchPath("vendored/pywin32"),
+        SearchPath("vendored/pywin32/pythonwin"),
+        SearchPath("vendored/pywin32/win32"),
+        SearchPath("vendored/pywin32/win32/lib"),
+    ]
+else:
+    PYWIN32_SEARCH_PATHS = []
 
 
 class SiteFile(File):
@@ -87,14 +98,9 @@ PACKAGE = Package(
         ),
         #Icon("Globe1.ico"),
         SearchPath("."),
-        SearchPath("stdlib.zip"),
         SearchPath("vendored"),
-        # We won't get pywin32.pth automatically, so add its paths instead
-        # We also add its 'import pywin32_bootstrap' to our main.py
-        SearchPath("vendored/pywin32"),
-        SearchPath("vendored/pywin32/pythonwin"),
-        SearchPath("vendored/pywin32/win32"),
-        SearchPath("vendored/pywin32/win32/lib"),
+        DefaultSearchPath(),
+        *PYWIN32_SEARCH_PATHS
     ),
 )
 

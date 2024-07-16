@@ -2,6 +2,7 @@ import os
 
 from pymsbuild._types import *
 
+__all__ = ['Entrypoint', 'Icon', 'SearchPath', 'DefaultSearchPath']
 
 class Entrypoint(PydFile):
     r"""Represents an executable that loads Python and calls your function.
@@ -60,3 +61,17 @@ Paths are relative to the location of the executable."""
     def write_member(self, project, group):
         group.switch_to("ItemGroup")
         project.add_item(self._ITEMNAME, self.name, **self.options)
+
+
+class DefaultSearchPath(SearchPath):
+    r"""Represents a default Python search path.
+
+This will vary depending on how Python is being included or referenced
+from the built executable. For portability/relocatability, you are
+advised to avoid this option. However, it's fine for when building to
+run on the same machine.
+"""
+    _ITEMNAME = "DefaultEntrypointPythonPath"
+
+    def __init__(self, name="$DefaultPythonPath", **options):
+        super().__init__(name, **options)

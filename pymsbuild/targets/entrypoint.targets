@@ -11,7 +11,47 @@
     <BeforeBuildGenerateSourcesTargets>_UpdateEntrypointSources;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
   </PropertyGroup>
 
-  <Target Name="_UpdateEntrypointSources">
+  <Target Name="_UpdateDefaultEntrypointPythonPath_Windows"
+          DependsOnTargets="_DownloadRuntime_Properties"
+          Condition="$(PlatformToolset) != 'gcc'">
+    <ItemGroup Condition="$(IncludePythonRuntime) != 'false' and $(PythonRuntimeEmbeddable) and $(PythonRuntimeVersionless)">
+      <EntrypointPythonPath Include="stdlib.zip" />
+    </ItemGroup>
+    <ItemGroup Condition="$(IncludePythonRuntime) != 'false' and $(PythonRuntimeEmbeddable) and !$(PythonRuntimeVersionless)">
+      <EntrypointPythonPath Include="python*.zip" />
+    </ItemGroup>
+    <Error Condition="$(PythonRuntimeEmbeddable) and !$(PythonRuntimeVersionless)"
+           Text="DefaultSearchPath is not supported without PythonRuntimeVersionless=true" />
+    <ItemGroup Condition="$(IncludePythonRuntime) == 'false'">
+      <EntrypointPythonPath Include="$([System.IO.Path]::Combine($(PythonLibs), '..\Lib'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_UpdateDefaultEntrypointPythonPath_Gcc"
+          DependsOnTargets="_DownloadRuntime_Properties"
+          Condition="$(PlatformToolset) == 'gcc'">
+    <!-- TODO: Update when enabling download of runtime -->
+    <Exec Command="$(PythonConfig) --configdir"
+          ConsoleToMsBuild="true"
+          StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_ConfigDir" />
+    </Exec>
+    <Exec Command="make -f $(_ConfigDir)/Makefile -E 'print:;@printf $$(LIBDEST)\\n$$(DESTSHARED)\\n' print"
+          ConsoleToMsBuild="true"
+          StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" ItemName="_LibDest" />
+    </Exec>
+    <ItemGroup>
+      <EntrypointPythonPath Include="@(_LibDest)" Condition="Exists(%(Identity))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_UpdateDefaultEntrypointPythonPath"
+          DependsOnTargets="_UpdateDefaultEntrypointPythonPath_Windows;_UpdateDefaultEntrypointPythonPath_Gcc"
+          Condition="@(DefaultEntrypointPythonPath) != ''">
+  </Target>
+
+  <Target Name="_UpdateEntrypointSources" DependsOnTargets="_UpdateDefaultEntrypointPythonPath">
     <PropertyGroup>
       <_EntrypointDef>_ENTRYPOINT_MODULE=$(EntrypointModule)</_EntrypointDef>
       <_EntrypointDef>$(_EntrypointDef);_ENTRYPOINT_FUNCTION=$(EntryPointFunction)</_EntrypointDef>
