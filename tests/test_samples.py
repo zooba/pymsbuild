@@ -31,7 +31,9 @@ WIN32_SAMPLES = {
 }
 
 
-POSIX_SAMPLES = set()
+POSIX_SAMPLES = {
+    "azure-cli",
+}
 
 def all_samples(f):
     return pytest.mark.parametrize(
