@@ -325,6 +325,8 @@ def _generate_gcc_files(module, files, targets, encrypt=None):
     importer = CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py", f"dllpack.{module}")
     files.append(importer)
 
+    module_name = module.rpartition(".")[2]
+
     with open("dllpack.rc", "w", encoding="utf-8", errors="strict") as rc_file:
         for f in files:
             if f.RC_TYPE:
@@ -332,7 +334,7 @@ def _generate_gcc_files(module, files, targets, encrypt=None):
 
     with open("dllpack.h", "w", encoding="ascii", errors="backslashescape") as h_file:
         print('#define _MODULE_NAME "{}"'.format(module), file=h_file)
-        print('#define _INIT_FUNC_NAME PyInit_{}'.format(module), file=h_file)
+        print('#define _INIT_FUNC_NAME PyInit_{}'.format(module_name), file=h_file)
         print("#define _PYC_HEADER_LEN 16", file=h_file)
         print('#include "dllpack-gcc.h"', file=h_file)
         if encrypt:

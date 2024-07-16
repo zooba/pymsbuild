@@ -70,7 +70,7 @@ class _VendoredMixin:
                 if self._add_vendor_member(source / filename, filename, filehash, filesize):
                     found += 1
         if get_current_build_state().verbose and not get_current_build_state().quiet:
-            print(f"Added {found} file{'s' if found != 1 else ''} for {self.name}")
+            print(f"Vendoring {found} file{'s' if found != 1 else ''} for {self.name}")
 
 
 class VendoredPackage(Package, _VendoredMixin):
