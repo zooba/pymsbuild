@@ -74,12 +74,11 @@ PACKAGE = Package(
     "azure-cli",
     SourceFile("requirements.txt"),
 
-    # Specify no contents here, but will add it during init_PACKAGE
-    DllPackage("azure"),
+    Package("azure"),
 
     # Put all vendored packages in their own directory, and add a search path below
     Package("vendored", *[p for p in PACKAGES.values() if p]),
-    
+
     PyFile("main.py"),
     Entrypoint(
         "az", "main", "run",
@@ -118,10 +117,14 @@ def init_PACKAGE(tag=None):
     PACKAGES["_cffi_backend"].source = spec.origin
     PACKAGES["_cffi_backend"].name = Path(spec.origin).name
 
-    azure = PACKAGE.find('azure')
+    azure = PACKAGE.find("azure")
     import azure as azure_module
-    for p in azure_module.__path__:
-        azure.members.append(PyFile(
-            Path(p) / "**/*.py",
-            allow_none=True,
-        ))
+    azure_paths = [Path(p) / n for p in azure_module.__path__ for n in os.listdir(p)]
+    for p in azure_paths:
+        azure.members.append(
+            DllPackage(
+                f"azure.{p.name}",
+                PyFile(p / "**/*.py"),
+                TargetName=p.name,
+            )
+        )

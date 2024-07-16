@@ -277,6 +277,8 @@ def _c_str(s):
 def _generate_windows_files(module, files, targets, encrypt=None):
     files.append(CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py", f"dllpack.{module}"))
 
+    module_name = module.rpartition(".")[2]
+
     with open("dllpack.rc", "w", encoding="ascii", errors="backslashescape") as rc_file:
         print("#define PYCFILE 257", file=rc_file)
         print("#define DATAFILE 258", file=rc_file)
@@ -286,7 +288,7 @@ def _generate_windows_files(module, files, targets, encrypt=None):
 
     with open("dllpack.h", "w", encoding="ascii", errors="backslashescape") as h_file:
         print('#define _MODULE_NAME "{}"'.format(module), file=h_file)
-        print('#define _INIT_FUNC_NAME PyInit_{}'.format(module), file=h_file)
+        print('#define _INIT_FUNC_NAME PyInit_{}'.format(module_name), file=h_file)
         print("#define _PYCFILE 257", file=h_file)
         print("#define _DATAFILE 258", file=h_file)
         print("#define _PYC_HEADER_LEN 16", file=h_file)
