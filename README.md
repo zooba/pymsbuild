@@ -878,7 +878,7 @@ by setting the `PYTHON_CONFIG` variable to the preferred command.
 
 ## Custom entry point
 
-**Experimental. Currently Windows only.**
+**Experimental.**
 
 To generate an executable that will launch your application, include the
 `pymsbuild.entrypoint` module and use an `Entrypoint` definition.

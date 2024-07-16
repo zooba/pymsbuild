@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 from importlib.util import find_spec
 from pathlib import Path, PurePath
 from pymsbuild import *
@@ -21,7 +22,7 @@ METADATA = {
 }
 
 
-with open("requirements.txt", "r", encoding="utf-8") as f:
+with open(f"requirements-{sys.platform}.txt", "r", encoding="utf-8") as f:
     METADATA["BuildWheelRequires"] = list(map(str.strip, f))
 
 
@@ -55,10 +56,11 @@ PACKAGES = {
     "_distutils_hack": VendoredPackage(PACKAGE_SPECS["setuptools"], "_distutils_hack"),
     "pkg_resources": VendoredPackage(PACKAGE_SPECS["setuptools"], "pkg_resources"),
     "_cffi_backend": File("_cffi_backend", IncludeInSdist=False),
-
-    # pywin32 is so messy we just put it all in its own search path
-    "pywin32": VendoredPackage(PACKAGE_SPECS["pywin32"], as_search_path=True),
 }
+
+if "pywin32" in PACKAGES:
+    # pywin32 is so messy we just put it all in its own search path
+    PACKAGES["pywin32"] = VendoredPackage(PACKAGE_SPECS["pywin32"], as_search_path=True)
 
 
 class SiteFile(File):

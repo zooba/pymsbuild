@@ -107,10 +107,11 @@ def test_sample_build_inplace(sample, tmp_path):
     orig_files = {f.relative_to(DIR) for f in DIR.rglob("*")}
     env = dict(ENV)
 
-    if (DIR / "requirements.txt").is_file():
+    reqs = DIR / f"requirements-{sys.platform}.txt"
+    if reqs.is_file():
         PACKAGES = tmp_path / "packages"
         subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "-r", DIR / "requirements.txt", "--target", PACKAGES],
+            [sys.executable, "-m", "pip", "install", "-r", reqs, "--target", PACKAGES],
             env=env,
         )
         env["PYTHONPATH"] = os.pathsep.join(str(s) for s in [PACKAGES, env["PYTHONPATH"]] if s)
