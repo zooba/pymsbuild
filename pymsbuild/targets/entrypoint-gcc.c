@@ -66,7 +66,9 @@ int main(int argc, char **argv)
 
     for (PYTHONPATH_T *p = entrypointPythonPath; *p; ++p) {
         char searchPath[maxPath];
-        if (strcmp(*p, ".")) {
+        if (*p[0] == '/') {
+            strcpy(searchPath, *p);
+        } else if (strcmp(*p, ".")) {
             snprintf(searchPath, maxPath, "%s/%s", home, *p);
         } else {
             strcpy(searchPath, home);
@@ -76,7 +78,7 @@ int main(int argc, char **argv)
             CHECK_STATUS(PyWideStringList_Append(&config.module_search_paths, wpath));
             PyMem_RawFree((void *)wpath);
         } else {
-            fprintf(stderr, "WARN: failed to add search path %s\n", p);
+            fprintf(stderr, "WARN: failed to add search path %s\n", *p);
         }
     }
     config.module_search_paths_set = 1;
