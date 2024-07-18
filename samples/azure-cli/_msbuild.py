@@ -83,7 +83,8 @@ class SiteFile(File):
 
 PACKAGE = Package(
     "azure-cli",
-    SourceFile("requirements.txt"),
+    SourceFile("requirements-win32.txt"),
+    SourceFile("requirements-linux.txt"),
 
     Package("azure"),
 

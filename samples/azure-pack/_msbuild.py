@@ -45,7 +45,7 @@ PACKAGES = {
 
 
 PACKAGE = Package("azure-pack",
-    SourceFile("requirements.txt"),
+    SourceFile("requirements-win32.txt"),
     File("azure-pack.pth.in", name="../azure-pack.pth", IncludeInLayout=False),
     *PACKAGES.values(),
 )
