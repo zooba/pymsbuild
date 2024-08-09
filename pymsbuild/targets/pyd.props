@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <TargetExt Condition="$(TargetExt) == ''">$(DefaultExtSuffix)</TargetExt>
     <TargetPath>$([System.IO.Path]::Combine(`$(ProjectDir)`,`$(OutDir)`,`$(TargetName)$(TargetExt)`))</TargetPath>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
@@ -12,6 +13,8 @@
     <Link>
       <AdditionalLibraryDirectories>$(PythonLibs);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>True</GenerateDebugInformation>
+      <OutputFile>$(TargetPath)</OutputFile>
+      <ProgramDatabaseFile>$([System.IO.Path]::ChangeExtension('$(TargetPath)', '.pdb'))</ProgramDatabaseFile>
     </Link>
     <Lib>
       <OutputFile>$(TargetPath)</OutputFile>

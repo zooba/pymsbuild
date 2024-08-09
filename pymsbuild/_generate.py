@@ -2,7 +2,7 @@ import os
 import sys
 
 from pathlib import PurePath, Path
-from ._types import Package, PydFile, File, LiteralXML, Property, ItemDefinition, ConditionalValue
+from ._types import Package, CProject, File, LiteralXML, Property, ItemDefinition, ConditionalValue
 from ._writer import ProjectFileWriter
 
 from importlib.machinery import EXTENSION_SUFFIXES
@@ -189,7 +189,7 @@ def _write_members(f, source_dir, members):
                 p.write_member(f, g)
 
 
-def _generate_pyd(project, build_dir, root_dir):
+def _generate_c_project(project, build_dir, root_dir):
     build_dir = Path(build_dir)
     proj = build_dir / "{}.proj".format(project.name)
     root_dir = Path(root_dir)
@@ -198,42 +198,31 @@ def _generate_pyd(project, build_dir, root_dir):
     if project.project_file:
         return Path(project.project_file)
 
-    tpath = project.options.get("TargetName", project.name) + (project.options.get("TargetExt") or DEFAULT_PYD_SUFFIX)
-    tname, tdot, text = tpath.rpartition(".")
+    tname = project.options.get("TargetName", project.name)
     with ProjectFileWriter(proj, tname, vc_platforms=True, root_namespace=project.name) as f:
         with f.group("PropertyGroup", Label="Globals"):
             f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
             f.add_property("SourceRootDir", ConditionalValue(root_dir, if_empty=True))
-            f.add_property("__TargetExt", tdot + text)
         _write_project_references(f, project, build_dir, source_dir)
         _write_members(f, source_dir, _all_members(project, recurse_if=lambda m: m is project))
         for n, p in _all_members(project, recurse_if=lambda m: m is project, return_if=lambda m: isinstance(m, Package)):
             _write_members(
                 f,
                 source_dir,
-                _all_members(p, recurse_if=lambda m: not isinstance(m, PydFile), prefix=f"{project.name}/")
+                _all_members(p, recurse_if=lambda m: not isinstance(m, CProject), prefix=f"{project.name}/")
             )
 
     return proj
 
 
-def _generate_pyd_reference_metadata(relname, project, source_dir):
-    output = project.options.get("TargetName", relname.stem) + project.options.get("TargetExt", DEFAULT_PYD_SUFFIX)
-    tname, tdot, text = output.rpartition(".")
-    tdir = relname.parent
-    if str(tdir) == ".":
-        tdir = ""
+def _generate_reference_metadata(relname, project, source_dir):
+    tname = project.options.get("TargetName", relname.stem)
+    tdir = str(relname.parent)
     return {
-        **dict(
-            TargetDir=tdir,
-            IntDir="$(IntDir)" + tname,
-        ),
+        "TargetDir": "" if tdir == "." else tdir,
+        "IntDir": "$(IntDir)" + tname,
         **project.options,
-        **dict(
-            TargetName=tname,
-            TargetExt=tdot + text,
-            SourceDir=source_dir / project.source,
-        ),
+        "SourceDir": source_dir / project.source,
     }
 
 
@@ -241,11 +230,11 @@ def _write_project_references(f, project, build_dir, source_dir):
     with f.group("ItemGroup", Label="ProjectReferences"):
         for n, p in _all_members(
             project,
-            return_if=lambda m: m is not project and isinstance(m, PydFile),
-            make_prefix=lambda prefix, item: "{}{}/".format(prefix, item.name) if not isinstance(item, PydFile) else prefix,
+            return_if=lambda m: m is not project and isinstance(m, CProject),
+            make_prefix=lambda prefix, item: "{}{}/".format(prefix, item.name) if not isinstance(item, CProject) else prefix,
         ):
             fn = PurePath(n)
-            pdir = _generate_pyd(p, build_dir, source_dir)
+            pdir = _generate_c_project(p, build_dir, source_dir)
             try:
                 pdir = pdir.relative_to(Path(f.filename).parent)
             except ValueError:
@@ -254,7 +243,7 @@ def _write_project_references(f, project, build_dir, source_dir):
                 "Project",
                 pdir,
                 Name=n,
-                **_generate_pyd_reference_metadata(fn, p, source_dir),
+                **_generate_reference_metadata(fn, p, source_dir),
             )
 
 
@@ -268,8 +257,8 @@ def generate(project, build_dir, source_dir, config_file=None):
     if project.project_file:
         return Path(project.project_file)
 
-    if isinstance(project, PydFile):
-        return _generate_pyd(project, build_dir, root_dir)
+    if isinstance(project, CProject):
+        return _generate_c_project(project, build_dir, root_dir)
 
     with ProjectFileWriter(proj, project.name) as f:
         with f.group("PropertyGroup"):
@@ -286,7 +275,7 @@ def generate(project, build_dir, source_dir, config_file=None):
             f.add_item("Sdist", root_dir / "pyproject.toml", RelativeSource="pyproject.toml")
         _write_members(f, source_dir, _all_members(
             project,
-            recurse_if=lambda m: not isinstance(m, PydFile),
+            recurse_if=lambda m: not isinstance(m, CProject),
         ))
         f.add_import(f"$(PyMsbuildTargets){SEP}common.targets")
         f.add_import(f"$(PyMsbuildTargets){SEP}package.targets")

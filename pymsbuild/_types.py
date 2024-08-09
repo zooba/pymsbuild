@@ -4,6 +4,7 @@ from pathlib import Path, PurePath
 __all__ = [
     "Package",
     "Project",
+    "CProject",
     "PydFile",
     "VersionInfo",
     "LiteralXML",
@@ -223,7 +224,137 @@ Other options will be added to the project as properties.
 """
 
 
-class PydFile(_Project):
+class CProject(_Project):
+    r"""Represents a native binary.
+
+Use PydFile to create a native Python extension module, unless
+you are avoiding automatic filename generation.
+
+Each CProject represents a single compiled file in the final
+distribution. It must be included in a Package, and the built
+file will be included in that package's directory.
+
+By default it will produce a dynamic library. Specify
+'ConfigurationType' as 'Application' or 'StaticLibrary' to change.
+
+Its members should be source files or projects. Directly referenced
+files will be included in sdists, but transitive references will not.
+
+Specify `project_file` to override all generation with a fixed
+MSBuild project file. This also overrides additional options and
+sdist generation.
+
+Specify `source` to find sources in a subdirectory.
+
+Other options will be added to the project as properties.
+"""
+    options = {
+        "ConfigurationType": "DynamicLibrary",
+    }
+
+    def __init__(self, name, *members, **options):
+        super().__init__(name, *members, **options)
+        self.members = [
+            self.GlobalProperties(self),
+            self.DefaultToolsetProps(),
+            self.ConfigurationProperties(self),
+            self.ToolsetProps(),
+            self.TargetExtProperty(self),
+            self.ToolsetPydProps(),
+            *self.members,
+            self.ToolsetTargets(),
+        ]
+
+
+    class DefaultToolsetProps(ImportGroup):
+        name = "$CProject.DefaultCppProps"
+        imports = [
+            "$(PyMsbuildTargets)/common.props",
+            "$(PyMsbuildTargets)/cpp-default-$(Platform).props",
+        ]
+
+
+    class ToolsetProps(ImportGroup):
+        name = "$CProject.CppImports"
+        imports = [
+            "$(PyMsbuildTargets)/cpp-$(Platform).props",
+        ]
+
+    class ToolsetPydProps(ImportGroup):
+        name = "$CProject.PydProps"
+        imports = [
+            "$(PyMsbuildTargets)/pyd.props",
+        ]
+
+
+    class ToolsetTargets(ImportGroup):
+        name = "$CProject.CppTargets"
+        imports = [
+            "$(PyMsbuildTargets)/common.targets",
+            "$(PyMsbuildTargets)/cpp-$(Platform).targets",
+            "$(PyMsbuildTargets)/pyd.targets",
+        ]
+
+
+    class GlobalProperties(ExactNameMatchMixin):
+        r"""Special handling for C++ properties.
+
+We need to defer some options until after the default imports. These
+will be added by ConfigurationProperties. We also need to defer reading
+from project.options until we're actually writing, as the author may
+modify its contents.
+"""
+        members = ()
+        name = "$CProject.GlobalProperties"
+        defer = {"ConfigurationType", "TargetExt"}
+
+        def __init__(self, project):
+            self.project = project
+
+        def write_member(self, f, g):
+            g.switch_to("PropertyGroup")
+            for k, v in self.project.options.items():
+                if k not in self.defer:
+                    f.add_property(k, v)
+
+
+    class ConfigurationProperties(ExactNameMatchMixin):
+        members = ()
+        name = "$CProject.ConfigurationProperties"
+
+        def __init__(self, project):
+            self.project = project
+
+        def write_member(self, f, g):
+            g.switch_to("PropertyGroup")
+            f.add_property("ConfigurationType", self.project.options.get("ConfigurationType") or "DynamicLibrary")
+            f.add_property("PlatformToolset", "$(DefaultPlatformToolset)")
+            f.add_property("BasePlatformToolset", "$(DefaultPlatformToolset)")
+            f.add_property("CharacterSet", "Unicode")
+
+
+    class TargetExtProperty(ExactNameMatchMixin):
+        members = ()
+        name = "$CProject.TargetExtProperty"
+
+        def __init__(self, project):
+            self.project = project
+
+        def write_member(self, f, g):
+            try:
+                target_ext = self.project.options["TargetExt"]
+            except LookupError:
+                pass
+            else:
+                g.switch_to("PropertyGroup")
+                f.add_property("TargetExt", target_ext)
+
+    # BACK-COMPAT: Expose under old name as well
+    DefaultToolsetImports = DefaultToolsetProps
+    ToolsetImports = ToolsetProps
+
+
+class PydFile(CProject):
     r"""Represents a .pyd module.
 
 Each PydFile represents a single .pyd file in the final distribution.
@@ -242,82 +373,11 @@ Specify `source` to find sources in a subdirectory.
 Other options will be added to the project as properties.
 """
     options = {
-        "ConfigurationType": "DynamicLibrary",
-        "TargetExt": None,
+        **CProject.options,
+        "ConfigurationType": "ExtensionModule",
+        "LinkCompiled": "true",
+        "OutputType": "library",
     }
-
-    def __init__(self, name, *members, **options):
-        super().__init__(name, *members, **options)
-        self.members = [
-            self.GlobalProperties(self),
-            self.DefaultToolsetImports(),
-            self.ConfigurationProperties(self),
-            self.ToolsetImports(),
-            *self.members,
-            self.ToolsetTargets(),
-        ]
-
-
-    class DefaultToolsetImports(ImportGroup):
-        name = "$PydFile.DefaultCppImports"
-        imports = [
-            "$(PyMsbuildTargets)/common.props",
-            "$(PyMsbuildTargets)/cpp-default-$(Platform).props",
-        ]
-
-
-    class ToolsetImports(ImportGroup):
-        name = "$PydFile.CppImports"
-        imports = [
-            "$(PyMsbuildTargets)/cpp-$(Platform).props",
-            "$(PyMsbuildTargets)/pyd.props",
-        ]
-
-
-    class ToolsetTargets(ImportGroup):
-        name = "$PydFile.CppTargets"
-        imports = [
-            "$(PyMsbuildTargets)/common.targets",
-            "$(PyMsbuildTargets)/cpp-$(Platform).targets",
-            "$(PyMsbuildTargets)/pyd.targets",
-        ]
-
-
-    class GlobalProperties(ExactNameMatchMixin):
-        r"""Special handling for C++ properties.
-
-We need to defer some options until after the default imports. These
-will be added by ConfigurationProperties. We also need to defer reading
-from project.options until we're actually writing, as the author may
-modify its contents.
-"""
-        members = ()
-        name = "$PydFile.GlobalProperties"
-        defer = {"ConfigurationType", "TargetExt"}
-
-        def __init__(self, project):
-            self.project = project
-
-        def write_member(self, f, g):
-            g.switch_to("PropertyGroup")
-            for k, v in self.project.options.items():
-                if k not in self.defer:
-                    f.add_property(k, v)
-
-
-    class ConfigurationProperties(ExactNameMatchMixin):
-        members = ()
-        name = "$PydFile.ConfigurationProperties"
-
-        def __init__(self, project):
-            self.project = project
-
-        def write_member(self, f, g):
-            g.switch_to("PropertyGroup")
-            f.add_property("ConfigurationType", self.project.options.get("ConfigurationType") or "DynamicLibrary")
-            f.add_property("PlatformToolset", "$(DefaultPlatformToolset)")
-            f.add_property("BasePlatformToolset", "$(DefaultPlatformToolset)")
-            f.add_property("CharacterSet", "Unicode")
 
 
 class VersionInfo:

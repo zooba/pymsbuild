@@ -4,9 +4,10 @@ from pymsbuild._types import *
 
 __all__ = ['Entrypoint', 'Icon', 'SearchPath', 'DefaultSearchPath']
 
-class Entrypoint(PydFile):
+class Entrypoint(CProject):
     r"""Represents an executable that loads Python and calls your function.
 """
+
     class EntrypointProps:
         members = ()
         name = "$Entrypoint.EntrypointProps"
@@ -14,7 +15,7 @@ class Entrypoint(PydFile):
             g.switch_to(None)
             f.add_import(f"$(PyMsbuildTargets){os.path.sep}entrypoint.props")
 
-    class Imports(ImportGroup):
+    class EntrypointImports(ImportGroup):
         name = "$Entrypoint.Imports"
         imports = [f"$(PyMsbuildTargets){os.path.sep}entrypoint.targets"]
 
@@ -24,11 +25,11 @@ class Entrypoint(PydFile):
         kwargs.setdefault("EntrypointFunction", function)
         super().__init__(name, *members, **kwargs)
         self.insert(
-            PydFile.GlobalProperties.name,
+            CProject.GlobalProperties.name,
             self.EntrypointProps(),
             offset=1,
         )
-        self.members.append(self.Imports())
+        self.members.append(self.EntrypointImports())
 
 
 class Icon(File):

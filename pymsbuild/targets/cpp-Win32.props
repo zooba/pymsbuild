@@ -1,6 +1,4 @@
 <Project>
-  <PropertyGroup>
-    <TargetExt Condition="$(TargetExt) == '' and $(ConfigurationType) == 'DynamicLibrary'">$(DefaultExtSuffix)</TargetExt>
-  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" Condition="$(VCTargetsPath) != ''" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.WinDLL.props" Condition="$(ConfigurationType) == 'ExtensionModule' and $(VCTargetsPath) != ''" />
 </Project>

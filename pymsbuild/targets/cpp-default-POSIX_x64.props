@@ -3,7 +3,4 @@
     <DefaultPlatformToolset>GCC</DefaultPlatformToolset>
     <CopyRetryCount Condition="$(CopyRetryCount) == ''">3</CopyRetryCount>
   </PropertyGroup>
-  <PropertyGroup Condition="$(__TargetExt) != ''">
-    <TargetExt>$(__TargetExt)</TargetExt>
-  </PropertyGroup>
 </Project>

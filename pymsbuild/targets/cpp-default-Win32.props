@@ -1,6 +1,3 @@
 <Project>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" Condition="$(VCTargetsPath) != ''" />
-  <PropertyGroup Condition="$(__TargetExt) != ''">
-    <TargetExt>$(__TargetExt)</TargetExt>
-  </PropertyGroup>
 </Project>

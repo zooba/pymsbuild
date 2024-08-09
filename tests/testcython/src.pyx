@@ -3,5 +3,4 @@
 
 cimport header
 
-IF SHOW:
-    print("Made a module")
+print("Made a module")
