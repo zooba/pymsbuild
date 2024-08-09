@@ -14,12 +14,18 @@
     <CC_Cmd Condition="$(CC_Cmd) == ''">gcc -pthread -fPIC</CC_Cmd>
     <CPP_Cmd Condition="$(CPP_Cmd) == ''">g++ -pthread -fPIC</CPP_Cmd>
     <Link_Cmd Condition="$(Link_Cmd) == ''">gcc -pthread -shared</Link_Cmd>
+    <TargetExt Condition="$(TargetExt) == ''">.so</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(ConfigurationType) == 'ExtensionModule'">
+    <CC_Cmd Condition="$(CC_Cmd) == ''">gcc -pthread -fPIC</CC_Cmd>
+    <CPP_Cmd Condition="$(CPP_Cmd) == ''">g++ -pthread -fPIC</CPP_Cmd>
+    <Link_Cmd Condition="$(Link_Cmd) == ''">gcc -pthread -shared</Link_Cmd>
     <TargetExt Condition="$(TargetExt) == ''">$(DefaultExtSuffix)</TargetExt>
   </PropertyGroup>
-  <ProprtyGroup Condition="$(ConfigurationType) == 'StaticLibrary'">
+  <PropertyGroup Condition="$(ConfigurationType) == 'StaticLibrary'">
     <CC_Cmd Condition="$(CC_Cmd) == ''">gcc -pthread -fPIC</CC_Cmd>
     <CPP_Cmd Condition="$(CPP_Cmd) == ''">g++ -pthread -fPIC</CPP_Cmd>
     <Link_Cmd Condition="$(Link_Cmd) == ''">ar rcs</Link_Cmd>
     <TargetExt Condition="$(TargetExt) == ''">.a</TargetExt>
-  </ProprtyGroup>
+  </PropertyGroup>
 </Project>
