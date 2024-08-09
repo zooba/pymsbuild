@@ -1,4 +1,7 @@
 <Project>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" Condition="$(VCTargetsPath) != ''" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.WinDLL.props" Condition="$(ConfigurationType) == 'ExtensionModule' and $(VCTargetsPath) != ''" />
+  <PropertyGroup>
+    <TargetExt Condition="$(ConfigurationType) == 'ExtensionModule'">$(DefaultExtSuffix)</TargetExt>
+  </PropertyGroup>
 </Project>
