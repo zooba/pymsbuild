@@ -58,7 +58,7 @@ def init_METADATA():
         # Looks like a version tag
         METADATA["Version"] = version
 
-    with open("requirements.txt", "r", encoding="utf-8") as f:
+    with open("requirements-win32.txt", "r", encoding="utf-8") as f:
         METADATA["BuildWheelRequires"] = list(map(str.strip, f))
 
 
