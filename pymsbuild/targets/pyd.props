@@ -1,6 +1,5 @@
 <Project>
   <PropertyGroup>
-    <TargetExt Condition="$(TargetExt) == ''">$(DefaultExtSuffix)</TargetExt>
     <TargetPath>$([System.IO.Path]::Combine(`$(ProjectDir)`,`$(OutDir)`,`$(TargetName)$(TargetExt)`))</TargetPath>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
