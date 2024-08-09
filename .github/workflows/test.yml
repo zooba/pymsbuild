@@ -29,7 +29,7 @@ jobs:
     - name: Install dependencies
       run: pip install -r tests/requirements.txt
     - name: Test with pytest
-      run: pytest
+      run: pytest --ignore tests/test_samples.py
       env:
         PYTHON_CONFIG: python3-config
     - name: Check self build (in-place)
@@ -42,5 +42,9 @@ jobs:
         PYTHON_CONFIG: python3-config
     - name: Check self build (wheel)
       run: python -m pymsbuild wheel
+      env:
+        PYTHON_CONFIG: python3-config
+    - name: Check samples
+      run: pytest tests/test_samples.py
       env:
         PYTHON_CONFIG: python3-config
