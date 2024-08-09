@@ -1,3 +1,6 @@
 <Project>
+  <PropertyGroup>
+    <TargetExt Condition="$(TargetExt) == '' and $(ConfigurationType) == 'DynamicLibrary'">$(DefaultExtSuffix)</TargetExt>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" Condition="$(VCTargetsPath) != ''" />
 </Project>

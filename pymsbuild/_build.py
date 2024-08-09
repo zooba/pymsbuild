@@ -271,14 +271,6 @@ class BuildState:
             self.log("Generating", self.pkginfo)
             _generate.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
 
-        ext = self.ext_suffix
-        self.log("Setting missing TargetExt to", ext)
-
-        from . import _types as T
-        for p in self.package:
-            if isinstance(p, T.PydFile):
-                p.options["TargetExt"] = p.options.get("TargetExt") or ext
-
         self.log("Generating projects")
         self.project = Path(_generate.generate(
             self.package,
@@ -317,6 +309,7 @@ class BuildState:
         properties.setdefault("OutDir", self.build_dir)
         properties.setdefault("IntDir", self.temp_dir)
         properties.setdefault("LayoutDir", self.layout_dir)
+        properties.setdefault("DefaultExtSuffix", self.ext_suffix)
         properties.setdefault("PythonConfig", self.python_config)
         properties.setdefault("PythonIncludes", self.python_includes)
         properties.setdefault("PythonLibs", self.python_libs)

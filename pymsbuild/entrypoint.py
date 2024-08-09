@@ -22,7 +22,6 @@ class Entrypoint(PydFile):
         kwargs.setdefault("ConfigurationType", "Application")
         kwargs.setdefault("EntrypointModule", module)
         kwargs.setdefault("EntrypointFunction", function)
-        kwargs.setdefault("TargetExt", ".exe")
         super().__init__(name, *members, **kwargs)
         self.insert(
             PydFile.GlobalProperties.name,
