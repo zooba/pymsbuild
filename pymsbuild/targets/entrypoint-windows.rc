@@ -1,0 +1,5 @@
+#include <windows.h>
+
+#ifdef _ENTRYPOINT_ICON
+1 ICON _ENTRYPOINT_ICON
+#endif

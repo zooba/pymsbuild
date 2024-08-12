@@ -1,10 +1,11 @@
 <Project>
   <Target Name="_GetPdbPackageFiles">
     <ItemGroup>
-      <AllSourceFiles Include="$(OutDir)$(TargetName).pdb" Condition="$(Configuration) == 'Debug'">
+      <_PdbFile Include="$([System.IO.Path]::ChangeExtension($(TargetPath), '.pdb'))" Condition="$(Configuration) == 'Debug'" />
+      <AllSourceFiles Include="@(_PdbFile)">
         <TargetDir></TargetDir>
-        <TargetName>$(TargetName)</TargetName>
-        <TargetExt>.pdb</TargetExt>
+        <TargetName>%(Filename)</TargetName>
+        <TargetExt>%(Extension)</TargetExt>
         <IncludeInWheel>true</IncludeInWheel>
         <IncludeInSdist>false</IncludeInSdist>
       </AllSourceFiles>

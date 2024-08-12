@@ -25,6 +25,8 @@ def test_iterable_project():
         T.PydFile.DefaultToolsetImports,
         T.PydFile.ConfigurationProperties,
         T.PydFile.ToolsetImports,
+        T.PydFile.TargetExtProperty,
+        T.PydFile.ToolsetPydProps,
         T.CSourceFile,
         T.PydFile.ToolsetTargets,
     ] == [type(p) for p in package]

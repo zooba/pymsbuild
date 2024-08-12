@@ -1,0 +1,57 @@
+<Project>
+  <Target Name="_DownloadRuntime_Properties">
+    <PropertyGroup>
+      <PythonRuntimeDir Condition="$(PythonRuntimeDir) == ''">$(IntDir)python</PythonRuntimeDir>
+      <PythonRuntimeEmbeddable Condition="$(PythonRuntimeEmbeddable) != 'true'">false</PythonRuntimeEmbeddable>
+      <PythonRuntimeVersionless Condition="$(PythonRuntimeVersionless) != 'false'">true</PythonRuntimeVersionless>
+      <PythonRuntimeExclude Condition="$(PythonRuntimeExecutables) != 'true'">*.exe|$(PythonRuntimeExclude)</PythonRuntimeExclude>
+      <PythonRuntimeExclude Condition="$(Python_PthFile) == 'false'">*._pth|$(PythonRuntimeExclude)</PythonRuntimeExclude>
+    </PropertyGroup>
+    <ItemGroup>
+      <_ExistingPythonRuntime Include="$(PythonRuntimeDir)/**/*" />
+    </ItemGroup>
+  </Target>
+  <Target Name="_DownloadRuntime_Exec" Condition="$(HostPython) != ''">
+    <PropertyGroup>
+      <_Cmd>"$(HostPython)" "$(MSBuildThisFileDirectory)runtime-download.py"</_Cmd>
+      <_Cmd>$(_Cmd) -o "$(PythonRuntimeDir)"</_Cmd>
+      <_Cmd Condition="@(_ExistingPythonRuntime) != ''">$(_Cmd) --skip-download</_Cmd>
+      <_Cmd Condition="$(PythonRuntimeEmbeddable)">$(_Cmd) --embed</_Cmd>
+      <_Cmd Condition="!$(PythonRuntimeEmbeddable)">$(_Cmd) --nuget</_Cmd>
+      <_Cmd Condition="$(PythonRuntimeVersion) != ''">$(_Cmd) --version "$(PythonRuntimeVersion)"</_Cmd>
+      <_Cmd Condition="$(PythonRuntimePlatform) != ''">$(_Cmd) --platform "$(PythonRuntimePlatform)"</_Cmd>
+      <_Cmd Condition="$(PythonRuntimeTag) != ''">$(_Cmd) --tag "$(PythonRuntimeTag)"</_Cmd>
+      <_Cmd Condition="$(PythonRuntimeExclude) != ''">$(_Cmd) --exclude "$(PythonRuntimeExclude.Replace(`|`, `;`))"</_Cmd>
+      <_Cmd Condition="$(PythonRuntimeVersionless) != ''">$(_Cmd) --versionless</_Cmd>
+      <_Cmd Condition="$(PythonRuntimeVersionlessStdlibZip) != ''">$(_Cmd) --versionless-stdlib-zip "$(PythonRuntimeVersionlessStdlibZip)"</_Cmd>
+      <_Cmd Condition="$(PythonRuntimeVersionlessRuntimeDll) != ''">$(_Cmd) --versionless-runtime-dll "$(PythonRuntimeVersionlessRuntimeDll)"</_Cmd>
+      <_Cmd Condition="$(PythonRuntimeVersionlessRuntimeSO) != ''">$(_Cmd) --versionless-runtime-so "$(PythonRuntimeVersionlessRuntimeSO)"</_Cmd>
+    </PropertyGroup>
+    <Message Text="Download command: $(_Cmd)" Importance="$(_Low)" />
+    <Exec Command="$(_Cmd)" ConsoleToMsBuild="true" StandardOutputImportance="$(_Low)" StandardErrorImportance="High" UseUtf8Encoding="Always">
+      <Output TaskParameter="ConsoleOutput" ItemName="_DownloadOutput" />
+    </Exec>
+    <ItemGroup>
+      <FileWrites Include="$(PythonRuntimeDir)/**/*" />
+    </ItemGroup>
+  </Target>
+  <Target Name="_Fill_PythonRuntime" Inputs="@(_DownloadOutput)" Outputs="__bogus">
+    <ItemGroup>
+      <PythonRuntime Include="$([System.String]::Copy('%(_DownloadOutput.Identity)').Substring(5).Split('$(_PathSep)')[0])"
+                     Condition="$([System.String]::Copy('%(_DownloadOutput.Identity)').StartsWith('FILE:'))">
+        <_FullTarget>$([System.String]::Copy('%(_DownloadOutput.Identity)').Substring(5).Split('$(_PathSep)')[1])</_FullTarget>
+      </PythonRuntime>
+    </ItemGroup>
+  </Target>
+  <Target Name="DownloadRuntime"
+          DependsOnTargets="_DownloadRuntime_Properties;_DownloadRuntime_Exec;_Fill_PythonRuntime">
+    <ItemGroup>
+      <PythonRuntime>
+        <TargetDir>$([System.IO.Path]::GetDirectoryName('%(_FullTarget)'))</TargetDir>
+        <TargetName>$([System.IO.Path]::GetFileNameWithoutExtension('%(_FullTarget)'))</TargetName>
+        <TargetExt>$([System.IO.Path]::GetExtension('%(_FullTarget)'))</TargetExt>
+      </PythonRuntime>
+    </ItemGroup>
+    <Message Text="Python Runtime files:%0A@(PythonRuntime->'- %(Identity) (%(TargetName))', '%0A')" Importance="high" Condition="$(ShowRuntimeFiles) == 'true'" />
+  </Target>
+</Project>

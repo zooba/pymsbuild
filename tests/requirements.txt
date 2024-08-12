@@ -3,3 +3,4 @@ cryptography
 Cython
 packaging
 pytest
+simpleindex

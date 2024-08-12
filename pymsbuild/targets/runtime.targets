@@ -1,41 +1,4 @@
 <Project>
-  <Target Name="_DownloadRuntime_Properties">
-    <PropertyGroup>
-      <PythonRuntimeDir Condition="$(PythonRuntimeDir) == ''">$(IntDir)python</PythonRuntimeDir>
-      <PythonRuntimeExecutables Condition="$(PythonRuntimeExecutables) != 'true'">false</PythonRuntimeExecutables>
-      <PythonRuntimeEmbeddable Condition="$(PythonRuntimeEmbeddable) != 'true'">false</PythonRuntimeEmbeddable>
-    </PropertyGroup>
-    <ItemGroup>
-      <_ExistingPythonRuntime Include="$(PythonRuntimeDir)/**/*" />
-    </ItemGroup>
-  </Target>
-  <Target Name="_DownloadRuntime_Exec" Condition="@(_ExistingPythonRuntime) == ''">
-    <PropertyGroup>
-      <_Cmd>"$(HostPython)" "$(MSBuildThisFileDirectory)runtime-download.py"</_Cmd>
-      <_Cmd>$(_Cmd) -o "$(PythonRuntimeDir)"</_Cmd>
-      <_Cmd Condition="$(PythonRuntimeEmbeddable)">$(_Cmd) --embed</_Cmd>
-      <_Cmd Condition="!$(PythonRuntimeEmbeddable)">$(_Cmd) --nuget</_Cmd>
-      <_Cmd Condition="$(PythonRuntimeVersion) != ''">$(_Cmd) --version $(PythonRuntimeVersion)</_Cmd>
-      <_Cmd Condition="$(PythonRuntimePlatform) != ''">$(_Cmd) --platform $(PythonRuntimePlatform)</_Cmd>
-      <_Cmd Condition="$(PythonRuntimeTag) != ''">$(_Cmd) --tag $(PythonRuntimeTag)</_Cmd>
-    </PropertyGroup>
-    <Exec Command="$(_Cmd)" />
-    <ItemGroup>
-      <FileWrites Include="$(PythonRuntimeDir)/**/*" />
-    </ItemGroup>
-  </Target>
-  <Target Name="DownloadRuntime" DependsOnTargets="_DownloadRuntime_Properties;_DownloadRuntime_Exec">
-    <ItemGroup>
-      <PythonRuntime Include="$(PythonRuntimeDir)/**/*" Exclude="$(PythonRuntimeDir)/*.exe">
-        <TargetDir>%(RecursiveDir)</TargetDir>
-        <TargetName>%(Filename)</TargetName>
-        <TargetExt>%(Extension)</TargetExt>
-      </PythonRuntime>
-      <PythonRuntime Include="$(PythonRuntimeDir)/*.exe" Condition="$(PythonRuntimeExecutables)">
-        <TargetDir>%(RecursiveDir)</TargetDir>
-        <TargetName>%(Filename)</TargetName>
-        <TargetExt>%(Extension)</TargetExt>
-      </PythonRuntime>
-    </ItemGroup>
-  </Target>
+  <Import Project="runtime-windows.targets" Condition="$(PlatformToolset) != 'gcc'" />
+  <Import Project="runtime-gcc.targets" Condition="$(PlatformToolset) == 'gcc'" />
 </Project>

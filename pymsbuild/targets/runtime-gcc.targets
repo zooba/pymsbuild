@@ -1,0 +1,19 @@
+<Project>
+  <Target Name="_DownloadRuntime_Properties">
+    <PropertyGroup>
+      <PythonRuntimeDir Condition="$(PythonRuntimeDir) == ''">$(IntDir)python</PythonRuntimeDir>
+      <PythonRuntimeEmbeddable Condition="$(PythonRuntimeEmbeddable) != 'true'">false</PythonRuntimeEmbeddable>
+      <PythonRuntimeVersionless Condition="$(PythonRuntimeVersionless) != 'false'">true</PythonRuntimeVersionless>
+      <PythonRuntimeExclude Condition="$(PythonRuntimeExecutables) != 'true'">python*+x|$(PythonRuntimeExclude)</PythonRuntimeExclude>
+      <PythonRuntimeExclude Condition="$(Python_PthFile) == 'false'">*._pth|$(PythonRuntimeExclude)</PythonRuntimeExclude>
+    </PropertyGroup>
+    <ItemGroup>
+      <_ExistingPythonRuntime Include="$(PythonRuntimeDir)/**/*" />
+    </ItemGroup>
+  </Target>
+  <Target Name="_DownloadRuntime_Exec">
+    <Message Text="TODO: Get runtime for GCC-based platforms" Importance="high" />
+  </Target>
+  <Target Name="DownloadRuntime" DependsOnTargets="_DownloadRuntime_Properties;_DownloadRuntime_Exec">
+  </Target>
+</Project>

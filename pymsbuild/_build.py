@@ -81,8 +81,13 @@ class BuildState:
         self.target = None
         self.msbuild_exe = None
         self.output_dir = Path(output_dir) if output_dir else None
-        self.build_dir = None
-        self.temp_dir = None
+        if os.getenv("PYMSBUILD_TEMP_DIR"):
+            root_dir = Path(os.getenv("PYMSBUILD_TEMP_DIR"))
+            self.build_dir = root_dir / "bin"
+            self.temp_dir = root_dir / "temp"
+        else:
+            self.build_dir = None
+            self.temp_dir = None
         self._perform_layout = None
         self.layout_dir = None
         self.layout_extra_files = []
@@ -111,7 +116,7 @@ class BuildState:
         self.build_dir = self.source_dir / (self.build_dir or "build/bin")
         if self._perform_layout is None:
             self._perform_layout = bool(self.layout_dir)
-        self.layout_dir = self.source_dir / (self.layout_dir or "build/layout")
+        self.layout_dir = self.source_dir / (self.layout_dir or (self.build_dir / "layout"))
         self.temp_dir = self.source_dir / (self.temp_dir or "build/temp")
         self.pkginfo = self.source_dir / (self.pkginfo or "PKG-INFO")
         self.metadata_dir = self.temp_dir / (self.metadata_dir or "metadata")
@@ -266,14 +271,6 @@ class BuildState:
             self.log("Generating", self.pkginfo)
             _generate.generate_distinfo(self.metadata, self.temp_dir, self.source_dir)
 
-        ext = self.ext_suffix
-        self.log("Setting missing TargetExt to", ext)
-
-        from . import _types as T
-        for p in self.package:
-            if isinstance(p, T.PydFile):
-                p.options["TargetExt"] = p.options.get("TargetExt") or ext
-
         self.log("Generating projects")
         self.project = Path(_generate.generate(
             self.package,
@@ -299,12 +296,20 @@ class BuildState:
                 self.write("WARNING:", self.platform, "is not a known platform. Projects may not compile")
                 properties["Platform"] = self.platform
         properties.setdefault("HostPython", sys.executable)
+        if sys.base_prefix != sys.prefix:
+            base_host = getattr(sys, "_base_executable", None)
+            if not base_host or base_host == sys.executable:
+                base_host = Path(sys.base_prefix) / Path(sys.executable).relative_to(sys.prefix)
+            properties.setdefault("BaseHostPython", base_host)
+        else:
+            properties.setdefault("BaseHostPython", sys.executable)
         properties.setdefault("PyMsbuildTargets", self.targets)
         properties.setdefault("_ProjectBuildTarget", self.target)
         properties.setdefault("SourceRootDir", self.source_dir)
         properties.setdefault("OutDir", self.build_dir)
         properties.setdefault("IntDir", self.temp_dir)
         properties.setdefault("LayoutDir", self.layout_dir)
+        properties.setdefault("DefaultExtSuffix", self.ext_suffix)
         properties.setdefault("PythonConfig", self.python_config)
         properties.setdefault("PythonIncludes", self.python_includes)
         properties.setdefault("PythonLibs", self.python_libs)

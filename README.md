@@ -875,3 +875,55 @@ When building native components on POSIX, a `python3-config` script is
 needed to determine compilation options. By default, only the location
 adjacent to the running interpreter is checked. This may be overridden
 by setting the `PYTHON_CONFIG` variable to the preferred command.
+
+## Custom entry point
+
+**Experimental.**
+
+To generate an executable that will launch your application, include the
+`pymsbuild.entrypoint` module and use an `Entrypoint` definition.
+
+```python
+from pymsbuild import *
+from pymsbuild.entrypoint import *
+
+PACKAGE = Package(
+    "demo",
+    Entrypoint(
+        "run",  # generate run.exe
+        "app",  # import app
+        "main", # app.main()
+        Icon("app.ico"),
+
+        # Search paths for the entry point to use
+        SearchPath("."),
+        SearchPath("stdlib.zip"),
+
+        # Include a copy of Python (default: True)
+        IncludePythonRuntime=True,
+        # Use the embeddable distro (default: True)
+        PythonEmbeddable=True,
+        # Also include python.exe (default: False)
+        PythonExecutables=False,
+        # Rename pythonXY.zip to stdlib.zip (default: True)
+        PythonRuntimeRenameStdlibZip=True,
+    ),
+    Package(
+        "app",
+        PyFile("app/__init__.py"),
+    ),
+)
+```
+
+Building this definition will create a `demo` directory containing
+`run.exe`, `app.py` and a copy of the Python embeddable runtime, making
+it an entirely standalone and redistributable application.
+
+Set `IncludePythonRuntime` to `False` to omit the runtime. The generated
+executable assumes that it will be able to load the version of Python
+used to build at runtime, so you will need to include it some other way.
+
+Use `SearchPath` items to specify directories to search for Python
+modules at runtime. These are the only directories that will be
+searched, as Python will be loaded in isolated mode. They are relative
+to the entrypoint and will be resolved when executing.

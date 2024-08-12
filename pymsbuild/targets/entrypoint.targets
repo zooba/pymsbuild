@@ -1,0 +1,120 @@
+<Project>
+  <PropertyGroup>
+    <_EntrypointSource Condition="$(PlatformToolset) == 'gcc'">$(MSBuildThisFileDirectory)/entrypoint-gcc.c</_EntrypointSource>
+    <_EntrypointSource Condition="$(PlatformToolset) != 'gcc'">$(MSBuildThisFileDirectory)/entrypoint-windows.cpp</_EntrypointSource>
+    <_EntrypointResource Condition="$(PlatformToolset) != 'gcc'">$(MSBuildThisFileDirectory)/entrypoint-windows.rc</_EntrypointResource>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <GetSdistFilesTargets>$(GetSdistFilesTargets)</GetSdistFilesTargets>
+    <GetPackageFilesTargets>_GetEntryPointPackageFiles;$(GetPackageFilesTargets)</GetPackageFilesTargets>
+    <BeforeBuildGenerateSourcesTargets>_UpdateEntrypointSources;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
+  </PropertyGroup>
+
+  <Target Name="_UpdateDefaultEntrypointPythonPath_Windows"
+          DependsOnTargets="_DownloadRuntime_Properties"
+          Condition="$(PlatformToolset) != 'gcc'">
+    <ItemGroup Condition="$(IncludePythonRuntime) != 'false' and $(PythonRuntimeEmbeddable) and $(PythonRuntimeVersionless)">
+      <EntrypointPythonPath Include="stdlib.zip" />
+    </ItemGroup>
+    <ItemGroup Condition="$(IncludePythonRuntime) != 'false' and $(PythonRuntimeEmbeddable) and !$(PythonRuntimeVersionless)">
+      <EntrypointPythonPath Include="python*.zip" />
+    </ItemGroup>
+    <Error Condition="$(PythonRuntimeEmbeddable) and !$(PythonRuntimeVersionless)"
+           Text="DefaultSearchPath is not supported without PythonRuntimeVersionless=true" />
+    <ItemGroup Condition="$(IncludePythonRuntime) == 'false'">
+      <EntrypointPythonPath Include="$([System.IO.Path]::Combine($(PythonLibs), '..\Lib'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_UpdateDefaultEntrypointPythonPath_Gcc"
+          DependsOnTargets="_DownloadRuntime_Properties"
+          Condition="$(PlatformToolset) == 'gcc'">
+    <!-- TODO: Update when enabling download of runtime -->
+    <Exec Command="$(PythonConfig) --configdir"
+          ConsoleToMsBuild="true"
+          StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_ConfigDir" />
+    </Exec>
+    <Exec Command="make -f $(_ConfigDir)/Makefile -E 'print:;@printf %24(LIBDEST)\\n%24(DESTSHARED)\\n' print 2>nul"
+          ConsoleToMsBuild="true"
+          StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" ItemName="_LibDest" />
+    </Exec>
+    <ItemGroup>
+      <EntrypointPythonPath Include="@(_LibDest)" Condition="Exists(%(Identity))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_UpdateDefaultEntrypointPythonPath"
+          DependsOnTargets="_UpdateDefaultEntrypointPythonPath_Windows;_UpdateDefaultEntrypointPythonPath_Gcc"
+          Condition="@(DefaultEntrypointPythonPath) != '' or @(EntrypointPythonPath) == ''">
+  </Target>
+
+  <Target Name="_UpdateEntrypointSources" DependsOnTargets="_UpdateDefaultEntrypointPythonPath">
+    <PropertyGroup Condition="@(EntrypointIcon) != ''">
+      <_EntrypointDef>$(_EntrypointDef);_ENTRYPOINT_ICON=@(EntrypointIcon)</_EntrypointDef>
+    </PropertyGroup>
+
+    <PropertyGroup>
+      <_EntrypointH>$(IntDir)/entrypoint.h</_EntrypointH>
+      <_OriginalCode Condition="Exists($(_EntrypointH))">$([System.IO.File]::ReadAllText($(_EntrypointH)))</_OriginalCode>
+      <_EntrypointPaths>@(EntrypointPythonPath->'    PYTHONPATH_ENTRY("%(Identity)"),', '%0A')</_EntrypointPaths>
+      <_NewCode>const char *entrypointModule = "$(EntrypointModule)"%3B
+const char *entrypointFunction = "$(EntrypointFunction)"%3B
+PYTHONPATH_T entrypointPythonPath[] = {
+$(_EntrypointPaths)
+    NULL
+}%3B
+</_NewCode>
+    </PropertyGroup>
+
+    <WriteLinesToFile File="$(_EntrypointH)" Lines="$(_NewCode)"
+                      Overwrite="true"
+                      Condition="$(_NewCode) != $(_OldCode)" />
+    <ItemGroup>
+      <ClInclude Include="$(_EntrypointH)" />
+      <FileWrites Include="$(_EntrypointH)" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ClCompile Include="$(_EntrypointSource)">
+        <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+        <PreprocessorDefinitions>%(PreprocessorDefinitions);$(_EntrypointDef)</PreprocessorDefinitions>
+        <ObjectFile Condition="$(PlatformToolset) == 'gcc'">$([msbuild]::EnsureTrailingSlash($(IntDir)))entrypoint.o</ObjectFile>
+        <ObjectFile Condition="$(PlatformToolset) != 'gcc'">$([msbuild]::EnsureTrailingSlash($(IntDir)))entrypoint.obj</ObjectFile>
+      </ClCompile>
+    </ItemGroup>
+    <ItemGroup Condition="$(_EntrypointResource) != ''">
+      <ResourceCompile Include="$(_EntrypointResource)">
+        <PreprocessorDefinitions>%(PreprocessorDefinitions);$(_EntrypointDef)</PreprocessorDefinitions>
+      </ResourceCompile>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_EntryPoint_DownloadRuntime"
+          DependsOnTargets="DownloadRuntime"
+          Condition="$(IncludePythonRuntime) != 'false'" />
+
+  <Target Name="_GetEntryPointPackageFiles"
+          DependsOnTargets="_EntryPoint_DownloadRuntime">
+    <CallTarget Targets="GetCopyToOutputDirectoryItems">
+      <Output TaskParameter="TargetOutputs" ItemName="_GetCopyToOutputDirectoryItemsOutput"/>
+    </CallTarget>
+
+    <ItemGroup>
+      <AllSourceFiles Include="@(_GetCopyToOutputDirectoryItemsOutput)">
+        <Name>%(TargetPath)</Name>
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>true</IncludeInLayout>
+        <IncludeInWheel>true</IncludeInWheel>
+      </AllSourceFiles>
+      <AllSourceFiles Include="@(PythonRuntime)" Condition="$(IncludePythonRuntime) != 'false'">
+        <IncludeInSdist>false</IncludeInSdist>
+        <IncludeInLayout>true</IncludeInLayout>
+        <IncludeInWheel>true</IncludeInWheel>
+      </AllSourceFiles>
+    </ItemGroup>
+  </Target>
+  <Import Project="$(PyMSBuildTargets)/runtime.targets" />
+</Project>

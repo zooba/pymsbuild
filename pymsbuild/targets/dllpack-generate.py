@@ -9,7 +9,7 @@ try:
 except ValueError:
     PYC_OPTIMIZATION = 0
 
-RESID_COUNTER = iter(range(1001, 9999))
+RESID_COUNTER = iter(range(1001, 999999))
 IMPORTERS_RESID = next(RESID_COUNTER)
 
 
@@ -99,8 +99,8 @@ class CodeFileInfo:
             return "Missing input: {}".format(self.sourcefile)
 
     @classmethod
-    def get_builtin(cls, resid, sourcefile):
-        return cls("code:${}:{}".format(sourcefile.stem, sourcefile), resid=resid)
+    def get_builtin(cls, resid, sourcefile, name):
+        return cls("code:${}:{}".format(name or sourcefile.stem, sourcefile), resid=resid)
 
 
 class DataFileInfo:
@@ -275,7 +275,9 @@ def _c_str(s):
 
 
 def _generate_windows_files(module, files, targets, encrypt=None):
-    files.append(CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py"))
+    files.append(CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py", f"dllpack.{module}"))
+
+    module_name = module.rpartition(".")[2]
 
     with open("dllpack.rc", "w", encoding="ascii", errors="backslashescape") as rc_file:
         print("#define PYCFILE 257", file=rc_file)
@@ -286,7 +288,7 @@ def _generate_windows_files(module, files, targets, encrypt=None):
 
     with open("dllpack.h", "w", encoding="ascii", errors="backslashescape") as h_file:
         print('#define _MODULE_NAME "{}"'.format(module), file=h_file)
-        print('#define _INIT_FUNC_NAME PyInit_{}'.format(module), file=h_file)
+        print('#define _INIT_FUNC_NAME PyInit_{}'.format(module_name), file=h_file)
         print("#define _PYCFILE 257", file=h_file)
         print("#define _DATAFILE 258", file=h_file)
         print("#define _PYC_HEADER_LEN 16", file=h_file)
@@ -320,8 +322,10 @@ def _generate_windows_files(module, files, targets, encrypt=None):
 
 
 def _generate_gcc_files(module, files, targets, encrypt=None):
-    importer = CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py")
+    importer = CodeFileInfo.get_builtin(IMPORTERS_RESID, targets / "dllpack_main.py", f"dllpack.{module}")
     files.append(importer)
+
+    module_name = module.rpartition(".")[2]
 
     with open("dllpack.rc", "w", encoding="utf-8", errors="strict") as rc_file:
         for f in files:
@@ -330,7 +334,7 @@ def _generate_gcc_files(module, files, targets, encrypt=None):
 
     with open("dllpack.h", "w", encoding="ascii", errors="backslashescape") as h_file:
         print('#define _MODULE_NAME "{}"'.format(module), file=h_file)
-        print('#define _INIT_FUNC_NAME PyInit_{}'.format(module), file=h_file)
+        print('#define _INIT_FUNC_NAME PyInit_{}'.format(module_name), file=h_file)
         print("#define _PYC_HEADER_LEN 16", file=h_file)
         print('#include "dllpack-gcc.h"', file=h_file)
         if encrypt:

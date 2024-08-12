@@ -11,7 +11,7 @@
       <_PydVersionInfo Include="@(PydVersionInfo)">
         <RC>$(IntDir)version.rc</RC>
       </_PydVersionInfo>
-      <ResourceCompile Include="%(PydVersionInfo.RC)">
+      <ResourceCompile Include="%(_PydVersionInfo.RC)">
         <IncludeInSdist>false</IncludeInSdist>
         <IncludeInLayout>false</IncludeInLayout>
         <IncludeInWheel>false</IncludeInWheel>
@@ -19,9 +19,7 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="_WriteVersionInfo"
-          Inputs="@(_PydVersionInfo)"
-          Outputs="%(_PydVersionInfo.RC)">
+  <Target Name="_WriteVersionInfo" Inputs="@(_PydVersionInfo->'__nonexistent')" Outputs="%(_PydVersionInfo.RC)">
     <PropertyGroup>
       <_PydVersionInfoLines><![CDATA[
 #include <windows.h>
@@ -75,9 +73,11 @@ END]]></_PydVersionInfoLines>
     <WriteLinesToFile File="%(_PydVersionInfo.RC)"
                       Lines="$(_PydVersionInfoLines.Trim())"
                       Encoding="%(_PydVersionInfo.Encoding)"
-                      Overwrite="true"
-                      WriteOnlyWhenDifferent="true" />
+                      Overwrite="true" />
     <Message Text="Generated version info" />
+    <ItemGroup>
+      <FileWrites Include="%(_PydVersionInfo.RC)" />
+    </ItemGroup>
   </Target>
 
   <Target Name="_GenerateVersionInfo"

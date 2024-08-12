@@ -17,12 +17,6 @@
     </ItemGroup>
     <ItemGroup>
       <Project>
-        <PyMSBuild_Properties Condition="%(Project.TargetName) != ''">%(PyMSBuild_Properties);TargetName=%(Project.TargetName)</PyMSBuild_Properties>
-        <PyMSBuild_Properties Condition="%(Project.TargetExt) != ''">%(PyMSBuild_Properties);TargetExt=%(Project.TargetExt)</PyMSBuild_Properties>
-      </Project>
-    </ItemGroup>
-    <ItemGroup>
-      <Project>
         <Properties Condition="%(Properties) != ''">%(PyMSBuild_Properties);%(Properties)</Properties>
         <Properties Condition="%(Properties) == ''">%(PyMSBuild_Properties)</Properties>
       </Project>
@@ -79,7 +73,7 @@
     <ItemGroup>
       <_DistFiles Remove="@(_DistFiles)" />
       <_DistFiles Include="@(PyMSBuild_LayoutFiles)" Condition="%(IncludeInLayout)">
-        <Destination>$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(SourceDir)))%(TargetDir)))%(TargetName)%(TargetExt)</Destination>
+        <Destination>$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(_SourceLayoutDir)))%(TargetDir)))%(TargetName)%(TargetExt)</Destination>
       </_DistFiles>
       <!-- Remove anything that is being copied directly from the source tree -->
       <_Removing Include="@(_DistFiles)" Condition="%(FullPath) == %(Destination)" />

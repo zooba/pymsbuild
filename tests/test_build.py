@@ -25,16 +25,16 @@ if not os.getenv("MSBUILD"):
 def build_state(tmp_path, testdata):
     bs = BuildState()
     bs.verbose = True
-    bs.source_dir = testdata
+    bs.source_dir = testdata / "testdata"
     bs.output_dir = tmp_path / "out"
     bs.build_dir = tmp_path / "build"
     bs.layout_dir = tmp_path / "layout"
     bs._perform_layout = False  # allows us to override layout_dir
     bs.temp_dir = tmp_path / "temp"
     bs.package = T.Package("package",
-        T.PyFile(testdata / "empty.py", "__init__.py"),
+        T.PyFile(testdata / "testdata/empty.py", "__init__.py"),
         T.PydFile("mod",
-            T.CSourceFile(testdata / "mod.c"),
+            T.CSourceFile(testdata / "testdata/mod.c"),
             T.VersionInfo(
                 ProductName="package",
                 FileDescription="The package module",
@@ -165,9 +165,9 @@ def test_build_wheel_layout(build_state):
 
 @pytest.mark.parametrize("proj", ["testcython", "testproject1", "testpurepy"])
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
-def test_build_test_project(build_state, proj, configuration):
+def test_build_test_project(build_state, testdata, proj, configuration):
     bs = build_state
-    bs.source_dir = bs.source_dir.parent / proj
+    bs.source_dir = testdata / proj
     bs.package = None
     bs.verbose = True
     bs.finalize()
@@ -177,9 +177,9 @@ def test_build_test_project(build_state, proj, configuration):
 
 
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
-def test_dllpack(build_state, configuration):
+def test_dllpack(build_state, testdata, configuration):
     bs = build_state
-    bs.source_dir = bs.source_dir.parent / "testdllpack"
+    bs.source_dir = testdata / "testdllpack"
     bs.package = None
     bs.verbose = True
     bs.finalize()
@@ -195,12 +195,12 @@ def test_dllpack(build_state, configuration):
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
 @pytest.mark.parametrize("encrypt", [b"a-bytes-key-0123", "a-str-key-01234567890123"])
 @pytest.mark.skipif(sys.platform not in {"win32"}, reason="Only supported on Windows")
-def test_dllpack_encrypted(build_state, configuration, encrypt):
+def test_dllpack_encrypted(build_state, testdata, configuration, encrypt):
     if not isinstance(encrypt, str):
         import base64
         encrypt = "base64:" + base64.b64encode(encrypt).decode("ascii")
     bs = build_state
-    bs.source_dir = bs.source_dir.parent / "testdllpack"
+    bs.source_dir = testdata / "testdllpack"
     bs.package = None
     bs.verbose = True
     bs.finalize()

@@ -57,7 +57,7 @@ def test_pyd_generation(tmp_path):
         T.SourceFile("m.txt"),
         TargetExt=".pyd",
     )
-    pf = ProjectFileChecker(G._generate_pyd(p, tmp_path, tmp_path))
+    pf = ProjectFileChecker(G._generate_c_project(p, tmp_path, tmp_path))
     targets = Path(pf.get("./x:PropertyGroup[@Label='Globals']/x:PyMsbuildTargets").text)
     assert (targets / "package.targets").is_file()
     assert (targets / "pyd.targets").is_file()
@@ -110,8 +110,6 @@ def test_package_project_reference(tmp_path):
 
     assert "package/module" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:Name").text
     assert "package" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetDir").text
-    assert "module.TAG" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetName").text
-    assert ".pyd" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetExt").text
 
 
 def test_pkginfo_gen_readback(tmp_path):

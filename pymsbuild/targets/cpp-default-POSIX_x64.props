@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
     <DefaultPlatformToolset>GCC</DefaultPlatformToolset>
+    <CopyRetryCount Condition="$(CopyRetryCount) == ''">3</CopyRetryCount>
   </PropertyGroup>
 </Project>

@@ -3,27 +3,67 @@
 
 #include "dllpack.h"
 
+#define MATCH_NONE 0
+#define MATCH_FULL 1
+#define MATCH_FULL_PACKAGE 2
+#define MATCH_PARENT 3
+#define MATCH_PREFIX 4
+
+static int
+entry_matches(const struct ENTRY *entry, const char *name, size_t cchName)
+{
+    if (!cchName) {
+        cchName = strlen(name);
+    }
+    if (!cchName) {
+        if (strchr(entry->name, '.')) {
+            return MATCH_PARENT;
+        }
+        return MATCH_NONE;
+    }
+
+    if (!strcmp(entry->name, name)) {
+        // Full name match
+        if (entry->origin[cchName] == '/' || entry->origin[cchName] == '\\'){
+            // Origin is a directory, which means this is a package
+            return MATCH_FULL_PACKAGE;
+        }
+        return MATCH_FULL;
+    }
+    if (strncmp(entry->name, name, cchName) || entry->name[cchName] != '.') {
+        return MATCH_NONE;
+    }
+    // Prefix match
+    if (!strchr(&entry->name[cchName + 1], '.')) {
+        // name is direct parent of this entry
+        return MATCH_PARENT;
+    }
+    return MATCH_PREFIX;
+}
+
 static const struct ENTRY *
 lookup_import(const char *name, int *is_package)
 {
-    struct ENTRY *found = NULL;
     int cchName = strlen(name);
     *is_package = 0;
     if (PySys_Audit("pymsbuild.dllpack.lookup_import", "ss", _DLLPACK_NAME, name) < 0) {
         return NULL;
     }
     for (struct ENTRY *entry = IMPORT_TABLE; entry->name; ++entry) {
-        if (!strcmp(entry->name, name)) {
-            found = entry;
-        }
-        if (!strncmp(entry->name, name, cchName) && entry->name[cchName] == '.') {
+        switch (entry_matches(entry, name, cchName)) {
+        case MATCH_FULL:
+            *is_package = 0;
+            return entry;
+        case MATCH_FULL_PACKAGE:
             *is_package = 1;
-            if (found) {
-                break;
-            }
+            return entry;
+        case MATCH_PARENT:
+        case MATCH_PREFIX:
+            *is_package = 1;
+            return NULL;
         }
     }
-    return found;
+    return NULL;
 }
 
 static const struct ENTRY *
@@ -56,10 +96,10 @@ lookup_redirect(const char *name)
 
 
 static PyObject *
-mod_load_impl(ModuleState *ms, const char *name, PyObject *mod, int is_main) {
+mod_exec_module_impl(ModuleState *ms, const char *name, PyObject *mod, int is_main) {
     int is_package = 0;
     const struct ENTRY *e = lookup_import(name, &is_package);
-    if (!e) {
+    if (!e && !is_package) {
         PyErr_Format(PyExc_ModuleNotFoundError, "'%s' is not part of this package", name);
         return NULL;
     }
@@ -76,6 +116,10 @@ mod_load_impl(ModuleState *ms, const char *name, PyObject *mod, int is_main) {
             return NULL;
         }
         Py_DECREF(r);
+    }
+
+    if (!e && is_package) {
+        return mod;
     }
 
     pyc = load_pyc(ms, e);
@@ -104,20 +148,20 @@ mod_load_impl(ModuleState *ms, const char *name, PyObject *mod, int is_main) {
 }
 
 static PyObject *
-mod_load(PyObject *self, PyObject *args)
+mod_exec_module(PyObject *self, PyObject *args)
 {
     PyObject *mod = NULL;
     if (!PyArg_ParseTuple(args, "O", &mod)) {
         return NULL;
     }
-    mod = mod_load_impl((ModuleState*)PyModule_GetState(self), PyModule_GetName(mod), mod, 0);
+    mod = mod_exec_module_impl((ModuleState*)PyModule_GetState(self), PyModule_GetName(mod), mod, 0);
     Py_XINCREF(mod);
     return mod;
 }
 
 
 static PyObject *
-mod_new(PyObject *self, PyObject *args)
+mod_create_module(PyObject *self, PyObject *args)
 {
     PyObject *spec;
     if (!PyArg_ParseTuple(args, "O", &spec)) {
@@ -194,10 +238,11 @@ static PyObject *
 mod_makespec(PyObject *self, PyObject *args)
 {
     const char *name;
-    PyObject *loader;
+    PyObject *loader, *path_prefix;
     PyObject *ilib_m = NULL, *mspec = NULL, *kwargs = NULL, *origin = NULL, *r = NULL;
+    PyObject *args2 = NULL;
 
-    if (!PyArg_ParseTuple(args, "sO", &name, &loader)) {
+    if (!PyArg_ParseTuple(args, "sOO", &name, &loader, &path_prefix)) {
         return NULL;
     }
 
@@ -224,17 +269,16 @@ mod_makespec(PyObject *self, PyObject *args)
         if (PyErr_Occurred()) {
             goto error;
         }
-        e = lookup_redirect(name);
-        if (!e) {
-            if (!PyErr_Occurred()) {
-                r = Py_None;
-                Py_INCREF(r);
+        if (!is_package) {
+            e = lookup_redirect(name);
+            if (!e) {
+                if (!PyErr_Occurred()) {
+                    r = Py_None;
+                    Py_INCREF(r);
+                }
+                goto error;
             }
-            goto error;
-        }
-        args = Py_BuildValue("sO", name, Py_None);
-        if (!args) {
-            goto error;
+            Py_SETREF(loader, Py_None);
         }
     }
     origin = PyObject_GetAttrString(self, "_origin_root");
@@ -251,7 +295,11 @@ mod_makespec(PyObject *self, PyObject *args)
         }
     }
     if (origin) {
-        Py_SETREF(origin, PyUnicode_FromFormat("%U%s", origin, e->origin));
+        if (e) {
+            Py_SETREF(origin, PyUnicode_FromFormat("%U%s", origin, e->origin));
+        } else {
+            Py_SETREF(origin, PyUnicode_FromFormat("%U%s", origin, name));
+        }
     }
     if (!origin) {
         goto error;
@@ -259,19 +307,95 @@ mod_makespec(PyObject *self, PyObject *args)
     if (PyDict_SetItemString(kwargs, "origin", origin) < 0) {
         goto error;
     }
-    if (is_package) {
-        if (PyDict_SetItemString(kwargs, "is_package", Py_True) < 0) {
-            goto error;
-        }
+
+    if (is_package && PyDict_SetItemString(kwargs, "is_package", Py_True) < 0) {
+        goto error;
     }
 
-    r = PyObject_Call(mspec, args, kwargs);
+    args2 = Py_BuildValue("sO", name, loader);
+    if (!args2) {
+        goto error;
+    }
+
+    r = PyObject_Call(mspec, args2, kwargs);
+
+    if (is_package) {
+        PyObject *paths = PyList_New(0);
+        if (!paths) {
+            Py_CLEAR(r);
+            goto error;
+        }
+        if (PyObject_IsTrue(path_prefix) && PyList_Append(paths, path_prefix) < 0) {
+            Py_DECREF(paths);
+            Py_CLEAR(r);
+            goto error;
+        }
+        if (PyObject_SetAttrString(r, "submodule_search_locations", paths) < 0) {
+            Py_DECREF(paths);
+            Py_CLEAR(r);
+            goto error;
+        }
+        Py_DECREF(paths);
+    }
 error:
     Py_XDECREF(origin);
     Py_XDECREF(kwargs);
     Py_XDECREF(mspec);
     Py_XDECREF(ilib_m);
+    Py_XDECREF(args2);
 
+    return r;
+}
+
+static int
+_mod_module_names_append(PyObject *list, struct ENTRY *entry, const char *prefix, size_t cchPrefix)
+{
+    if (entry->name[0] == '.') {
+        return 0;
+    }
+    int cchName = strlen(entry->name);
+    int is_package = entry_matches(entry, entry->name, cchName) == MATCH_FULL_PACKAGE;
+    if (!cchPrefix) {
+        cchPrefix = strlen(prefix);
+    }
+    if (cchPrefix) {
+        cchPrefix += 1;
+    }
+    PyObject *o = Py_BuildValue("si", &entry->name[cchPrefix], is_package);
+    int r = -1;
+    if (o) {
+        r = PyList_Append(list, o);
+        Py_DECREF(o);
+    }
+    return r;
+}
+
+
+static PyObject *
+mod_module_names(PyObject *self, PyObject *args)
+{
+    const char *prefix;
+    if (!PyArg_ParseTuple(args, "s", &prefix)) {
+        return NULL;
+    }
+    size_t cchPrefix = strlen(prefix);
+    if (PySys_Audit("pymsbuild.dllpack.module_names", "ss", _DLLPACK_NAME, prefix) < 0) {
+        return NULL;
+    }
+    PyObject *r = PyList_New(0);
+    if (!r) {
+        return NULL;
+    }
+    for (struct ENTRY *entry = IMPORT_TABLE; entry->name; ++entry) {
+        switch (entry_matches(entry, prefix, cchPrefix)) {
+        case MATCH_PARENT:
+            if (_mod_module_names_append(r, entry, prefix, cchPrefix) < 0) {
+                Py_DECREF(r);
+                return NULL;
+            }
+            break;
+        }
+    }
     return r;
 }
 
@@ -334,7 +458,7 @@ mod_exec(PyObject *m)
         return -1;
     if (dllpack_exec_module(ms) < 0)
         return -1;
-    return mod_load_impl(ms, PyModule_GetName(m), m, 1) ? 0 : -1;
+    return mod_exec_module_impl(ms, PyModule_GetName(m), m, 1) ? 0 : -1;
 }
 
 
@@ -352,8 +476,9 @@ static struct PyMethodDef mod_meth[] = {
     {"__MAKESPEC", mod_makespec, METH_VARARGS, NULL},
     {"__DATA", mod_data, METH_VARARGS, NULL},
     {"__DATA_NAMES", mod_data_names, METH_NOARGS, NULL},
-    {"__CREATE_MODULE", mod_new, METH_VARARGS, NULL},
-    {"__EXEC_MODULE", mod_load, METH_VARARGS, NULL},
+    {"__CREATE_MODULE", mod_create_module, METH_VARARGS, NULL},
+    {"__EXEC_MODULE", mod_exec_module, METH_VARARGS, NULL},
+    {"__MODULE_NAMES", mod_module_names, METH_VARARGS, NULL},
     MOD_METH_TAIL
 };
 
