@@ -8,12 +8,16 @@
       <AdditionalIncludeDirectories>$(SourceRootDir.TrimEnd($(_Sep)));$(PythonIncludes);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <Optimization Condition="$(Configuration) == 'Debug'">Disabled</Optimization>
+      <RuntimeLibrary Condition="$(DynamicLibcppLinkage) == 'true'">MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary Condition="$(DynamicLibcppLinkage) != 'true'">MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(PythonLibs);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>True</GenerateDebugInformation>
       <OutputFile>$(TargetPath)</OutputFile>
       <ProgramDatabaseFile>$([System.IO.Path]::ChangeExtension('$(TargetPath)', '.pdb'))</ProgramDatabaseFile>
+      <AdditionalDependencies Condition="$(DynamicLibcppLinkage) != 'true'">ucrt.lib;vcruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries Condition="$(DynamicLibcppLinkage) != 'true'">libucrt.lib;libvcruntime.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
     </Link>
     <Lib>
       <OutputFile>$(TargetPath)</OutputFile>

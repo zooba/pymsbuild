@@ -250,6 +250,7 @@ Other options will be added to the project as properties.
 """
     options = {
         "ConfigurationType": "DynamicLibrary",
+        "DynamicLibcppLinkage": "false",
     }
 
     def __init__(self, name, *members, **options):
