@@ -1,3 +1,4 @@
+from . import PYMSBUILD_REQUIRES_SPEC
 from importlib.machinery import EXTENSION_SUFFIXES as _EXTENSION_SUFFIXES
 from pathlib import Path, PurePath
 
@@ -22,6 +23,7 @@ __all__ = [
     "Midl",
     "Manifest",
     "RemoveFile",
+    "PyprojectTomlFile",
 ]
 
 
@@ -754,3 +756,187 @@ See https://learn.microsoft.com/windows/win32/sbscs/application-manifests
 for more information.
 """
     _ITEMNAME = "Manifest"
+
+
+class PyprojectTomlFile(ExactNameMatchMixin):
+    r"""Add a generated pyproject.toml file.
+
+The file is generated for the sdist based on the arguments passed to
+the constructor, or by calling from_metadata(METADATA):
+
+def init_METADATA():
+    PACKAGE.find("pyproject.toml").from_metadata(METADATA)
+
+If a source file is passed, tables other than 'project' are used in the
+generated project. Otherwise, a default 'build-system' table is created.
+
+To include a pyproject.toml without replacing any contents, specify it
+as SourceFile('pyproject.toml').
+
+The static PyprojectTomlFile.update_metadata(METADATA) function allows
+loading supported fields from a pyproject.toml's 'project' table into
+the METADATA. You will still need to call 'from_metadata()' to fill a
+generated pyproject.toml, or include the original using a SourceFile.
+"""
+    name = "pyproject.toml"
+    members = ()
+
+    def __init__(self, source=None, content=None, **options):
+        self.source = source
+        self.options = options
+        self._content = content
+
+    @classmethod
+    def update_metadata(cls, metadata, file="pyproject.toml", overwrite=False):
+        """Uses pyproject.toml's project table to fill in METADATA.
+
+Pass overwrite=True to replace existing fields."""
+        try:
+            from tomllib import loads
+        except ImportError:
+            raise RuntimeError("require 'tomllib' to update metadata")
+
+        file = Path(file).absolute()
+        project = loads(file.read_text(encoding="utf-8"))['project']
+
+        def c(from_key, to_key, xform=None, from_map=project):
+            from_key = from_key.split(".")
+            try:
+                for bit in from_key[:-1]:
+                    from_map = from_map[bit]
+                v = from_map[from_key[-1]]
+            except LookupError:
+                return False
+            if xform:
+                v = xform(v)
+            if overwrite:
+                metadata[to_key] = v
+            else:
+                metadata.setdefault(to_key, v)
+            return True
+
+        c("name", "Name")
+        c("version", "Version")
+        c("description", "Summary")
+        if not c("readme.text", "Description"):
+            c("readme.file", "Description", lambda v: Path(v).read_text(encoding="utf-8"))
+        c("readme.content-type", "Description-Content-Type")
+        c("requires-python", "Requires-Python")
+        if not c("license.text", "License"):
+            c("license.file", "License", lambda v: Path(v).read_text(encoding="utf-8"))
+
+        def email_format(a):
+            try:
+                return f"{a['name']} <{a['email']}>"
+            except LookupError:
+                return a.get('name') or str(a)
+
+        c("authors", "Author", lambda v: v if isinstance(v, str) else ", ".join(map(email_format, v)))
+        c("maintainers", "Maintainer", lambda v: v if isinstance(v, str) else ", ".join(map(email_format, v)))
+        c("keywords", "Keywords", lambda v: v if isinstance(v, str) else ", ".join(v))
+        c("classifiers", "Classifier")
+        c("urls", "Project-url", lambda v: [f"{k}, {v[k]}" for k in v])
+        c("dependencies", "Requires-Dist")
+        c("dynamic", "Dynamic")
+
+    def from_metadata(self, metadata):
+        """Uses METADATA values to fill gaps in the generated pyproject.toml."""
+        def c(from_key, to_key, xform=None, from_map=metadata, to_map=self.options):
+            try:
+                v = from_map[from_key]
+            except LookupError:
+                return False
+            if xform:
+                v = xform(v)
+            to_key = to_key.split(".")
+            for bit in to_key[:-1]:
+                to_map = to_map.setdefault(bit, {})
+            to_map.setdefault(to_key[-1], v)
+            return True
+        c("Name", "name")
+        c("Version", "version")
+        c("Summary", "description")
+        c("Description", "readme.text")
+        c("Description-Content-Type", "readme.content-type")
+        c("Requires-Python", "requires-python")
+        c("License", "license.text")
+        authors = {}
+        if c("Author", "name", to_map=authors) or c("Author-email", "email", to_map=authors):
+            self.options.setdefault("authors", [authors])
+        maintainers = {}
+        if c("Maintainer", "name", to_map=maintainers) or c("Maintainer-email", "email", to_map=maintainers):
+            self.options.setdefault("maintainers", [maintainers])
+        c("Keywords", "keywords", lambda v: [s.strip() for s in v.split(",")])
+        c("Classifier", "classifiers")
+        c("Project-url", "urls", lambda v: {i[0].strip(): i[2].strip() for u in v for i in [u.partition(",")]})
+        c("Requires-Dist", "dependencies")
+        c("Dynamic", "dynamic")
+
+    @classmethod
+    def _toml_repr(cls, v):
+        if isinstance(v, dict):
+            return '{' + ', '.join(f'{k}={cls._toml_repr(v[k])}' for k in v) + '}'
+        try:
+            it = iter(v)
+            f = next(it)
+            if type(f) != type(v):
+                return '[' + ', '.join(map(cls._toml_repr, [f, *it])) + ']'
+        except (TypeError, StopIteration):
+            pass
+        if isinstance(v, str):
+            if "'" in v or "\n" in v:
+                return "'''" + v + "'''"
+            return repr(v)
+        return repr(v)
+
+    @property
+    def content(self):
+        if self._content is not None:
+            return self._content
+
+        from io import StringIO
+        f = StringIO()
+
+        if self.source:
+            with open(self.source) as f2:
+                in_project = False
+                for line in f2:
+                    if line.strip() == '[project]':
+                        in_project = True
+                    elif line.strip().startswith('['):
+                        in_project = False
+                        print(line, end="", file=f)
+                    elif not in_project:
+                        print(line, end="", file=f)
+            print(file=f)
+        else:
+            print('[build-system]', file=f)
+            print('requires = ["{}"]'.format(PYMSBUILD_REQUIRES_SPEC), file=f)
+            print('build-backend = "pymsbuild"', file=f)
+            print(file=f)
+
+        opts = self.options
+        if opts:
+            print('# Note that pymsbuild does not use this metadata.', file=f)
+            print('# To update the final metadata, you need to update PKG-INFO.', file=f)
+            print('[project]', file=f)
+            for k in opts:
+                try:
+                    v = self._toml_repr(opts[k])
+                except LookupError:
+                    continue
+                print('{}={}'.format(k, v), file=f)
+
+        self._content = f.getvalue()
+        try:
+            from tomllib import loads
+        except ImportError:
+            pass
+        else:
+            # Sanity check the output if we can
+            loads(self._content)
+        return self._content
+
+    def write_member(self, project, group):
+        group.switch_to("PropertyGroup")
+        project.add_property("_PyprojectTomlContent", self.content)

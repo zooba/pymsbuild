@@ -3,4 +3,11 @@
     <_SourceLayoutDir Condition="$(_PYMSBUILD_SOURCE_LAYOUT_DIR) != ''">$(_PYMSBUILD_SOURCE_LAYOUT_DIR)</_SourceLayoutDir>
     <_SourceLayoutDir Condition="$(_SourceLayoutDir) == ''">$(SourceDir)</_SourceLayoutDir>
   </PropertyGroup>
+  <ItemDefinitionGroup>
+    <PyprojectToml>
+      <IncludeInLayout>false</IncludeInLayout>
+      <IncludeInSdist>true</IncludeInSdist>
+      <IncludeInWheel>false</IncludeInWheel>
+    </PyprojectToml>
+  </ItemDefinitionGroup>
 </Project>

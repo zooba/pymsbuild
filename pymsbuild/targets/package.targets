@@ -32,6 +32,38 @@
     <MSBuild Projects="@(Project)" Targets="Clean" Properties="%(Project.Properties)" />
   </Target>
 
+  <!-- pyproject.toml support -->
+  <Target Name="_WritePyprojectToml" Condition="$(_PyprojectTomlContent) != ''">
+    <ItemGroup Condition="@(PyprojectToml) == ''">
+      <FileWrites Include="$(IntDir)pyproject.toml" />
+      <PyprojectToml Include="$(IntDir)pyproject.toml" />
+    </ItemGroup>
+    <ItemGroup>
+      <PyprojectToml>
+        <_Existing></_Existing>
+        <_Existing Condition="Exists(%(FullPath))">$([System.IO.File]::ReadAllText('%(FullPath)'))</_Existing>
+      </PyprojectToml>
+    </ItemGroup>
+    <WriteLinesToFile Lines="$(_PyprojectTomlContent)"
+                      File="@(PyprojectToml)"
+                      Overwrite="true"
+                      Condition="$(_PyprojectTomlContent) != %(_Existing)" />
+    <Message Text="Updated @(PyprojectToml)" Importance="$(_Low)"
+             Condition="$(_PyprojectTomlContent) != %(_Existing)" />
+  </Target>
+  
+  <Target Name="_GetPyprojectToml" DependsOnTargets="_WritePyprojectToml"
+          Condition="$(IncludePyprojectToml) == 'true'">
+    <ItemGroup>
+      <Sdist Include="@(PyprojectToml)">
+        <RelativeSource>pyproject.toml</RelativeSource>
+      </Sdist>
+      <Sdist Include="$(SourceRootDir)/pyproject.toml" Condition="@(PyprojectToml) == ''">
+        <RelativeSource>pyproject.toml</RelativeSource>
+      </Sdist>
+    </ItemGroup>
+  </Target>
+
   <!-- Layout support -->
   <Target Name="_Layout_Mkdir">
     <ItemGroup>
@@ -72,7 +104,7 @@
   <Target Name="_LayoutInPlace_Calculate">
     <ItemGroup>
       <_DistFiles Remove="@(_DistFiles)" />
-      <_DistFiles Include="@(PyMSBuild_LayoutFiles)" Condition="%(IncludeInLayout)">
+      <_DistFiles Include="@(PyMSBuild_LayoutFiles)" Condition="%(IncludeInLayout) == 'true'">
         <Destination>$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(_SourceLayoutDir)))%(TargetDir)))%(TargetName)%(TargetExt)</Destination>
       </_DistFiles>
       <!-- Remove anything that is being copied directly from the source tree -->
@@ -97,7 +129,7 @@
 
   <Target Name="LayoutSdist"
           DependsOnTargets="
-            PrepareForBuild;GetSdistFiles;
+            PrepareForBuild;_GetPyprojectToml;GetSdistFiles;
             _LayoutSdist_Calculate;
             _Layout_Mkdir;_Layout_Copy;_SaveFileWrites">
     <Message Text="Copied to layout:" Importance="high" Condition="@(_CopiedDistFiles) != ''" />

@@ -264,6 +264,7 @@ def generate(project, build_dir, source_dir, config_file=None):
         with f.group("PropertyGroup"):
             f.add_property("SourceDir", ConditionalValue(source_dir, if_empty=True))
             f.add_property("SourceRootDir", ConditionalValue(root_dir, if_empty=True))
+            f.add_property("IncludePyprojectToml", ConditionalValue("true", if_empty=True))
             for k, v in project.options.items():
                 f.add_property(k, v)
         f.add_import(f"$(PyMsbuildTargets){SEP}common.props")
@@ -272,7 +273,6 @@ def generate(project, build_dir, source_dir, config_file=None):
         with f.group("ItemGroup", Label="Sdist metadata"):
             f.add_item("Sdist", build_dir / "PKG-INFO", RelativeSource="PKG-INFO")
             f.add_item("Sdist", config_file, RelativeSource="_msbuild.py")
-            f.add_item("Sdist", root_dir / "pyproject.toml", RelativeSource="pyproject.toml")
         _write_members(f, source_dir, _all_members(
             project,
             recurse_if=lambda m: not isinstance(m, CProject),
