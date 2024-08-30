@@ -846,8 +846,8 @@ Raises NotImplementedError if a supported toml library is not found.
                 return ", ".join(map(fmt, v))
             return _f
 
-        c("authors", "Author", str_or_list(self._email_format))
-        c("maintainers", "Maintainer", str_or_list(self._email_format))
+        c("authors", "Author", str_or_list(cls._email_format))
+        c("maintainers", "Maintainer", str_or_list(cls._email_format))
         c("keywords", "Keywords", str_or_list(str))
         c("classifiers", "Classifier")
         c("urls", "Project-url", lambda v: [f"{k}, {v[k]}" for k in v])
