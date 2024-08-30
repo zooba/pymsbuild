@@ -49,6 +49,15 @@ def init_METADATA():
         # Looks like a version tag
         METADATA["Version"] = version
 
+    # EXAMPLE: Fill in missing metadata from your pyproject.toml
+    # (Requires 'tomli' as a build-time dependency for Python 3.11 and earlier)
+    #PyprojectTomlFile.update_metadata(METADATA, overwrite=False)
+
+    # EXAMPLE: Use metadata to generate your sdist's pyproject.toml [project]
+    # (Requires adding a PyprojectTomlFile() to your package. Otherwise, your
+    # original pyproject.toml will be included as-is.)
+    #PACKAGE.find("pyproject.toml").from_metadata(METADATA)
+
 
 # OPTIONAL: Update PACKAGE entries while building an sdist or wheel.
 # 'tag' will be the wheel tag, or 'None' for an sdist.

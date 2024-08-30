@@ -790,11 +790,17 @@ generated pyproject.toml, or include the original using a SourceFile.
     def update_metadata(cls, metadata, file="pyproject.toml", overwrite=False):
         """Uses pyproject.toml's project table to fill in METADATA.
 
-Pass overwrite=True to replace existing fields."""
+Pass overwrite=True to replace existing fields.
+
+Raises NotImplementedError if a supported toml library is not found.
+"""
         try:
             from tomllib import loads
         except ImportError:
-            raise RuntimeError("require 'tomllib' to update metadata")
+            try:
+                from tomli import loads
+            except ImportError:
+                raise NotImplementedError("require 'tomli' to update metadata") from None
 
         file = Path(file).absolute()
         project = loads(file.read_text(encoding="utf-8"))['project']
