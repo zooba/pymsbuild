@@ -22,4 +22,6 @@ PACKAGE = Package(
 
 def init_METADATA():
     PyprojectTomlFile.update_metadata(METADATA, overwrite=True)
+
+def init_PACKAGE(tag):
     PACKAGE.find("pyproject.toml").from_metadata(METADATA)

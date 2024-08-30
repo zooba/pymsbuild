@@ -205,7 +205,7 @@ PACKAGE = Package(
     PyprojectTomlFile(),
 )
 
-def init_METADATA():
+def init_PACKAGE(tag):
     PACKAGE.find("pyproject.toml").from_metadata(METADATA)
 ```
 
@@ -261,6 +261,8 @@ PACKAGE = Package(
 def init_METADATA():
     PyprojectTomlFile.update_metadata(METADATA)
     METADATA["Version"] = _calculate_version()
+
+def init_PACKAGE(tag):
     PACKAGE.find("pyproject.toml").from_metadata(METADATA)
 ```
 

@@ -1,3 +1,4 @@
+import sys
 from . import PYMSBUILD_REQUIRES_SPEC
 from importlib.machinery import EXTENSION_SUFFIXES as _EXTENSION_SUFFIXES
 from pathlib import Path, PurePath
@@ -787,6 +788,13 @@ generated pyproject.toml, or include the original using a SourceFile.
         self._content = content
 
     @classmethod
+    def _email_format(cls, a):
+        try:
+            return f"{a['name']} <{a['email']}>"
+        except LookupError:
+            return a.get('name') or str(a)
+
+    @classmethod
     def update_metadata(cls, metadata, file="pyproject.toml", overwrite=False):
         """Uses pyproject.toml's project table to fill in METADATA.
 
@@ -825,21 +833,22 @@ Raises NotImplementedError if a supported toml library is not found.
         c("version", "Version")
         c("description", "Summary")
         if not c("readme.text", "Description"):
-            c("readme.file", "Description", lambda v: Path(v).read_text(encoding="utf-8"))
+            c("readme.file", "Description", File)
         c("readme.content-type", "Description-Content-Type")
         c("requires-python", "Requires-Python")
         if not c("license.text", "License"):
-            c("license.file", "License", lambda v: Path(v).read_text(encoding="utf-8"))
+            c("license.file", "License", File)
 
-        def email_format(a):
-            try:
-                return f"{a['name']} <{a['email']}>"
-            except LookupError:
-                return a.get('name') or str(a)
+        def str_or_list(fmt):
+            def _f(v):
+                if isinstance(v, str):
+                    return v
+                return ", ".join(map(fmt, v))
+            return _f
 
-        c("authors", "Author", lambda v: v if isinstance(v, str) else ", ".join(map(email_format, v)))
-        c("maintainers", "Maintainer", lambda v: v if isinstance(v, str) else ", ".join(map(email_format, v)))
-        c("keywords", "Keywords", lambda v: v if isinstance(v, str) else ", ".join(v))
+        c("authors", "Author", str_or_list(self._email_format))
+        c("maintainers", "Maintainer", str_or_list(self._email_format))
+        c("keywords", "Keywords", str_or_list(str))
         c("classifiers", "Classifier")
         c("urls", "Project-url", lambda v: [f"{k}, {v[k]}" for k in v])
         c("dependencies", "Requires-Dist")
@@ -847,11 +856,17 @@ Raises NotImplementedError if a supported toml library is not found.
 
     def from_metadata(self, metadata):
         """Uses METADATA values to fill gaps in the generated pyproject.toml."""
-        def c(from_key, to_key, xform=None, from_map=metadata, to_map=self.options):
+        def c(from_key, to_key, xform=None, from_map=metadata, to_map=self.options, text_or_file=False):
             try:
                 v = from_map[from_key]
             except LookupError:
                 return False
+            if text_or_file:
+                try:
+                    v = str(v.source)
+                    to_key += ".file"
+                except AttributeError:
+                    to_key += ".text"
             if xform:
                 v = xform(v)
             to_key = to_key.split(".")
@@ -862,19 +877,25 @@ Raises NotImplementedError if a supported toml library is not found.
         c("Name", "name")
         c("Version", "version")
         c("Summary", "description")
-        c("Description", "readme.text")
+        c("Description", "readme", text_or_file=True)
         c("Description-Content-Type", "readme.content-type")
         c("Requires-Python", "requires-python")
-        c("License", "license.text")
+        c("License", "license", text_or_file=True)
         authors = {}
-        if c("Author", "name", to_map=authors) or c("Author-email", "email", to_map=authors):
+        c("Author", "name", to_map=authors)
+        c("Author-email", "email", to_map=authors)
+        if authors:
             self.options.setdefault("authors", [authors])
         maintainers = {}
-        if c("Maintainer", "name", to_map=maintainers) or c("Maintainer-email", "email", to_map=maintainers):
+        c("Maintainer", "name", to_map=maintainers)
+        c("Maintainer-email", "email", to_map=maintainers)
+        if maintainers:
             self.options.setdefault("maintainers", [maintainers])
         c("Keywords", "keywords", lambda v: [s.strip() for s in v.split(",")])
         c("Classifier", "classifiers")
         c("Project-url", "urls", lambda v: {i[0].strip(): i[2].strip() for u in v for i in [u.partition(",")]})
+        c("Home-page", "urls.homepage")
+        c("Download-URL", "urls.download")
         c("Requires-Dist", "dependencies")
         c("Dynamic", "dynamic")
 
@@ -937,10 +958,17 @@ Raises NotImplementedError if a supported toml library is not found.
         try:
             from tomllib import loads
         except ImportError:
-            pass
-        else:
+            try:
+                from tomli import loads
+            except ImportError:
+                loads = lambda _: None
+        try:
             # Sanity check the output if we can
             loads(self._content)
+        except Exception:
+            print("Failed to validate generated pyproject.toml:", file=sys.stderr)
+            print(self._content, file=sys.stderr)
+            raise
         return self._content
 
     def write_member(self, project, group):
