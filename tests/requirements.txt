@@ -4,3 +4,4 @@ Cython
 packaging
 pytest
 simpleindex
+tomli

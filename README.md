@@ -175,6 +175,105 @@ Also see the earlier section regarding the `pyproject.toml` project table (and
 the fact that it is not used by `pymsbuild`, but will be added to your sdist
 without modification).
 
+## Sdist metadata (PEP 621)
+
+The `[project]` table in your
+[`pyproject.toml`](https://packaging.python.org/en/latest/specifications/pyproject-toml/)
+file in your sdist is expected to accurately reflect the metadata that your
+final wheels will contain. This allows tools that process sdists to display
+accurate information about your package, and sometimes to process dependencies,
+without having to perform a full build.
+
+`pymsbuild` does not use the `[project]` table by default, preferring to use
+[core metadata](https://packaging.python.org/en/latest/specifications/core-metadata/)
+directly. A `pyproject.toml` file is required to specify the build system, and
+will be automatically included in your sdists. However, the `PyprojectToml` type
+allows you to customise this file using your existing metadata.
+
+Omitting a `PyprojectTomlFile` entry entirely is equivalent to specifying a
+`SourceFile("pyproject.toml")` entry, which will include your project's existing
+file directly in the sdist without modifying it. Adding a `PyprojectTomlFile`
+will generate a new file for your sdist.
+
+This example will generate a `[build-system]` table that requires at least the
+same version of `pymsbuild` as was used for the sdist, and will fill in the
+`[project]` table with known keys from `METADATA`.
+
+```python
+PACKAGE = Package(
+    "my_package",
+    PyprojectTomlFile(),
+)
+
+def init_PACKAGE(tag):
+    PACKAGE.find("pyproject.toml").from_metadata(METADATA)
+```
+
+Rather than, or as well as, calling `from_metadata`, named arguments can be used
+to specify the exact contents. `from_metadata` does not overwrite values
+specified in this way.
+
+```python
+PACKAGE = Package(
+    "my_package",
+    PyprojectTomlFile(name="my_package", version="1.0.0"),
+)
+```
+
+Providing a source file name will keep all sections other than `[project]` from
+the specified file, and generate `[project]` as usual. The file can have any
+name at all, but the generated file is always going to be `pyproject.toml`.
+
+```python
+PACKAGE = Package(
+    "my_package",
+    PyprojectTomlFile("sdist-pyproject.toml"),
+)
+```
+
+Finally, an existing `pyproject.toml` file can be used to update your metadata
+(for known fields). This may require adding `tomli` as a build dependency for
+runtimes that do not include `tomllib`.
+
+```python
+def init_METADATA():
+    PyprojectTomlFile.update_metadata(METADATA)
+    # default args: file="pyproject.toml", overwrite=False
+```
+
+If you are specifying any metadata in METADATA, or modifying it in any way,
+remember to also call `from_metadata` to ensure the generated file is correct.
+A complete example that preserves non-`[project]` sections from the original
+file, uses its `[project]` section as canonical, and performs updates at build
+time may look like this:
+
+```python
+METADATA = {
+    # Use at least version 2.2 to indicate the [project] table is valid
+    "Metadata-Version": "2.2",
+}
+
+PACKAGE = Package(
+    "my_package",
+    PyprojectTomlFile("pyproject.toml"),
+)
+
+def init_METADATA():
+    PyprojectTomlFile.update_metadata(METADATA)
+    METADATA["Version"] = _calculate_version()
+
+def init_PACKAGE(tag):
+    PACKAGE.find("pyproject.toml").from_metadata(METADATA)
+```
+
+Remember that `pymsbuild` uses `METADATA` as its source of information, and so
+your packages will not build correctly if you do not keep it updated.
+
+In most cases, you will not need to specify `METADATA['Dynamic']` as there is no
+way to modify metadata during wheel builds. However, if you have found a way to
+do it, then you should specify those fields manually. Fields that update during
+`init_METADATA` do not need to be listed as dynamic.
+
 ## Separate packages
 
 Packages are just Python objects, so they may be kept in variables and

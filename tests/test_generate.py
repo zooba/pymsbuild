@@ -89,9 +89,9 @@ def test_package_generation(tmp_path):
     assert (targets / "package.targets").is_file()
 
     sdist_md = pf.getall("./x:ItemGroup[@Label='Sdist metadata']/x:Sdist", "Include")
-    assert {PurePath(i).name for i in sdist_md} == {"pyproject.toml", "PKG-INFO", "_msbuild.py"}
+    assert {PurePath(i).name for i in sdist_md} == {"PKG-INFO", "_msbuild.py"}
     sdist_md = pf.getall("./x:ItemGroup[@Label='Sdist metadata']/x:Sdist/x:RelativeSource")
-    assert {i.text for i in sdist_md} == {"pyproject.toml", "PKG-INFO", "_msbuild.py"}
+    assert {i.text for i in sdist_md} == {"PKG-INFO", "_msbuild.py"}
 
     files = pf.getall("./x:ItemGroup/x:Content/x:Name")
     assert {i.text.replace('\\', '/') for i in files} == {

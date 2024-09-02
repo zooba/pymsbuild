@@ -1,0 +1,14 @@
+[build-system]
+requires = ["pymsbuild>1", "cython"]
+build-backend = "pymsbuild"
+
+[tool.not-a-real-tool]
+message = "just checking it copies"
+
+[project]
+name = "testpyproject"
+version = "1.0.0"
+dynamic = ["optional-dependencies"]
+
+[tool.another-fake-tool]
+message = "copies before"
