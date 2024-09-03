@@ -187,8 +187,8 @@ without having to perform a full build.
 `pymsbuild` does not use the `[project]` table by default, preferring to use
 [core metadata](https://packaging.python.org/en/latest/specifications/core-metadata/)
 directly. A `pyproject.toml` file is required to specify the build system, and
-will be automatically included in your sdists. However, the `PyprojectToml` type
-allows you to customise this file using your existing metadata.
+will be automatically included in your sdists. However, the `PyprojectTomlFile`
+type allows you to customise this file using your existing metadata.
 
 Omitting a `PyprojectTomlFile` entry entirely is equivalent to specifying a
 `SourceFile("pyproject.toml")` entry, which will include your project's existing
