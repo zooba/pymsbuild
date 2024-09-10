@@ -18,6 +18,7 @@
       <ProgramDatabaseFile>$([System.IO.Path]::ChangeExtension('$(TargetPath)', '.pdb'))</ProgramDatabaseFile>
       <AdditionalDependencies Condition="$(DynamicLibcppLinkage) != 'true'">ucrt.lib;vcruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries Condition="$(DynamicLibcppLinkage) != 'true'">libucrt.lib;libvcruntime.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <AdditionalOptions Condition="$(DynamicLibcppLinkage) != 'true' and $(Platform) == 'Win32'">%(AdditionalOptions) /alternatename:__except_handler4=__except_handler4_common</AdditionalOptions>
     </Link>
     <Lib>
       <OutputFile>$(TargetPath)</OutputFile>
