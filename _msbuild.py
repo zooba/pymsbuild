@@ -39,7 +39,8 @@ METADATA = {
 
 PACKAGE = Package(
     "pymsbuild",
-    PyFile("pymsbuild/*.py"),
+    PyFile("pymsbuild/*.py").excluding("pymsbuild/__init__.py"),
+    PyFile("pymsbuild/__init__.py.ver", name="__init__.py"),
     File("pymsbuild/*.in"),
     File("pymsbuild/targets/*", name="targets/*"),
 )
@@ -54,11 +55,8 @@ def init_METADATA():
 
 def init_PACKAGE(tag=None):
     if tag is None:
-        return
-    with open("pymsbuild/__init__.py", "r", encoding="utf-8") as f:
-        content = f.read()
-    content = content.replace("%VERSION%", METADATA["Version"])
-    with open("pymsbuild/__init__.py.ver", "w", encoding="utf-8") as f:
-        f.write(content)
-    PACKAGE.members.append(RemoveFile(PyFile, "pymsbuild/__init__.py"))
-    PACKAGE.members.append(PyFile("pymsbuild/__init__.py.ver", name="__init__.py"))
+        with open("pymsbuild/__init__.py", "r", encoding="utf-8") as f:
+            content = f.read()
+        content = content.replace("%VERSION%", METADATA["Version"])
+        with open("pymsbuild/__init__.py.ver", "w", encoding="utf-8") as f:
+            f.write(content)
