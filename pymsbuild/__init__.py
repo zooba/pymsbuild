@@ -1,7 +1,7 @@
 """The pymsbuild build backend.
 """
 
-__version__ = "0.0.1"
+__version__ = "%VERSION%"
 try:
     NEXT_INCOMPATIBLE_VERSION = "{}.0".format(int(__version__.partition(".")[0]) + 1)
     PYMSBUILD_REQUIRES_SPEC = f"pymsbuild>={__version__},<{NEXT_INCOMPATIBLE_VERSION}"
