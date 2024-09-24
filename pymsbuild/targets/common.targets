@@ -56,14 +56,14 @@
   <Target Name="_GetSdistFilesFromProjects" DependsOnTargets="_GetSdistFilesFromEachProject">
   </Target>
 
-  <Target Name="GetPackageFiles" DependsOnTargets="$(GetPackageFilesTargets)" Returns="@(PyMSBuild_PackageFiles)">
+  <Target Name="_GetDistinfoFiles" Returns="@(PyMSBuild_PackageFiles)" Condition="$(DistinfoDir) != ''">
     <ItemGroup>
       <_WithMetadata Remove="@(_WithMetadata)" />
 
       <AllSourceFiles Include="@(Content);@(None)" />
 
       <AllSourceFiles Remove="@(_ExcludeFile)" />
-      <_WithMetadata Include="@(AllSourceFiles)" Condition="%(AllSourceFiles.IncludeInWheel) == 'true'">
+      <_WithMetadata Include="@(AllSourceFiles)" Condition="%(AllSourceFiles.IncludeInDistinfo) == 'true'">
         <Name Condition="%(AllSourceFiles.Name) == ''">%(Filename)%(Extension)</Name>
       </_WithMetadata>
       <_WithMetadata>
@@ -71,7 +71,29 @@
         <TargetName Condition="%(_WithMetadata.TargetName) == ''">$([System.IO.Path]::GetFileNameWithoutExtension(`%(_WithMetadata.Name)`))</TargetName>
         <TargetExt Condition="%(_WithMetadata.TargetExt) == ''">$([System.IO.Path]::GetExtension(%(_WithMetadata.Name)))</TargetExt>
       </_WithMetadata>
-      <PyMSBuild_PackageFiles Include="@(_WithMetadata)" Condition="'%(IncludeInWheel)' == true" />
+      <_WithMetadata>
+        <Destination>$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(DistinfoDir)))%(TargetDir)))%(TargetName)%(TargetExt)</Destination>
+      </_WithMetadata>
+      <PyMSBuild_PackageFiles Include="@(_WithMetadata)" Condition="'%(_WithMetadata.IncludeInDistinfo)' == true" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="GetPackageFiles" DependsOnTargets="$(GetPackageFilesTargets);_GetDistinfoFiles" Returns="@(PyMSBuild_PackageFiles)">
+    <ItemGroup>
+      <_WithMetadata Remove="@(_WithMetadata)" />
+
+      <AllSourceFiles Include="@(Content);@(None)" />
+
+      <AllSourceFiles Remove="@(_ExcludeFile)" />
+      <_WithMetadata Include="@(AllSourceFiles)" Condition="%(AllSourceFiles.IncludeInWheel) == 'true' and %(AllSourceFiles.IncludeInDistinfo) != 'true'">
+        <Name Condition="%(AllSourceFiles.Name) == ''">%(Filename)%(Extension)</Name>
+      </_WithMetadata>
+      <_WithMetadata>
+        <TargetDir Condition="%(_WithMetadata.TargetDir) == ''">$([msbuild]::EnsureTrailingSlash($([System.IO.Path]::GetDirectoryName(`%(_WithMetadata.Name)`))))</TargetDir>
+        <TargetName Condition="%(_WithMetadata.TargetName) == ''">$([System.IO.Path]::GetFileNameWithoutExtension(`%(_WithMetadata.Name)`))</TargetName>
+        <TargetExt Condition="%(_WithMetadata.TargetExt) == ''">$([System.IO.Path]::GetExtension(%(_WithMetadata.Name)))</TargetExt>
+      </_WithMetadata>
+      <PyMSBuild_PackageFiles Include="@(_WithMetadata)" Condition="'%(_WithMetadata.IncludeInWheel)' == true" />
     </ItemGroup>
   </Target>
 
@@ -101,7 +123,7 @@
         <TargetName Condition="%(_WithMetadata.TargetName) == ''">$([System.IO.Path]::GetFileNameWithoutExtension(`%(_WithMetadata.Name)`))</TargetName>
         <TargetExt Condition="%(_WithMetadata.TargetExt) == ''">$([System.IO.Path]::GetExtension(%(_WithMetadata.Name)))</TargetExt>
       </_WithMetadata>
-      <PyMSBuild_LayoutFiles Include="@(_WithMetadata)" Condition="'%(IncludeInLayout)' == true" />
+      <PyMSBuild_LayoutFiles Include="@(_WithMetadata)" Condition="'%(_WithMetadata.IncludeInLayout)' == true" />
     </ItemGroup>
   </Target>
 

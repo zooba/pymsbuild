@@ -102,6 +102,9 @@ class BuildState:
         self.ext_suffix = None
         self.platform = None
         self.build_number = None
+        self.sdist_name = None
+        self.wheel_name = None
+        self.distinfo_name = None
         self.python_cflags = None
         self.python_ldflags = None
         self.python_includes = None
@@ -309,6 +312,7 @@ class BuildState:
         properties.setdefault("OutDir", self.build_dir)
         properties.setdefault("IntDir", self.temp_dir)
         properties.setdefault("LayoutDir", self.layout_dir)
+        properties.setdefault("DistinfoDir", (self.metadata_dir / self.distinfo_name))
         properties.setdefault("DefaultExtSuffix", self.ext_suffix)
         properties.setdefault("PythonConfig", self.python_config)
         properties.setdefault("PythonIncludes", self.python_includes)
