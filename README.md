@@ -299,6 +299,34 @@ PACKAGE = Package("my_package", P1)
 PACKAGE.members.append(P2)
 ```
 
+## Anonymous packages
+
+To install files directly into the target location (often ``site-packages``),
+use a top-level package with empty name. Other packages may be nested within
+this package as normal.
+
+```python
+PACKAGE = Package(
+    "",
+    File("module.pth"),
+    Package("module", ...),
+)
+```
+
+## Custom dist-info files
+
+To install files into the generated `.dist-info` directory, specify the
+``IncludeInDistinfo=True`` option. This will move the file in the built wheel,
+while reading it from its usual location. It will be included in the sdist at
+its source location.
+
+```python
+PACKAGE = Package(
+    "module",
+    File("entry_points.txt", IncludeInDistinfo=True),
+)
+```
+
 ## Wildcard handling
 
 Files can be added recursively using wildcard operators. These are
