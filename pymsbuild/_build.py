@@ -503,9 +503,11 @@ class BuildState:
         with open(outdir / "WHEEL", "w", encoding="utf-8") as f:
             print("Wheel-Version: 1.0", file=f)
             print("Generator: pymsbuild", __version__, file=f)
-            print("Root-Is-Purelib: false", file=f)
-            for t in sorted(self.wheel_tag):
-                print("Tag:", t, file=f)
+            if self.wheel_tag:
+                print("Root-Is-Purelib:", str(self.wheel_tag).endswith("-none-any"), file=f)
+                print("Tag:", self.wheel_tag, file=f)
+            else:
+                print("Root-Is-Purelib: True", file=f)
             if self.build_number:
                 print("Build:", self.build_number, file=f)
         shutil.copy(self.pkginfo, outdir / "METADATA")
