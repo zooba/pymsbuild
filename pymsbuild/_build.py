@@ -313,6 +313,12 @@ class BuildState:
         properties.setdefault("IntDir", self.temp_dir)
         properties.setdefault("LayoutDir", self.layout_dir)
         properties.setdefault("DistinfoDir", (self.metadata_dir / self.distinfo_name))
+        sdist_dir = self.layout_dir / self.sdist_name
+        if sdist_dir.match("*.tar.gz"):
+            sdist_dir = sdist_dir.with_suffix("").with_suffix("")
+        elif sdist_dir.match("*.zip"):
+            sdist_dir = sdist_dir.with_suffix("")
+        properties.setdefault("SdistDir", sdist_dir)
         properties.setdefault("DefaultExtSuffix", self.ext_suffix)
         properties.setdefault("PythonConfig", self.python_config)
         properties.setdefault("PythonIncludes", self.python_includes)
