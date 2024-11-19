@@ -233,7 +233,7 @@ def build_testpyproject(config, tmp_path, testdata):
         cwd=str(source),
         env={**os.environ, "PYTHONPATH": ROOT, "PYMSBUILD_LAYOUT_DIR": str(layout)},
     )
-    assert {str(f.relative_to(layout)) for f in layout.rglob("*")} \
+    assert {str(f.relative_to(layout / "testpyproject-1.0.0")) for f in layout.rglob("*")} \
            == {"PKG-INFO", "pyproject.toml", "_msbuild.py", "__state.txt"}
     pyproj = (layout / "pyproject.toml").read_text(encoding="utf-8").splitlines()
     source = (source / "pyproject.toml").read_text(encoding="utf-8").splitlines()
