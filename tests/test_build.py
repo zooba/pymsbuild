@@ -225,7 +225,7 @@ def test_dllpack_encrypted(build_state, testdata, configuration, encrypt):
     )
 
 
-def build_testpyproject(config, tmp_path, testdata):
+def build_testpyproject(config, version, tmp_path, testdata):
     source = testdata / "testpyproject"
     layout = tmp_path / "out"
     subprocess.check_call(
@@ -233,8 +233,9 @@ def build_testpyproject(config, tmp_path, testdata):
         cwd=str(source),
         env={**os.environ, "PYTHONPATH": ROOT, "PYMSBUILD_LAYOUT_DIR": str(layout)},
     )
-    assert {str(f.relative_to(layout / "testpyproject-1.0.0")) for f in layout.rglob("*")} \
-           == {"PKG-INFO", "pyproject.toml", "_msbuild.py", "__state.txt"}
+    layout /= f"testpyproject-{version}"
+    assert {str(f.relative_to(layout)) for f in layout.rglob("*")} \
+           == {"PKG-INFO", "pyproject.toml", "_msbuild.py"}
     pyproj = (layout / "pyproject.toml").read_text(encoding="utf-8").splitlines()
     source = (source / "pyproject.toml").read_text(encoding="utf-8").splitlines()
     pkgconf = (layout / "PKG-INFO").read_text(encoding="utf-8").splitlines()
@@ -242,14 +243,14 @@ def build_testpyproject(config, tmp_path, testdata):
 
 
 def test_pyproject_copy(tmp_path, testdata):
-    pyproj, source, pkgconf = build_testpyproject("_msbuild.py", tmp_path, testdata)
+    pyproj, source, pkgconf = build_testpyproject("_msbuild.py", "0.0.1", tmp_path, testdata)
     assert pyproj == source
 
 
 def test_pyproject_read_nowrite(tmp_path, testdata):
     # In this test, we read from pyproject.toml but don't update what gets
     # written, so the built sdist will not have a [project] table.
-    pyproj, source, pkgconf = build_testpyproject("_msbuild01.py", tmp_path, testdata)
+    pyproj, source, pkgconf = build_testpyproject("_msbuild01.py", "1.0.0", tmp_path, testdata)
     assert [l for l in pyproj if l.startswith('[')] \
            == ["[build-system]", "[tool.not-a-real-tool]", "[tool.another-fake-tool]"]
     assert source != pyproj
@@ -260,7 +261,7 @@ def test_pyproject_read_nowrite(tmp_path, testdata):
 def test_pyproject_read_overwrite(tmp_path, testdata):
     # In this test, we read from pyproject.toml, overwrite existing metadata,
     # and update the output.
-    pyproj, source, pkgconf = build_testpyproject("_msbuild02.py", tmp_path, testdata)
+    pyproj, source, pkgconf = build_testpyproject("_msbuild02.py", "1.0.0", tmp_path, testdata)
     assert [l for l in pyproj if l.startswith('[')] \
            == ["[build-system]", "[tool.not-a-real-tool]", "[tool.another-fake-tool]", "[project]"]
     assert source != pyproj
@@ -272,7 +273,7 @@ def test_pyproject_read_overwrite(tmp_path, testdata):
 def test_pyproject_read_merge(tmp_path, testdata):
     # In this test, we read from pyproject.toml, preserve existing metadata,
     # and update the output.
-    pyproj, source, pkgconf = build_testpyproject("_msbuild03.py", tmp_path, testdata)
+    pyproj, source, pkgconf = build_testpyproject("_msbuild03.py", "0.0.1", tmp_path, testdata)
     assert [l for l in pyproj if l.startswith('[')] \
            == ["[build-system]", "[tool.not-a-real-tool]", "[tool.another-fake-tool]", "[project]"]
     assert source != pyproj
