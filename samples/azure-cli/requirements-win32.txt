@@ -113,7 +113,7 @@ msal-extensions==1.2.0b1
 msrest==0.7.1
 msrestazure==0.6.4.post1
 oauthlib==3.2.2
-packaging==24.1
+packaging
 paramiko==3.4.0
 pkginfo==1.11.1
 portalocker==2.10.0
