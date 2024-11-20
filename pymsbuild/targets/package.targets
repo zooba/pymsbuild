@@ -96,7 +96,7 @@
     <ItemGroup>
       <_DistFiles Remove="@(_DistFiles)" />
       <_DistFiles Include="@(PyMSBuild_SDistFiles)">
-        <Destination Condition="%(PyMSBuild_SDistFiles.Destination) == ''">$([msbuild]::EnsureTrailingSlash($(LayoutDir)))%(RelativeSource)</Destination>
+        <Destination Condition="%(PyMSBuild_SDistFiles.Destination) == ''">$([msbuild]::EnsureTrailingSlash($(SdistDir)))%(RelativeSource)</Destination>
       </_DistFiles>
     </ItemGroup>
   </Target>
