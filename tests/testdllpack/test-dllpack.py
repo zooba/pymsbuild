@@ -83,10 +83,10 @@ assert TDP.sub.mod2 is M2
 #######################################
 # importlib.resources has no feature detection, so we have to assume that
 # they'll stick to CPython versions.
+import importlib.resources as i_r
 
 if sys.version_info[:2] < (3, 13):
     # .contents() is buggy on 3.13
-    import importlib.resources as i_r
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         c = list(i_r.contents(TDP))
