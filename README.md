@@ -910,6 +910,46 @@ PACKAGE = DllPackage(
 )
 ```
 
+### Packed module names
+
+By default, the packed DLL contents are presumed to be nested within
+the overall structure. This is important because full module names must
+be embedded into the DLL. As a result, when the example below is built,
+it will create a `root/` directory containing `packed.pyd` (or
+equivalent) and enables `import root.packed.submodule`.
+
+```python
+PACKAGE = Package("root",
+    DllPackage("packed",
+        PyFile("src/packed/__init__.py"),
+        PyFile("src/packed/submodule.py"),
+    )
+)
+
+# After building:
+import root.packed.submodule
+```
+
+There are a few properties that can affect what is built. The first is
+the `TargetName` property, which will change the name of the compiled
+file. For example, adding `TargetName="root.packed"` or
+`Property("TargetName", "root.packed")` to the `DllPackage` item will
+generate `root.packed.pyd` instead, allowing the module to be imported
+as `root.packed` without being in a `root/` directory.
+
+Second is the `RootNamespace` property, which overrides the name used
+within the packed module to identify submodules. Changing this alone is
+rarely useful, and the default (matching the name of the module) is
+recommended unless you have modified other aspects of the build.
+
+Finally, the `ParentNamespace` property, which may only be set as a
+named argument, overrides the part of the namespace inherited from the
+containing package. In the example above, this defaults to `"root"`.
+Passing `ParentNamespace=""` disables inheritence of the name, and will
+result in the packed modules calling themselves `packed.submodule`.
+Again, this likely makes it impossible to import the modules, but for
+some specific tasks it may be necessary to override.
+
 ### Nested extension modules
 
 To allow referencing other extension modules that would normally be

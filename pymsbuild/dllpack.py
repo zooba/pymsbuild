@@ -16,13 +16,14 @@ Add `Function` elements to link """
         name = "$DllPackage.Imports"
         imports = ["$(PyMsbuildTargets)/dllpack.targets"]
 
-    def __init__(self, name, *members, project_file=None, **kwargs):
+    def __init__(self, name, *members, project_file=None, **options):
+        options.setdefault("ParentNamespace", "$(RootNamespace)")
         super().__init__(
             name,
             *members,
             self.Imports(),
             project_file=project_file,
-            **kwargs
+            **options
         )
 
 

@@ -7,12 +7,12 @@
         <IntDir Condition="%(Project.IntDir) == ''">$([msbuild]::EnsureTrailingSlash(`$(IntDir)`))%(Project.TargetName)</IntDir>
         <PyMSBuild_Properties>
         _ProjectBuildTarget=$(_ProjectBuildTarget);
+        ParentNamespace=%(Project.ParentNamespace);
         IntDir=$([msbuild]::EnsureTrailingSlash(`%(IntDir)`));
         SourceRootDir=$([msbuild]::EnsureTrailingSlash(`$(SourceRootDir)`));
         _TargetDir=%(TargetDir);
         SourceDir=$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(SourceDir)))%(TargetDir)));
-        OutDir=$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(OutDir)))%(TargetDir)));
-        _RootNamespace=$(RootNamespace);
+        OutDir=$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(OutDir)))%(TargetDir)))
         </PyMSBuild_Properties>
       </Project>
     </ItemGroup>
