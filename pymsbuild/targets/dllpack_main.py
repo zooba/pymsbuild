@@ -3,9 +3,9 @@ def _init():
     from importlib.abc import Loader, MetaPathFinder, PathEntryFinder
     from importlib.machinery import ExtensionFileLoader
     try:
-        from importlib.resources.abc import ResourceReader
-    except ModuleNotFoundError:
-        from importlib.abc import ResourceReader
+        from importlib.resources.abc import TraversalError
+    except ImportError:
+        class TraversalError(Exception): pass
 
     _NAME = __NAME()
     _NAME_DOT = _NAME + "."
@@ -16,7 +16,49 @@ def _init():
     _EXEC_MODULE = __EXEC_MODULE
     _MODULE_NAMES = __MODULE_NAMES
 
-    class DllPackReader(ResourceReader):
+    class DllPackReader:
+        class Traversable:
+            def __init__(self, name, prefix):
+                self.name = name
+                self._prefix = prefix
+
+            def iterdir(self):
+                p =  self._prefix + self.name + "."
+                lp = len(p)
+                return (type(self)(n[lp:], p) for n in _DATA_NAMES if n.startswith(p))
+
+            def read_bytes(self):
+                return _DATA(self._prefix + self.name)
+
+            def read_text(self, encoding="utf-8", errors="strict"):
+                return self.read_bytes().decode(encoding, errors)
+
+            def is_dir(self):
+                return any(self.iterdir())
+
+            def is_file(self):
+                return not any(self.iterdir())
+
+            def joinpath(self, *paths):
+                prefix = self._prefix + self.name + "/" + "/".join(paths).replace("\\", "/")
+                prefix, _, name = prefix.rpartition("/")
+                prefix = prefix.replace("/", ".") + "."
+                if prefix + name not in _DATA_NAMES:
+                    raise TraversalError("resource not found: " + prefix + name)
+                return type(self)(name, prefix)
+
+            def __truediv__(self, path):
+                return self.joinpath(path)
+
+            def open(self, mode='r', *args, **kwargs):
+                if mode not in ('r', 'rb'):
+                    raise ValueError("unsupported mode: " + mode)
+                import io
+                o = io.BytesIO(self.read_bytes())
+                if mode == 'r':
+                    return io.TextIOWrapper(o, *args, **kwargs)
+                return o
+
         def __init__(self, prefix):
             self.prefix = prefix
 
@@ -34,6 +76,10 @@ def _init():
             p = self.prefix
             lp = len(p)
             return (n[lp:] for n in _DATA_NAMES if n.startswith(p))
+
+        def files(self):
+            return self.Traversable(self.prefix.strip("."), "")
+
 
     DllPackReader.__name__ += "_" + _NAME
     DllPackReader.__qualname__ = "<generated>." + DllPackReader.__name__
