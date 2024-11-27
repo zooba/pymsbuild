@@ -23,7 +23,7 @@ METADATA = {
 
 
 with open(f"requirements-{sys.platform}.txt", "r", encoding="utf-8") as f:
-    METADATA["BuildWheelRequires"] = list(map(str.strip, f))
+    METADATA["BuildWheelRequires"] = [s for s in (s.strip() for s in f) if s[:1] not in ('#', '')]
 
 
 def spec_name(spec):

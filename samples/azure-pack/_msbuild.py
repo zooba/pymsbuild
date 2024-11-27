@@ -59,7 +59,7 @@ def init_METADATA():
         METADATA["Version"] = version
 
     with open("requirements-win32.txt", "r", encoding="utf-8") as f:
-        METADATA["BuildWheelRequires"] = list(map(str.strip, f))
+        METADATA["BuildWheelRequires"] = [s for s in (s.strip() for s in f) if s[:1] not in ('#', '')]
 
 
 def find_spec(name):
