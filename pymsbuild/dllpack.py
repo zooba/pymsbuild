@@ -17,7 +17,6 @@ Add `Function` elements to link """
         imports = ["$(PyMsbuildTargets)/dllpack.targets"]
 
     def __init__(self, name, *members, project_file=None, **options):
-        options.setdefault("ParentNamespace", "$(RootNamespace)")
         super().__init__(
             name,
             *members,

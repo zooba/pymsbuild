@@ -4,7 +4,7 @@
     <GetPackageFilesTargets>_ConvertPydRedirectToContent;$(GetPackageFilesTargets)</GetPackageFilesTargets>
     <_DllPack_ModuleName>$(RootNamespace)</_DllPack_ModuleName>
     <_DllPack_ModuleName Condition="$(_DllPack_ModuleName) == ''">$(ProjectName)</_DllPack_ModuleName>
-    <_DllPack_ModuleName Condition="$(ParentNamespace) != ''">$(ParentNamespace).$(_DllPack_ModuleName)</_DllPack_ModuleName>
+    <_DllPack_ModuleName Condition="$(_ParentNamespace) != ''">$(_ParentNamespace).$(_DllPack_ModuleName)</_DllPack_ModuleName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -77,6 +77,10 @@
   </Target>
 
   <Target Name="_CalculateDllPackResponseFile" DependsOnTargets="_ConvertPydRedirectToContent">
+    <Message Text="_DllPack_ModuleName: $(_DllPack_ModuleName)" Importance="high" />
+    <Message Text="ProjectName: $(ProjectName)" Importance="high" />
+    <Message Text="ParentNamespace: $(ParentNamespace)" Importance="high" />
+    <Message Text="RootNamespace: $(RootNamespace)" Importance="high" />
     <ItemGroup>
       <_DllPackRspLines Include="module:$(ProjectName):$(_DllPack_ModuleName)" />
       <_DllPackRspLines Include="platform:gcc" Condition="$(PlatformToolset) == 'gcc'" />

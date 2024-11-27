@@ -941,14 +941,9 @@ Second is the `RootNamespace` property, which overrides the name used
 within the packed module to identify submodules. Changing this alone is
 rarely useful, and the default (matching the name of the module) is
 recommended unless you have modified other aspects of the build.
-
-Finally, the `ParentNamespace` property, which may only be set as a
-named argument, overrides the part of the namespace inherited from the
-containing package. In the example above, this defaults to `"root"`.
-Passing `ParentNamespace=""` disables inheritence of the name, and will
-result in the packed modules calling themselves `packed.submodule`.
-Again, this likely makes it impossible to import the modules, but for
-some specific tasks it may be necessary to override.
+If this is overridden with a named argument, it will replace the full
+name used within the packed DLL. If overridden with a `Property`
+element, it will replace the name but retain the parent's namespace.
 
 ### Nested extension modules
 
