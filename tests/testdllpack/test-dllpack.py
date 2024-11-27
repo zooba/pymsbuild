@@ -81,15 +81,18 @@ assert TDP.sub.mod2 is M2
 #######################################
 # Check testdllpack/data.txt
 #######################################
-import importlib.resources as i_r
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    c = list(i_r.contents(TDP))
-print(c)
-assert "data.txt" in c
-
 # importlib.resources has no feature detection, so we have to assume that
 # they'll stick to CPython versions.
+
+if sys.version_info[:2] < (3, 13):
+    # .contents() is buggy on 3.13
+    import importlib.resources as i_r
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        c = list(i_r.contents(TDP))
+    print(c)
+    assert "data.txt" in c
+
 if sys.version_info[:2] >= (3, 11):
     assert (i_r.files(TDP) / "data.txt").read_text().startswith("This is data")
     assert (i_r.files(TDP) / "data.txt").read_bytes().startswith(b"This is data")

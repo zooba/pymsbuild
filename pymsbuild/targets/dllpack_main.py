@@ -1,7 +1,11 @@
 def _init():
     import sys
-    from importlib.abc import Loader, MetaPathFinder, PathEntryFinder, ResourceReader
+    from importlib.abc import Loader, MetaPathFinder, PathEntryFinder
     from importlib.machinery import ExtensionFileLoader
+    try:
+        from importlib.resources.abc import ResourceReader
+    except ModuleNotFoundError:
+        from importlib.abc import ResourceReader
 
     _NAME = __NAME()
     _NAME_DOT = _NAME + "."
