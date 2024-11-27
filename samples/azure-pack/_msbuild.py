@@ -38,9 +38,9 @@ PACKAGES = {
         PyFile(name="__init__.py", source=Path("empty.py").absolute()),
         PyFile(name="storage/__init__.py", source=Path("empty.py").absolute()),
     ),
-    "certifi": DllPackage("certifi", File("**/*.pem", IncludeInSdist=False, allow_none=True)),
+    "certifi": DllPackage("certifi", File("**/*.pem", IncludeInSdist=False, allow_none=True), RootNamespace="certifi"),
     "cffi_backend": File("empty.py", name="_cffi_backend.pyd", IncludeInSdist=False),
-    **{k: DllPackage(k) for k in AUTO_PACKAGES}
+    **{k: DllPackage(k, RootNamespace=k) for k in AUTO_PACKAGES}
 }
 
 
@@ -59,7 +59,7 @@ def init_METADATA():
         METADATA["Version"] = version
 
     with open("requirements-win32.txt", "r", encoding="utf-8") as f:
-        METADATA["BuildWheelRequires"] = list(map(str.strip, f))
+        METADATA["BuildWheelRequires"] = [s for s in (s.strip() for s in f) if s[:1] not in ('#', '')]
 
 
 def find_spec(name):

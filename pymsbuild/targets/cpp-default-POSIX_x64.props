@@ -1,6 +1,18 @@
 <Project>
   <PropertyGroup>
     <DefaultPlatformToolset>GCC</DefaultPlatformToolset>
+
+    <Configuration Condition="$(Configuration) == ''">Release</Configuration>
+
+    <ProjectName Condition="$(ProjectName) == ''">$(MSBuildProjectName)</ProjectName>
+    <TargetName Condition="$(TargetName) == ''">$(ProjectName)</TargetName>
+    <ProjectFileName Condition="$(ProjectFileName) == ''">$(MSBuildProjectFile)</ProjectFileName>
+    <ProjectExt Condition="$(ProjectExt) == ''">$(MSBuildProjectExtension)</ProjectExt>
+    <ProjectDir Condition="$(ProjectDir) == ''">$([msbuild]::EnsureTrailingSlash($(MSBuildProjectDirectory)))</ProjectDir>
+    <ProjectPath Condition="$(ProjectPath) == ''">$(ProjectDir)$(ProjectFileName)</ProjectPath>
+    <PlatformName Condition="$(PlatformName) == ''">$(Platform)</PlatformName>
+    <SolutionDir Condition="$(SolutionDir)==''">$(ProjectDir)</SolutionDir>
+
     <CopyRetryCount Condition="$(CopyRetryCount) == ''">3</CopyRetryCount>
   </PropertyGroup>
 </Project>

@@ -105,6 +105,7 @@ class VendoredDllPackage(DllPackage, _VendoredMixin):
     def __init__(self, spec, name=None, import_names=[], **options):
         name = name or self._name_from_spec(spec)
         options.setdefault("BuildWheelRequires", spec)
+        options.setdefault("RootNamespace", name)
         super().__init__(name, **options)
         self.spec = spec
         if self.options.get("as_search_path"):

@@ -197,8 +197,8 @@ class BuildState:
         self.platform = tags.platform_tag
 
         name, version = self.metadata["Name"], self.metadata["Version"]
-        name = re.sub(r"[^\w\d.]+", "_", name, re.UNICODE)
-        version = re.sub(r"[^\w\d.]+", "_", version, re.UNICODE)
+        name = re.sub(r"[^\w\d.]+", "_", name, flags=re.UNICODE)
+        version = re.sub(r"[^\w\d.]+", "_", version, flags=re.UNICODE)
         self._set_best("sdist_name", None, "PYMSBUILD_SDIST_NAME", "{}-{}.tar.gz".format(name, version), getenv)
         self._set_best("wheel_name", None, "PYMSBUILD_WHEEL_NAME", "{}-{}-{}.whl".format(name, version, self.wheel_tag), getenv)
         self._set_best("distinfo_name", None, "PYMSBUILD_DISTINFO_NAME", "{}-{}.dist-info".format(name, version), getenv)

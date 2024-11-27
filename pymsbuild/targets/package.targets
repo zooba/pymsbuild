@@ -14,6 +14,10 @@
         OutDir=$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(OutDir)))%(TargetDir)))
         </PyMSBuild_Properties>
       </Project>
+      <Project>
+        <PyMSBuild_Properties Condition="%(Project.RootNamespace) != ''">RootNamespace=%(Project.RootNamespace);%(PyMSBuild_Properties)</PyMSBuild_Properties>
+        <PyMSBuild_Properties Condition="%(Project.RootNamespace) == ''">_ParentNamespace=$(RootNamespace);%(PyMSBuild_Properties)</PyMSBuild_Properties>
+      </Project>
     </ItemGroup>
     <ItemGroup>
       <Project>

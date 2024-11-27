@@ -2,6 +2,7 @@
   <PropertyGroup>
     <BeforeBuildGenerateSourcesTargets>GenerateDllPack;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
     <GetPackageFilesTargets>_ConvertPydRedirectToContent;$(GetPackageFilesTargets)</GetPackageFilesTargets>
+    <RootNamespace Condition="$(_ParentNamespace) != ''">$(_ParentNamespace).$(RootNamespace)</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -74,7 +75,12 @@
   </Target>
 
   <Target Name="_CalculateDllPackResponseFile" DependsOnTargets="_ConvertPydRedirectToContent">
+    <Message Text="RootNamespace: $(RootNamespace)" Importance="$(_Low)" />
+    <Message Text="_ParentNamespace: $(_ParentNamespace)" Importance="$(_Low)" />
+    <Message Text="ProjectName: $(ProjectName)" Importance="$(_Low)" />
+    <Message Text="RootNamespace: $(RootNamespace)" Importance="$(_Low)" />
     <ItemGroup>
+      <_DllPackRspLines Include="module:$(ProjectName):$(RootNamespace)" />
       <_DllPackRspLines Include="platform:gcc" Condition="$(PlatformToolset) == 'gcc'" />
       <_DllPackRspLines Include="platform:windows" Condition="$(PlatformToolset) != 'gcc'" />
       <_DllPackRspLines Include="encrypt:$(EncryptionKeyVariable)" Condition="$(EncryptionKeyVariable) != ''" />
@@ -101,7 +107,7 @@
     <PropertyGroup>
       <_GenCommand>"$(HostPython)" "$(PyMsbuildTargets)\dllpack-generate.py" "$(RootNamespace)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
     </PropertyGroup>
-    <Message Text="Generating pack for the following files:%0A@(_DllPackRspLines,'%0A')" Importance="normal" />
+    <Message Text="Generating pack for the following files:%0A@(_DllPackRspLines,'%0A')" Importance="$(_Low)" />
     <Exec Command="$(_GenCommand)" WorkingDirectory="$(IntDir)" />
     <ItemGroup>
       <ResourceCompile Include="@(_DllPackRc)">
