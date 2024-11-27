@@ -902,7 +902,7 @@ Raises NotImplementedError if a supported toml library is not found.
     @classmethod
     def _toml_repr(cls, v):
         if isinstance(v, dict):
-            return '{' + ', '.join(f'{k}={cls._toml_repr(v[k])}' for k in v) + '}'
+            return '{' + ', '.join(f'{cls._toml_repr(k)}={cls._toml_repr(v[k])}' for k in v) + '}'
         try:
             it = iter(v)
             f = next(it)
@@ -973,4 +973,4 @@ Raises NotImplementedError if a supported toml library is not found.
 
     def write_member(self, project, group):
         group.switch_to("PropertyGroup")
-        project.add_property("_PyprojectTomlContent", self.content)
+        project.add_property("_PyprojectTomlContent", "<![CDATA[" + self.content + "]]>")
