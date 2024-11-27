@@ -130,8 +130,8 @@ def init_PACKAGE(tag=None):
     for p in azure_paths:
         azure.members.append(
             DllPackage(
-                f"azure.{p.name}",
+                p.name,
                 PyFile(p / "**/*.py"),
-                TargetName=p.name,
+                RootNamespace=f"azure.{p.name}",
             )
         )
