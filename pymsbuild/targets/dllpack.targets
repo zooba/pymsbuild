@@ -2,16 +2,14 @@
   <PropertyGroup>
     <BeforeBuildGenerateSourcesTargets>GenerateDllPack;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
     <GetPackageFilesTargets>_ConvertPydRedirectToContent;$(GetPackageFilesTargets)</GetPackageFilesTargets>
-    <_DllPack_ModuleName>$(RootNamespace)</_DllPack_ModuleName>
-    <_DllPack_ModuleName Condition="$(_DllPack_ModuleName) == ''">$(ProjectName)</_DllPack_ModuleName>
-    <_DllPack_ModuleName Condition="$(_ParentNamespace) != ''">$(_ParentNamespace).$(_DllPack_ModuleName)</_DllPack_ModuleName>
+    <RootNamespace Condition="$(_ParentNamespace) != ''">$(_ParentNamespace).$(RootNamespace)</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)dllpack.c">
       <AdditionalIncludeDirectories>$(IntDir.TrimEnd(`$(_Sep)`));$(MSBuildThisFileDirectory);%(ClCompile.AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ObjectFile>dllpack.o</ObjectFile>
-      <PreprocessorDefinitions>_DLLPACK_NAME="$(_DllPack_ModuleName)";%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DLLPACK_NAME="$(RootNamespace)";%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludeInSdist>false</IncludeInSdist>
       <IncludeInLayout>false</IncludeInLayout>
       <IncludeInWheel>false</IncludeInWheel>
@@ -35,7 +33,7 @@
       <DllPackRedirect Include="@(_RedirectFromDependencies)">
         <Name>%(Filename)%(Extension)</Name>
         <TargetDir>$(_TargetDir)</TargetDir>
-        <ImportName Condition="%(_RedirectFromDependencies.ImportName) == '' and $(_DllPack_ModuleName) != ''">$(_DllPack_ModuleName).</ImportName>
+        <ImportName Condition="%(_RedirectFromDependencies.ImportName) == '' and $(RootNamespace) != ''">$(RootNamespace).</ImportName>
       </DllPackRedirect>
     </ItemGroup>
   </Target>
@@ -77,18 +75,18 @@
   </Target>
 
   <Target Name="_CalculateDllPackResponseFile" DependsOnTargets="_ConvertPydRedirectToContent">
-    <Message Text="_DllPack_ModuleName: $(_DllPack_ModuleName)" Importance="high" />
-    <Message Text="ProjectName: $(ProjectName)" Importance="high" />
-    <Message Text="ParentNamespace: $(ParentNamespace)" Importance="high" />
-    <Message Text="RootNamespace: $(RootNamespace)" Importance="high" />
+    <Message Text="RootNamespace: $(RootNamespace)" Importance="$(_Low)" />
+    <Message Text="_ParentNamespace: $(_ParentNamespace)" Importance="$(_Low)" />
+    <Message Text="ProjectName: $(ProjectName)" Importance="$(_Low)" />
+    <Message Text="RootNamespace: $(RootNamespace)" Importance="$(_Low)" />
     <ItemGroup>
-      <_DllPackRspLines Include="module:$(ProjectName):$(_DllPack_ModuleName)" />
+      <_DllPackRspLines Include="module:$(ProjectName):$(RootNamespace)" />
       <_DllPackRspLines Include="platform:gcc" Condition="$(PlatformToolset) == 'gcc'" />
       <_DllPackRspLines Include="platform:windows" Condition="$(PlatformToolset) != 'gcc'" />
       <_DllPackRspLines Include="encrypt:$(EncryptionKeyVariable)" Condition="$(EncryptionKeyVariable) != ''" />
       <_DllPackRspLines Include="@(_DllPackSourceFiles->'%(Kind):%(Name):%(FullPath)')" />
       <_DllPackRspLines Include="@(DllPackFunction->'function:%(Identity)')" />
-      <_DllPackRspLines Include="@(DllPackRedirect->'redirect:%(ImportName):%(Name):$(_DllPack_ModuleName)')" />
+      <_DllPackRspLines Include="@(DllPackRedirect->'redirect:%(ImportName):%(Name):$(RootNamespace)')" />
     </ItemGroup>
     <WriteLinesToFile File="@(_DllPackRsp)"
                       Lines="@(_DllPackRspLines)"
@@ -107,9 +105,9 @@
     <Message Text="WARNING: DLL packing is experimental and may change. Send feedback at https://github.com/zooba/pymsbuild"
              Importance="high" />
     <PropertyGroup>
-      <_GenCommand>"$(HostPython)" "$(PyMsbuildTargets)\dllpack-generate.py" "$(_DllPack_ModuleName)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
+      <_GenCommand>"$(HostPython)" "$(PyMsbuildTargets)\dllpack-generate.py" "$(RootNamespace)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
     </PropertyGroup>
-    <Message Text="Generating pack for the following files:%0A@(_DllPackRspLines,'%0A')" Importance="normal" />
+    <Message Text="Generating pack for the following files:%0A@(_DllPackRspLines,'%0A')" Importance="$(_Low)" />
     <Exec Command="$(_GenCommand)" WorkingDirectory="$(IntDir)" />
     <ItemGroup>
       <ResourceCompile Include="@(_DllPackRc)">
