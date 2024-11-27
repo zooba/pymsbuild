@@ -16,6 +16,6 @@
     <BuildSdistDependsOn>$(BuildSdistDependsOn);BuildDependencies</BuildSdistDependsOn>
     <GetPackageFilesTargets>$(GetPackageFilesTargets);_GetPackageFilesFromProjects</GetPackageFilesTargets>
     <GetSdistFilesTargets>$(GetSdistFilesTargets);_GetSdistFilesFromProjects</GetSdistFilesTargets>
-    <RootNamespace Condition="$(_RootNamespace) != ''">$(_RootNamespace).$(RootNamespace)</RootNamespace>
+    <RootNamespace Condition="$(_RootNamespace) != ''">$(_RootNamespace.Trim()).$(RootNamespace)</RootNamespace>
   </PropertyGroup>
 </Project>

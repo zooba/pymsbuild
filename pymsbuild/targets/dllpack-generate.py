@@ -282,7 +282,7 @@ class ErrorInfo:
         self.line = line
 
     def check(self):
-        return "Unhandled input: " + line
+        return "Unhandled input: " + self.line
 
 
 def _write_rc_string(id, s, file):
