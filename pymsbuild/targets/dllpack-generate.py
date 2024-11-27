@@ -23,6 +23,7 @@ def groupby(iterator, key):
 def parse_all(file):
     g = groupby(map(str.strip, file), key=lambda i: i.partition(":")[0].lower())
     factories = dict(
+        module=ModuleInfo,
         platform=PlatformInfo,
         code=CodeFileInfo,
         resource=DataFileInfo,
@@ -34,6 +35,24 @@ def parse_all(file):
         factories.get(k, ErrorInfo)(line)
         for k, v in g.items() for line in v
     ]
+
+
+class ModuleInfo:
+    RC_TYPE = None
+    RC_TABLE = None
+
+    def __init__(self, line):
+        _, self.from_module, self.module = line.split(":", 3)
+
+    def check(self):
+        pass
+
+    @classmethod
+    def find(cls, items, default):
+        for i in items:
+            if isinstance(i, cls):
+                return i.from_module, i.module
+        return default, default
 
 
 class PlatformInfo:
@@ -97,6 +116,10 @@ class CodeFileInfo:
     def check(self):
         if not self.sourcefile.is_file():
             return "Missing input: {}".format(self.sourcefile)
+
+    def remap_namespace(self, from_name, to_name):
+        if self.name.startswith(from_name + "."):
+            self.name = to_name + self.name[len(from_name):]
 
     @classmethod
     def get_builtin(cls, resid, sourcefile, name):
@@ -385,6 +408,7 @@ if __name__ == "__main__":
     if any(ERRORS):
         print(*filter(None, ERRORS), sep="\n")
         sys.exit(1)
+    FROM_MODULE, MODULE = ModuleInfo.find(PARSED, MODULE)
     PLATFORM = PlatformInfo.find(PARSED)
     ENCRYPT = EncryptInfo.find_key(PARSED)
     TARGETS = Path(sys.argv[3]).absolute()
@@ -392,4 +416,10 @@ if __name__ == "__main__":
         "windows": _generate_windows_files,
         "gcc": _generate_gcc_files,
     }[PLATFORM]
+    if FROM_MODULE != MODULE:
+        for f in PARSED:
+            try:
+                f.remap_namespace(FROM_MODULE, MODULE)
+            except AttributeError:
+                pass
     GENERATOR(MODULE, PARSED, TARGETS, ENCRYPT)

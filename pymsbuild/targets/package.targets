@@ -11,7 +11,8 @@
         SourceRootDir=$([msbuild]::EnsureTrailingSlash(`$(SourceRootDir)`));
         _TargetDir=%(TargetDir);
         SourceDir=$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(SourceDir)))%(TargetDir)));
-        OutDir=$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(OutDir)))%(TargetDir)))
+        OutDir=$([msbuild]::EnsureTrailingSlash($([msbuild]::EnsureTrailingSlash($(OutDir)))%(TargetDir)));
+        _RootNamespace=$(RootNamespace);
         </PyMSBuild_Properties>
       </Project>
     </ItemGroup>

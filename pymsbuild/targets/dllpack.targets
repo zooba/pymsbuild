@@ -75,6 +75,7 @@
 
   <Target Name="_CalculateDllPackResponseFile" DependsOnTargets="_ConvertPydRedirectToContent">
     <ItemGroup>
+      <_DllPackRspLines Include="module:$(ProjectName):$(RootNamespace)" />
       <_DllPackRspLines Include="platform:gcc" Condition="$(PlatformToolset) == 'gcc'" />
       <_DllPackRspLines Include="platform:windows" Condition="$(PlatformToolset) != 'gcc'" />
       <_DllPackRspLines Include="encrypt:$(EncryptionKeyVariable)" Condition="$(EncryptionKeyVariable) != ''" />
