@@ -930,6 +930,10 @@ PACKAGE = Package("root",
 import root.packed.submodule
 ```
 
+If part of the package name is not importable (specifically,
+`str.isidentifier()` is `False`), then the name will be truncated after
+that part.
+
 There are a few properties that can affect what is built. The first is
 the `TargetName` property, which will change the name of the compiled
 file. For example, adding `TargetName="root.packed"` or

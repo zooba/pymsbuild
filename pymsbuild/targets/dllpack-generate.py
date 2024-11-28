@@ -43,6 +43,13 @@ class ModuleInfo:
 
     def __init__(self, line):
         _, self.from_module, self.module = line.split(":", 3)
+        if self.module:
+            bits = self.module.split(".")
+            for i in reversed(range(len(bits))):
+                if not bits[i].isidentifier():
+                    bits = bits[i + 1:]
+                    break
+            self.module = ".".join(bits)
 
     def check(self):
         pass
@@ -155,6 +162,10 @@ class DataFileInfo:
             self._resource_file.write_bytes(self.sourcefile.read_bytes())
         return self._resource_file
 
+    def remap_namespace(self, from_name, to_name):
+        if self.name.startswith(from_name + "."):
+            self.name = to_name + self.name[len(from_name):]
+
 
 class FunctionInfo:
     RC_TYPE = None
@@ -190,8 +201,15 @@ class RedirectInfo:
                     break
             else:
                 self.name = name + p.name
-            if not name and not self.name.startswith(f"{root}."):
-                self.name = f"{root}.{self.name}"
+            if not name and root:
+                root_bits = []
+                name_bits = self.name.split(".")
+                for r in reversed(root.split(".")):
+                    if not r.isidentifier():
+                        break
+                    root_bits.insert(0, r)
+                if name_bits[:len(root_bits)] != root_bits:
+                    self.name = ".".join([*root_bits, *name_bits])
         else:
             self.name = name
 

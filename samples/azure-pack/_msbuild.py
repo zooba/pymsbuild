@@ -38,9 +38,9 @@ PACKAGES = {
         PyFile(name="__init__.py", source=Path("empty.py").absolute()),
         PyFile(name="storage/__init__.py", source=Path("empty.py").absolute()),
     ),
-    "certifi": DllPackage("certifi", File("**/*.pem", IncludeInSdist=False, allow_none=True), RootNamespace="certifi"),
+    "certifi": DllPackage("certifi", File("**/*.pem", IncludeInSdist=False, allow_none=True)),
     "cffi_backend": File("empty.py", name="_cffi_backend.pyd", IncludeInSdist=False),
-    **{k: DllPackage(k, RootNamespace=k) for k in AUTO_PACKAGES}
+    **{k: DllPackage(k) for k in AUTO_PACKAGES}
 }
 
 
