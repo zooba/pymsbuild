@@ -129,6 +129,7 @@ class CodeFileInfo:
 class DataFileInfo:
     RC_TYPE = "DATAFILE"
     RC_TABLE = "DATA_TABLE"
+    is_package = False
 
     def __init__(self, line):
         _, name, path = line.split(":", maxsplit=2)
@@ -159,6 +160,7 @@ class FunctionInfo:
     RC_TYPE = None
     RC_TABLE = "$FUNCTIONS"
     resid = 0
+    is_package = False
 
     def __init__(self, line):
         self.name = line.partition(":")[2]
@@ -175,6 +177,7 @@ class RedirectInfo:
     RC_TYPE = None
     RC_TABLE = "REDIRECT_TABLE"
     resid = 0
+    is_package = False
 
     def __init__(self, line):
         _, name, self.origin, root = line.split(":", 3)
@@ -329,13 +332,14 @@ def _generate_windows_files(module, files, targets, encrypt=None):
                 print("    {", file=h_file)
                 print('        {},'.format(_c_str(f.name)), file=h_file)
                 print('        {},'.format(_c_str(f.origin)), file=h_file)
-                print("        {}".format(f.resid), file=h_file)
+                print("        {},".format(f.resid), file=h_file)
+                print("        {}".format(1 if f.is_package else 0), file=h_file)
                 print("    },", file=h_file)
             print("    {NULL, NULL, 0}", file=h_file)
             print("};", file=h_file)
-        print(f"struct ENTRY _IMPORTERS = {{NULL, NULL, {IMPORTERS_RESID}}};", file=h_file)
+        print(f"struct ENTRY _IMPORTERS = {{NULL, NULL, {IMPORTERS_RESID}, 0}};", file=h_file)
         for table in expected_tables:
-            print("struct ENTRY ", table, "[] = {{NULL, NULL, 0}};", sep="", file=h_file)
+            print("struct ENTRY ", table, "[] = {{NULL, NULL, 0, 0}};", sep="", file=h_file)
         for f in tables.get("$FUNCTIONS", ()):
             print("extern", f.prototype(), file=h_file);
         print("#define MOD_METH_TAIL \\", file=h_file)
@@ -383,14 +387,15 @@ def _generate_gcc_files(module, files, targets, encrypt=None):
                 print("    {", file=h_file)
                 print("        {},".format(_c_str(f.name)), file=h_file)
                 print("        {},".format(_c_str(f.origin)), file=h_file)
-                print("        {}".format(res_name), file=h_file)
+                print("        {},".format(res_name), file=h_file)
+                print("        {}".format(1 if f.is_package else 0), file=h_file)
                 print("    },", file=h_file)
             print("    {NULL, NULL, NULL}", file=h_file)
             print("};", file=h_file)
         res_name = importer.resource_file(encrypt).name.replace(".", "_")
-        print(f"struct ENTRY _IMPORTERS = {{_MODULE_NAME, _MODULE_NAME, _REFERENCE_DATA({res_name})}};", file=h_file)
+        print(f"struct ENTRY _IMPORTERS = {{_MODULE_NAME, _MODULE_NAME, _REFERENCE_DATA({res_name}), 0}};", file=h_file)
         for table in expected_tables:
-            print("struct ENTRY ", table, "[] = {{NULL, NULL, NULL}};", sep="", file=h_file)
+            print("struct ENTRY ", table, "[] = {{NULL, NULL, NULL, 0}};", sep="", file=h_file)
         for f in tables.get("$FUNCTIONS", ()):
             print("extern", f.prototype(), file=h_file);
         print("#define MOD_METH_TAIL \\", file=h_file)

@@ -15,6 +15,7 @@ struct ENTRY {
     const char *name;
     const char *origin;
     int id;
+    char is_package;
 };
 
 

@@ -24,8 +24,7 @@ entry_matches(const struct ENTRY *entry, const char *name, size_t cchName)
 
     if (!strcmp(entry->name, name)) {
         // Full name match
-        if (entry->origin[cchName] == '/' || entry->origin[cchName] == '\\'){
-            // Origin is a directory, which means this is a package
+        if (entry->is_package) {
             return MATCH_FULL_PACKAGE;
         }
         return MATCH_FULL;

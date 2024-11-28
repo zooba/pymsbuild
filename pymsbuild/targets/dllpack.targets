@@ -2,14 +2,24 @@
   <PropertyGroup>
     <BeforeBuildGenerateSourcesTargets>GenerateDllPack;$(BeforeBuildGenerateSourcesTargets)</BeforeBuildGenerateSourcesTargets>
     <GetPackageFilesTargets>_ConvertPydRedirectToContent;$(GetPackageFilesTargets)</GetPackageFilesTargets>
+
+    <!--
+    This little dance allows us to override the final name by setting
+    RootNamespace on the command line. In this case, our modifications to the
+    property won't have any effect, and _DllPack_Module will get the intended
+    value. Otherwise, we will override inferred values and add the namespace.
+    -->
+    <_Original_RootNamespace>$(RootNamespace)</_Original_RootNamespace>
     <RootNamespace Condition="$(_ParentNamespace) != ''">$(_ParentNamespace).$(RootNamespace)</RootNamespace>
+    <_DllPack_Module>$(RootNamespace)</_DllPack_Module>
+    <RootNamespace>$(_Original_RootNamespace)</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)dllpack.c">
       <AdditionalIncludeDirectories>$(IntDir.TrimEnd(`$(_Sep)`));$(MSBuildThisFileDirectory);%(ClCompile.AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ObjectFile>dllpack.o</ObjectFile>
-      <PreprocessorDefinitions>_DLLPACK_NAME="$(RootNamespace)";%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DLLPACK_NAME="$(_DllPack_Module)";%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludeInSdist>false</IncludeInSdist>
       <IncludeInLayout>false</IncludeInLayout>
       <IncludeInWheel>false</IncludeInWheel>
@@ -33,7 +43,7 @@
       <DllPackRedirect Include="@(_RedirectFromDependencies)">
         <Name>%(Filename)%(Extension)</Name>
         <TargetDir>$(_TargetDir)</TargetDir>
-        <ImportName Condition="%(_RedirectFromDependencies.ImportName) == '' and $(RootNamespace) != ''">$(RootNamespace).</ImportName>
+        <ImportName Condition="%(_RedirectFromDependencies.ImportName) == '' and $(_DllPack_Module) != ''">$(_DllPack_Module).</ImportName>
       </DllPackRedirect>
     </ItemGroup>
   </Target>
@@ -75,18 +85,14 @@
   </Target>
 
   <Target Name="_CalculateDllPackResponseFile" DependsOnTargets="_ConvertPydRedirectToContent">
-    <Message Text="RootNamespace: $(RootNamespace)" Importance="$(_Low)" />
-    <Message Text="_ParentNamespace: $(_ParentNamespace)" Importance="$(_Low)" />
-    <Message Text="ProjectName: $(ProjectName)" Importance="$(_Low)" />
-    <Message Text="RootNamespace: $(RootNamespace)" Importance="$(_Low)" />
     <ItemGroup>
-      <_DllPackRspLines Include="module:$(ProjectName):$(RootNamespace)" />
+      <_DllPackRspLines Include="module:$(ProjectName):$(_DllPack_Module)" />
       <_DllPackRspLines Include="platform:gcc" Condition="$(PlatformToolset) == 'gcc'" />
       <_DllPackRspLines Include="platform:windows" Condition="$(PlatformToolset) != 'gcc'" />
       <_DllPackRspLines Include="encrypt:$(EncryptionKeyVariable)" Condition="$(EncryptionKeyVariable) != ''" />
       <_DllPackRspLines Include="@(_DllPackSourceFiles->'%(Kind):%(Name):%(FullPath)')" />
       <_DllPackRspLines Include="@(DllPackFunction->'function:%(Identity)')" />
-      <_DllPackRspLines Include="@(DllPackRedirect->'redirect:%(ImportName):%(Name):$(RootNamespace)')" />
+      <_DllPackRspLines Include="@(DllPackRedirect->'redirect:%(ImportName):%(Name):$(_DllPack_Module)')" />
     </ItemGroup>
     <WriteLinesToFile File="@(_DllPackRsp)"
                       Lines="@(_DllPackRspLines)"
@@ -105,7 +111,7 @@
     <Message Text="WARNING: DLL packing is experimental and may change. Send feedback at https://github.com/zooba/pymsbuild"
              Importance="high" />
     <PropertyGroup>
-      <_GenCommand>"$(HostPython)" "$(PyMsbuildTargets)\dllpack-generate.py" "$(RootNamespace)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
+      <_GenCommand>"$(HostPython)" "$(PyMsbuildTargets)\dllpack-generate.py" "$(_DllPack_Module)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
     </PropertyGroup>
     <Message Text="Generating pack for the following files:%0A@(_DllPackRspLines,'%0A')" Importance="$(_Low)" />
     <Exec Command="$(_GenCommand)" WorkingDirectory="$(IntDir)" />
