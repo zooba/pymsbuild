@@ -22,6 +22,7 @@ struct ENTRY {
     const char *name;
     const char *origin;
     _GET_DATA get;
+    char is_package;
 };
 
 typedef struct {

@@ -23,6 +23,7 @@ def groupby(iterator, key):
 def parse_all(file):
     g = groupby(map(str.strip, file), key=lambda i: i.partition(":")[0].lower())
     factories = dict(
+        module=ModuleInfo,
         platform=PlatformInfo,
         code=CodeFileInfo,
         resource=DataFileInfo,
@@ -34,6 +35,31 @@ def parse_all(file):
         factories.get(k, ErrorInfo)(line)
         for k, v in g.items() for line in v
     ]
+
+
+class ModuleInfo:
+    RC_TYPE = None
+    RC_TABLE = None
+
+    def __init__(self, line):
+        _, self.from_module, self.module = line.split(":", 3)
+        if self.module:
+            bits = self.module.split(".")
+            for i in reversed(range(len(bits))):
+                if not bits[i].isidentifier():
+                    bits = bits[i + 1:]
+                    break
+            self.module = ".".join(bits)
+
+    def check(self):
+        pass
+
+    @classmethod
+    def find(cls, items, default):
+        for i in items:
+            if isinstance(i, cls):
+                return i.from_module, i.module
+        return default, default
 
 
 class PlatformInfo:
@@ -98,6 +124,10 @@ class CodeFileInfo:
         if not self.sourcefile.is_file():
             return "Missing input: {}".format(self.sourcefile)
 
+    def remap_namespace(self, from_name, to_name):
+        if self.name.startswith(from_name + "."):
+            self.name = to_name + self.name[len(from_name):]
+
     @classmethod
     def get_builtin(cls, resid, sourcefile, name):
         return cls("code:${}:{}".format(name or sourcefile.stem, sourcefile), resid=resid)
@@ -106,6 +136,7 @@ class CodeFileInfo:
 class DataFileInfo:
     RC_TYPE = "DATAFILE"
     RC_TABLE = "DATA_TABLE"
+    is_package = False
 
     def __init__(self, line):
         _, name, path = line.split(":", maxsplit=2)
@@ -131,11 +162,16 @@ class DataFileInfo:
             self._resource_file.write_bytes(self.sourcefile.read_bytes())
         return self._resource_file
 
+    def remap_namespace(self, from_name, to_name):
+        if self.name.startswith(from_name + "."):
+            self.name = to_name + self.name[len(from_name):]
+
 
 class FunctionInfo:
     RC_TYPE = None
     RC_TABLE = "$FUNCTIONS"
     resid = 0
+    is_package = False
 
     def __init__(self, line):
         self.name = line.partition(":")[2]
@@ -152,6 +188,7 @@ class RedirectInfo:
     RC_TYPE = None
     RC_TABLE = "REDIRECT_TABLE"
     resid = 0
+    is_package = False
 
     def __init__(self, line):
         _, name, self.origin, root = line.split(":", 3)
@@ -164,8 +201,15 @@ class RedirectInfo:
                     break
             else:
                 self.name = name + p.name
-            if not name and not self.name.startswith(f"{root}."):
-                self.name = f"{root}.{self.name}"
+            if not name and root:
+                root_bits = []
+                name_bits = self.name.split(".")
+                for r in reversed(root.split(".")):
+                    if not r.isidentifier():
+                        break
+                    root_bits.insert(0, r)
+                if name_bits[:len(root_bits)] != root_bits:
+                    self.name = ".".join([*root_bits, *name_bits])
         else:
             self.name = name
 
@@ -259,7 +303,7 @@ class ErrorInfo:
         self.line = line
 
     def check(self):
-        return "Unhandled input: " + line
+        return "Unhandled input: " + self.line
 
 
 def _write_rc_string(id, s, file):
@@ -306,13 +350,14 @@ def _generate_windows_files(module, files, targets, encrypt=None):
                 print("    {", file=h_file)
                 print('        {},'.format(_c_str(f.name)), file=h_file)
                 print('        {},'.format(_c_str(f.origin)), file=h_file)
-                print("        {}".format(f.resid), file=h_file)
+                print("        {},".format(f.resid), file=h_file)
+                print("        {}".format(1 if f.is_package else 0), file=h_file)
                 print("    },", file=h_file)
             print("    {NULL, NULL, 0}", file=h_file)
             print("};", file=h_file)
-        print(f"struct ENTRY _IMPORTERS = {{NULL, NULL, {IMPORTERS_RESID}}};", file=h_file)
+        print(f"struct ENTRY _IMPORTERS = {{NULL, NULL, {IMPORTERS_RESID}, 0}};", file=h_file)
         for table in expected_tables:
-            print("struct ENTRY ", table, "[] = {{NULL, NULL, 0}};", sep="", file=h_file)
+            print("struct ENTRY ", table, "[] = {{NULL, NULL, 0, 0}};", sep="", file=h_file)
         for f in tables.get("$FUNCTIONS", ()):
             print("extern", f.prototype(), file=h_file);
         print("#define MOD_METH_TAIL \\", file=h_file)
@@ -360,14 +405,15 @@ def _generate_gcc_files(module, files, targets, encrypt=None):
                 print("    {", file=h_file)
                 print("        {},".format(_c_str(f.name)), file=h_file)
                 print("        {},".format(_c_str(f.origin)), file=h_file)
-                print("        {}".format(res_name), file=h_file)
+                print("        {},".format(res_name), file=h_file)
+                print("        {}".format(1 if f.is_package else 0), file=h_file)
                 print("    },", file=h_file)
             print("    {NULL, NULL, NULL}", file=h_file)
             print("};", file=h_file)
         res_name = importer.resource_file(encrypt).name.replace(".", "_")
-        print(f"struct ENTRY _IMPORTERS = {{_MODULE_NAME, _MODULE_NAME, _REFERENCE_DATA({res_name})}};", file=h_file)
+        print(f"struct ENTRY _IMPORTERS = {{_MODULE_NAME, _MODULE_NAME, _REFERENCE_DATA({res_name}), 0}};", file=h_file)
         for table in expected_tables:
-            print("struct ENTRY ", table, "[] = {{NULL, NULL, NULL}};", sep="", file=h_file)
+            print("struct ENTRY ", table, "[] = {{NULL, NULL, NULL, 0}};", sep="", file=h_file)
         for f in tables.get("$FUNCTIONS", ()):
             print("extern", f.prototype(), file=h_file);
         print("#define MOD_METH_TAIL \\", file=h_file)
@@ -385,6 +431,7 @@ if __name__ == "__main__":
     if any(ERRORS):
         print(*filter(None, ERRORS), sep="\n")
         sys.exit(1)
+    FROM_MODULE, MODULE = ModuleInfo.find(PARSED, MODULE)
     PLATFORM = PlatformInfo.find(PARSED)
     ENCRYPT = EncryptInfo.find_key(PARSED)
     TARGETS = Path(sys.argv[3]).absolute()
@@ -392,4 +439,10 @@ if __name__ == "__main__":
         "windows": _generate_windows_files,
         "gcc": _generate_gcc_files,
     }[PLATFORM]
+    if FROM_MODULE != MODULE:
+        for f in PARSED:
+            try:
+                f.remap_namespace(FROM_MODULE, MODULE)
+            except AttributeError:
+                pass
     GENERATOR(MODULE, PARSED, TARGETS, ENCRYPT)

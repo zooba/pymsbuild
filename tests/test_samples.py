@@ -27,13 +27,27 @@ ENV = {
 
 WIN32_SAMPLES = {
     "azure-pack",
-    "azure-cli",
+    # Skipping azure-cli test due to circular imports
+    #"azure-cli",
 }
 
 
 POSIX_SAMPLES = {
-    "azure-cli",
-}
+    # Skipping azure-cli test due to circular imports
+    #"azure-cli",
+} or set()
+
+if sys.version_info[:2] <= (3, 8):
+    # Azure SDKs no longer support 3.8
+    WIN32_SAMPLES.discard("azure-pack")
+    WIN32_SAMPLES.discard("azure-cli")
+    POSIX_SAMPLES.discard("azure-cli")
+
+if sys.version_info[:2] >= (3, 13):
+    # Azure SDKs do not yet support 3.13
+    WIN32_SAMPLES.discard("azure-pack")
+    WIN32_SAMPLES.discard("azure-cli")
+    POSIX_SAMPLES.discard("azure-cli")
 
 def all_samples(f):
     return pytest.mark.parametrize(

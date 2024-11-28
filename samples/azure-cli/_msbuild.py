@@ -23,7 +23,7 @@ METADATA = {
 
 
 with open(f"requirements-{sys.platform}.txt", "r", encoding="utf-8") as f:
-    METADATA["BuildWheelRequires"] = list(map(str.strip, f))
+    METADATA["BuildWheelRequires"] = [s for s in (s.strip() for s in f) if s[:1] not in ('#', '')]
 
 
 def spec_name(spec):
@@ -130,8 +130,8 @@ def init_PACKAGE(tag=None):
     for p in azure_paths:
         azure.members.append(
             DllPackage(
-                f"azure.{p.name}",
+                p.name,
                 PyFile(p / "**/*.py"),
-                TargetName=p.name,
+                RootNamespace=f"azure.{p.name}",
             )
         )
