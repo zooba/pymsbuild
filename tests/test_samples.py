@@ -35,7 +35,7 @@ WIN32_SAMPLES = {
 POSIX_SAMPLES = {
     # Skipping azure-cli test due to circular imports
     #"azure-cli",
-}
+} or set()
 
 if sys.version_info[:2] <= (3, 8):
     # Azure SDKs no longer support 3.8
