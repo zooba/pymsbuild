@@ -221,6 +221,7 @@ def _generate_reference_metadata(relname, project, source_dir):
     return {
         "TargetDir": "" if tdir == "." else tdir,
         "IntDir": "$(IntDir)" + tname,
+        "ParentNamespace": ".".join(relname.parent.parts),
         **project.options,
         "SourceDir": source_dir / project.source,
     }
