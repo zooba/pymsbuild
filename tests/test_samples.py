@@ -29,12 +29,14 @@ WIN32_SAMPLES = {
     "azure-pack",
     # Skipping azure-cli test due to circular imports
     #"azure-cli",
+    "pybind11",
 }
 
 
 POSIX_SAMPLES = {
     # Skipping azure-cli test due to circular imports
     #"azure-cli",
+    "pybind11",
 } or set()
 
 if sys.version_info[:2] <= (3, 8):
