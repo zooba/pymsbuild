@@ -130,6 +130,22 @@ def run(build_state, config_name="_msbuild.py"):
 
     substitutions["BUILD_REQUIRES"] = repr(build_requires)
 
+    substitutions["GIT"] = "TODO"
+    substitutions["GITISSUES"] = "TODO"
+
+    cfg = root / ".git/config"
+    if cfg.is_file():
+        with cfg.open("r", encoding="utf-8-sig") as f:
+            for line in f:
+                if line.strip().startswith("[remote"):
+                    for line in f:
+                        m = re.match(r"\s*url\s*=\s*(.+)$", line)
+                        if m:
+                            substitutions["GIT"] = m.group(1)
+                            substitutions["GITISSUES"] = f"{m.group(1)}/issues"
+                            break
+                    break
+
     code = re.sub(r"\<(\w+)\>", lambda m: substitutions.get(m.group(1)), TEMPLATE)
     with open(config_file, "w", encoding="utf-8") as f:
         print(code, file=f, end="")

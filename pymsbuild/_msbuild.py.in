@@ -3,14 +3,20 @@ from pymsbuild import *
 
 # See https://packaging.python.org/en/latest/specifications/core-metadata/ for fields
 METADATA = {
-    "Metadata-Version": "2.1",
+    "Metadata-Version": "2.2",
     "Name": "<NAME>",
     "Version": "1.0",
     "Author": "TODO",
     "Author-email": "TODO",
-    "Home-page": "TODO",
     "Project-url": [
-        "Bug Tracker, TODO",
+        "Homepage, <GIT>",
+        "Source, <GIT>",
+        "Issues, <GITISSUES>",
+        #"Download, TODO",
+        #"Changelog, TODO",
+        #"Release Notes, TODO",
+        #"Documentation, TODO",
+        #"Funding, TODO",
     ],
     "Summary": "TODO",
     "Description": File("README.md"),
@@ -22,6 +28,13 @@ METADATA = {
     "Requires-Dist": [
         # https://packaging.python.org/en/latest/specifications/dependency-specifiers/
     ],
+
+    # Source incompatible with old language versions? Set a minimum here
+    #"Requires-Python": ">=3.10",
+
+    # Doing any metadata tricks in init_PACKAGE()? Specify changeable keys here
+    # (Changing in init_METADATA doesn't require anything here)
+    #Dynamic: [],
 
     # Universal wheel? Uncomment this to target all Python 3 installs.
     #"WheelTag": "py3-none-any",

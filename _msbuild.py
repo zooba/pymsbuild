@@ -2,14 +2,15 @@ import os
 from pymsbuild import *
 
 METADATA = {
-    "Metadata-Version": "2.1",
+    "Metadata-Version": "2.2",
     "Name": "pymsbuild",
     "Version": "0.0.1",
     "Author": "Steve Dower",
     "Author-email": "steve.dower@python.org",
-    "Home-page": "https://github.com/zooba/pymsbuild",
     "Project-url": [
-        "Bug Tracker, https://github.com/zooba/pymsbuild/issues",
+        "Homepage, https://github.com/zooba/pymsbuild",
+        "Source, https://github.com/zooba/pymsbuild",
+        "Issues, https://github.com/zooba/pymsbuild/issues",
     ],
     "Summary": "The pymsbuild build backend.",
     "Description": File("README.md"),
