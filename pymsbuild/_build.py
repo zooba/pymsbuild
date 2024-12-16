@@ -374,7 +374,10 @@ class BuildState:
 
     def get_requires_for_build_sdist(self):
         self.finalize_metadata(sdist=True)
-        return self.metadata.get("BuildSdistRequires", [])
+        reqs = self.metadata.get("BuildSdistRequires", [])
+        if not isinstance(reqs, (list, tuple)):
+            return [reqs]
+        return reqs
 
     def layout_sdist(self, statefile=True):
         self.finalize(sdist=True)
@@ -427,7 +430,10 @@ class BuildState:
 
     def get_requires_for_build_wheel(self):
         self.finalize_metadata()
-        return self.metadata.get("BuildWheelRequires", [])
+        reqs = self.metadata.get("BuildWheelRequires", [])
+        if not isinstance(reqs, (list, tuple)):
+            return [reqs]
+        return reqs
 
     def layout_wheel(self, statefile=True):
         self.finalize()

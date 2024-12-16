@@ -144,7 +144,7 @@ def test_sample_build_inplace(sample, tmp_path):
     assert without_temp
 
     env["BUILD_PREFIX"] = str(DIR)
-    env["PYTHONPATH"] = ""
+    env["PYTHONPATH"] = str(DIR)
     subprocess.check_call(
         [sys.executable, DIR / "tests/test-sample.py"],
         cwd=DIR,
