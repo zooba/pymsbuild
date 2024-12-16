@@ -7,19 +7,19 @@
   <PropertyGroup Condition="$(ConfigurationType) == 'Application'">
     <CC_Cmd Condition="$(CC_Cmd) == ''">gcc -pthread -fPIE</CC_Cmd>
     <CPP_Cmd Condition="$(CPP_Cmd) == ''">g++ -pthread -fPIE</CPP_Cmd>
-    <Link_Cmd Condition="$(Link_Cmd) == ''">ld -pie -O</Link_Cmd>
+    <Link_Cmd Condition="$(Link_Cmd) == ''">g++ -pthread -fPIE</Link_Cmd>
     <TargetExt></TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="$(ConfigurationType) == 'DynamicLibrary'">
     <CC_Cmd Condition="$(CC_Cmd) == ''">gcc -pthread -fPIC</CC_Cmd>
     <CPP_Cmd Condition="$(CPP_Cmd) == ''">g++ -pthread -fPIC</CPP_Cmd>
-    <Link_Cmd Condition="$(Link_Cmd) == ''">ld -pie -shared -O</Link_Cmd>
+    <Link_Cmd Condition="$(Link_Cmd) == ''">g++ -pthread -fPIC</Link_Cmd>
     <TargetExt Condition="$(TargetExt) == ''">.so</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="$(ConfigurationType) == 'ExtensionModule'">
     <CC_Cmd Condition="$(CC_Cmd) == ''">gcc -pthread -fPIC</CC_Cmd>
     <CPP_Cmd Condition="$(CPP_Cmd) == ''">g++ -pthread -fPIC</CPP_Cmd>
-    <Link_Cmd Condition="$(Link_Cmd) == ''">ld -pie -shared -O</Link_Cmd>
+    <Link_Cmd Condition="$(Link_Cmd) == ''">g++ -shared -fPIC</Link_Cmd>
     <TargetExt Condition="$(TargetExt) == ''">$(DefaultExtSuffix)</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="$(ConfigurationType) == 'StaticLibrary'">
@@ -28,4 +28,10 @@
     <Link_Cmd Condition="$(Link_Cmd) == ''">ar rcs</Link_Cmd>
     <TargetExt Condition="$(TargetExt) == ''">.a</TargetExt>
   </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <Optimization Condition="$(Configuration) == 'Debug'">Disabled</Optimization>
+      <Optimization Condition="$(Configuration) != 'Debug'">MaximizeSpeed</Optimization>
+    </ClCompile>
+  </ItemDefinitionGroup>
 </Project>

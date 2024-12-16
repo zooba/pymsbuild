@@ -7,12 +7,21 @@
   </Target>
 
   <Target Name="_CalculateClCompileItems">
+    <PropertyGroup>
+      <_DefaultOptimization Condition="$(Configuration) == 'Debug'">Disabled</_DefaultOptimization>
+      <_DefaultOptimization Condition="$(_DefaultOptimization) == ''">MaximizeSpeed</_DefaultOptimization>
+    </PropertyGroup>
     <ItemGroup>
       <ClCompile>
         <ObjectFile Condition="%(ClCompile.ObjectFile) == ''">$([msbuild]::MakeRelative($(SourceRootDir), %(FullPath))).o</ObjectFile>
+        <Optimization Condition="%(ClCompile.Optimization) == ''">$(_DefaultOptimization)</Optimization>
+        <_OptOption>-Og</_OptOption>
       </ClCompile>
       <ClCompile>
         <_ResolvedOutput>$([System.IO.Path]::Combine($(IntDir), %(ObjectFile)))</_ResolvedOutput>
+        <_OptOption Condition="%(Optimization) == 'Full'">-O2</_OptOption>
+        <_OptOption Condition="%(Optimization) == 'MaximizeSpeed'">-O2</_OptOption>
+        <_OptOption Condition="%(Optimization) == 'MinimizeSize'">-O1</_OptOption>
       </ClCompile>
     </ItemGroup>
   </Target>
@@ -59,6 +68,8 @@
       <_Cmd>$(CC_Cmd) -c</_Cmd>
       <!-- Output file -->
       <_Cmd>$(_Cmd) -o %(ClCompile._ResolvedOutput)</_Cmd>
+      <!-- Optimization -->
+      <_Cmd>$(_Cmd) %(ClCompile._OptOption)</_Cmd>
       <!-- Source file -->
       <_Cmd>$(_Cmd) %(ClCompile.Identity)</_Cmd>
       <!-- Include directories -->
