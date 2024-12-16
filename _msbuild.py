@@ -8,8 +8,8 @@ METADATA = {
     "Author": "Steve Dower",
     "Author-email": "steve.dower@python.org",
     "Project-url": [
-        "Homepage": "https://github.com/zooba/pymsbuild",
-        "Source": "https://github.com/zooba/pymsbuild",
+        "Homepage, https://github.com/zooba/pymsbuild",
+        "Source, https://github.com/zooba/pymsbuild",
         "Issues, https://github.com/zooba/pymsbuild/issues",
     ],
     "Summary": "The pymsbuild build backend.",
