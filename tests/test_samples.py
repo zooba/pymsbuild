@@ -29,12 +29,14 @@ WIN32_SAMPLES = {
     "azure-pack",
     # Skipping azure-cli test due to circular imports
     #"azure-cli",
+    "pybind11",
 }
 
 
 POSIX_SAMPLES = {
     # Skipping azure-cli test due to circular imports
     #"azure-cli",
+    "pybind11",
 } or set()
 
 if sys.version_info[:2] <= (3, 8):
@@ -142,7 +144,7 @@ def test_sample_build_inplace(sample, tmp_path):
     assert without_temp
 
     env["BUILD_PREFIX"] = str(DIR)
-    env["PYTHONPATH"] = ""
+    env["PYTHONPATH"] = str(DIR)
     subprocess.check_call(
         [sys.executable, DIR / "tests/test-sample.py"],
         cwd=DIR,
