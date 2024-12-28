@@ -171,8 +171,8 @@ def _write_members(f, source_dir, members):
                 else:
                     f.add_item(p._ITEMNAME, p.source, **{
                         "SourceDir": source_dir,
-                        **p.options,
                         "Name": n,
+                        **p.options,
                     })
             elif isinstance(p, Property):
                 g.switch_to("PropertyGroup")
