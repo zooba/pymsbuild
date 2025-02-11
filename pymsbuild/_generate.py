@@ -309,11 +309,18 @@ def _write_metadata_description(f, value, source_dir):
 
 def generate_distinfo(distinfo, build_dir, source_dir):
     build_dir.mkdir(parents=True, exist_ok=True)
+    exclude = {k.casefold() for k in ["ExtSuffix", "AbiTag", "WheelTag"]}
     with (build_dir / "PKG-INFO").open("w", encoding="utf-8") as f:
         description = None
         for k, vv in distinfo.items():
             if k.casefold() == "description".casefold():
                 description = vv
+                continue
+            # We don't try and keep up with metadata specs - users can specify
+            # whatever keys they want - but we defined a few and need to exclude
+            # them ourselves. This shouldn't expand to all undefined keys, and
+            # we probably shouldn't add any more of our own in METADATA.
+            if k.casefold() in exclude:
                 continue
             _write_metadata(f, k, vv, source_dir)
         if description:
