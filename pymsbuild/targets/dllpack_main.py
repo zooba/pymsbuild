@@ -1,11 +1,6 @@
 def _init():
     import sys
-    from importlib.abc import Loader, MetaPathFinder, PathEntryFinder
     from importlib.machinery import ExtensionFileLoader
-    try:
-        from importlib.resources.abc import TraversalError
-    except ImportError:
-        class TraversalError(Exception): pass
 
     _NAME = __NAME()
     _NAME_DOT = _NAME + "."
@@ -44,6 +39,10 @@ def _init():
                 prefix, _, name = prefix.rpartition("/")
                 prefix = prefix.replace("/", ".") + "."
                 if prefix + name not in _DATA_NAMES:
+                    try:
+                        from importlib.resources.abc import TraversalError
+                    except ImportError:
+                        TraversalError = RuntimeError
                     raise TraversalError("resource not found: " + prefix + name)
                 return type(self)(name, prefix)
 
@@ -84,7 +83,7 @@ def _init():
     DllPackReader.__name__ += "_" + _NAME
     DllPackReader.__qualname__ = "<generated>." + DllPackReader.__name__
 
-    class DllPackLoader(Loader):
+    class DllPackLoader:
         create_module = _CREATE_MODULE
         exec_module = _EXEC_MODULE
 
@@ -102,11 +101,14 @@ def _init():
 
     LOADER = DllPackLoader()
 
-    class DllPackFinder(MetaPathFinder):
+    class DllPackFinder:
         _PATH_HOOK_PREFIX = "$dllpack:" + _NAME
 
         def __init__(self, prefix):
             self._prefix = prefix
+
+        def invalidate_caches(self):
+            pass
 
         @classmethod
         def find_spec(cls, fullname, path=None, target=None):
