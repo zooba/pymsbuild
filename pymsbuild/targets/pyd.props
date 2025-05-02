@@ -8,17 +8,17 @@
       <AdditionalIncludeDirectories>$(SourceRootDir.TrimEnd($(_Sep)));$(PythonIncludes);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <Optimization Condition="$(Configuration) == 'Debug'">Disabled</Optimization>
-      <RuntimeLibrary Condition="$(DynamicLibcppLinkage) == 'true'">MultiThreadedDLL</RuntimeLibrary>
-      <RuntimeLibrary Condition="$(DynamicLibcppLinkage) != 'true'">MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary Condition="$(DynamicLibcppLinkage) == 'true' and $(StaticLibcppLinkage) != 'true'">MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary Condition="$(DynamicLibcppLinkage) != 'true' or $(StaticLibcppLinkage) == 'true'">MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(PythonLibs);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>True</GenerateDebugInformation>
       <OutputFile>$(TargetPath)</OutputFile>
       <ProgramDatabaseFile>$([System.IO.Path]::ChangeExtension('$(TargetPath)', '.pdb'))</ProgramDatabaseFile>
-      <AdditionalDependencies Condition="$(DynamicLibcppLinkage) != 'true'">ucrt.lib;vcruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <IgnoreSpecificDefaultLibraries Condition="$(DynamicLibcppLinkage) != 'true'">libucrt.lib;libvcruntime.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
-      <AdditionalOptions Condition="$(DynamicLibcppLinkage) != 'true' and $(Platform) == 'Win32'">%(AdditionalOptions) /alternatename:__except_handler4=__except_handler4_common</AdditionalOptions>
+      <AdditionalDependencies Condition="$(DynamicLibcppLinkage) != 'true' and $(StaticLibcppLinkage) != 'true'">ucrt.lib;vcruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries Condition="$(DynamicLibcppLinkage) != 'true' and $(StaticLibcppLinkage) != 'true'">libucrt.lib;libvcruntime.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <AdditionalOptions Condition="$(DynamicLibcppLinkage) != 'true' and $(StaticLibcppLinkage) != 'true' and $(Platform) == 'Win32'">%(AdditionalOptions) /alternatename:__except_handler4=__except_handler4_common</AdditionalOptions>
     </Link>
     <Lib>
       <OutputFile>$(TargetPath)</OutputFile>

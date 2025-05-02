@@ -21,9 +21,23 @@ def remap_platform_to_msbuild(platform_tag):
     try:
         return _TAG_PLATFORM_MAP[platform_tag]
     except LookupError:
-        if re.match(r"manylinux.+?_x86_64", platform_tag):
+        if re.match(r"(manylinux_macosx).+?_x86_64", platform_tag):
             return "POSIX_x64"
+        if re.match(r"(manylinux_macosx).+?_aarch64", platform_tag):
+            return "POSIX_ARM64"
         raise
+
+
+def remap_fuzzy_platform_tag(platform_tag):
+    if not platform_tag:
+        return platform_tag
+    return {
+        "x64": "win_amd64",
+        "amd64": "win_amd64",
+        "arm64": "win_arm64",
+        "x86_64": "linux_x86_64",
+        "aarch64": "linux_aarch64",
+    }.get(platform_tag.lower(), platform_tag).replace("-", "_")
 
 
 def remap_ext_to_abi(ext_tag):
@@ -65,6 +79,8 @@ def choose_best_tags(
 ):
     if not sys_wheel_tag:
         sys_wheel_tag = next(iter(sys_tags()), None) or "py3-none-any"
+
+    platform_tag = remap_fuzzy_platform_tag(platform_tag)
 
     if not sys_ext_suffix:
         sys_ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")

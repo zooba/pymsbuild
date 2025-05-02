@@ -7,7 +7,7 @@ from pathlib import Path
 _GENERATED_NAMESPACE = uuid.UUID('db509c23-800c-41d5-9d00-359fc120e87a')
 
 PROLOGUE = r"""<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">"""
+<Project DefaultTargets="Build" ToolsVersion="Current" TreatAsLocalProperty="Platform" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">"""
 
 
 TARGETS = Path(__file__).parent / "targets"
