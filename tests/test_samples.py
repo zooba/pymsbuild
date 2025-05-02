@@ -1,6 +1,7 @@
 import importlib.machinery
 import os
 import pytest
+import random
 import shutil
 import subprocess
 import sys
@@ -79,8 +80,11 @@ def with_simpleindex(tmp_path_factory):
             "PYMSBUILD_TEMP_DIR": str(TMP / "pymsbuild_tmp"),
         },
     )
-    shutil.copy2(ROOT / "tests/simpleindex.toml.in", OUT / "simpleindex.toml")
-    si_env = {"PIP_INDEX_URL": "http://127.0.0.1:65432/", "PIP_TRUSTED_HOST": "127.0.0.1"}
+    port = random.randrange(10240, 65500)
+    toml = (ROOT / "tests/simpleindex.toml.in").read_text()
+    toml = toml.replace("{port}", f"{port}")
+    (OUT / "simpleindex.toml").write_text(toml)
+    si_env = {"PIP_INDEX_URL": f"http://127.0.0.1:{port}/", "PIP_TRUSTED_HOST": "127.0.0.1"}
     si_proc = subprocess.Popen(
         [sys.executable, "-m", "simpleindex", OUT / "simpleindex.toml"],
         cwd=OUT,

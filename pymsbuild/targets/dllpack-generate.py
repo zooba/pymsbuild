@@ -105,14 +105,20 @@ class CodeFileInfo:
 
     def resource_file(self, encrypt=None):
         if not self._resource_file:
-            pyc = Path(py_compile.compile(
-                str(self.sourcefile),
-                "pyc{}.bin".format(self.resid),
-                self.origin,
-                doraise=True,
-                optimize=PYC_OPTIMIZATION,
-                invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH,
-            ))
+            try:
+                pyc = Path(py_compile.compile(
+                    str(self.sourcefile),
+                    "pyc{}.bin".format(self.resid),
+                    self.origin,
+                    doraise=True,
+                    optimize=PYC_OPTIMIZATION,
+                    invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH,
+                ))
+            except Exception as ex:
+                import traceback
+                print("[ERROR]Generating bytecode for", self.sourcefile)
+                traceback.print_exc()
+                sys.exit(1)
             if encrypt:
                 self._resource_file = Path("pycx{}.bin".format(self.resid))
                 encrypt.file(src=pyc, dest=self._resource_file)

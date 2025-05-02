@@ -8,4 +8,4 @@ to = "https://pypi.org/simple/{project}/"
 
 [server]
 host = "127.0.0.1"
-port = 65432
+port = {port}
