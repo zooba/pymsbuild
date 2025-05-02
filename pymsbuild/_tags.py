@@ -21,9 +21,9 @@ def remap_platform_to_msbuild(platform_tag):
     try:
         return _TAG_PLATFORM_MAP[platform_tag]
     except LookupError:
-        if re.match(r"(manylinux_macosx).+?_x86_64", platform_tag):
+        if re.match(r"(manylinux|macosx).+?_x86_64", platform_tag):
             return "POSIX_x64"
-        if re.match(r"(manylinux_macosx).+?_aarch64", platform_tag):
+        if re.match(r"(manylinux|macosx).+?_aarch64", platform_tag):
             return "POSIX_ARM64"
         raise
 
