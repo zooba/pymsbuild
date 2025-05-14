@@ -75,7 +75,8 @@ def choose_best_tags(
     wheel_tag=None,
     abi_tag=None,
     platform_tag=None,
-    ext_suffix=None
+    ext_suffix=None,
+    abi_only=None
 ):
     if not sys_wheel_tag:
         sys_wheel_tag = next(iter(sys_tags()), None) or "py3-none-any"
@@ -98,11 +99,11 @@ def choose_best_tags(
             wheel_tag = Tag(*wheel_tag.split('-', 3))
 
     # Extract the ABI portion from an explicit ABI tag or wheel tag
-    abi_only = None
-    if abi_tag:
-        abi_only = abi_tag.partition('-')[0]
-    elif wheel_tag and wheel_tag.abi != "*" and "." not in wheel_tag.abi:
-        abi_only = wheel_tag.abi
+    if abi_only in (None, "", "*"):
+        if abi_tag:
+            abi_only = abi_tag.partition('-')[0]
+        elif wheel_tag and wheel_tag.abi != "*" and "." not in wheel_tag.abi:
+            abi_only = wheel_tag.abi
 
     # Overwrite the ABI tag and platform tag from an explicit wheel tag
     if wheel_tag:
@@ -171,4 +172,5 @@ def choose_best_tags(
         abi_tag=abi_tag,
         platform_tag=platform_tag,
         ext_suffix=ext_suffix,
+        abi_only=abi_only,
     )

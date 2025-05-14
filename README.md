@@ -739,7 +739,7 @@ a missing platform.
 Any `*` elements in the wheel tag are filled in from other locations.
 For example, specifying `*-none-any` will infer the interpreter field
 from the current runtime, whil `py3-none-*` will infer the platform
-from the currnet system (or a specific ABI tag).
+from the current system (or a specific ABI tag).
 
 The platform is used to determine the MSBuild target platform. It
 cannot yet automatically select the correct Python libraries, and so
@@ -765,6 +765,9 @@ $env:PYMSBUILD_WHEEL_TAG = "py38-cp38-win_arm64"
 # Directly set the ABI tag (or else taken from wheel tag)
 # This is used for extension module filenames
 $env:PYMSBUILD_ABI_TAG = "cp38-win_arm64"
+
+# Specify the Python ABI (or else taken from ABI tag)
+# This is used for MSBuild options
 
 # Specify the Python platform (or else taken from ABI tag)
 # This is used for MSBuild options
