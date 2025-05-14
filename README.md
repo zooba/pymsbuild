@@ -768,6 +768,7 @@ $env:PYMSBUILD_ABI_TAG = "cp38-win_arm64"
 
 # Specify the Python ABI (or else taken from ABI tag)
 # This is used for MSBuild options
+$env:PYMSBUILD_ABI = "cp38"
 
 # Specify the Python platform (or else taken from ABI tag)
 # This is used for MSBuild options
