@@ -8,6 +8,7 @@
       <AdditionalIncludeDirectories>$(SourceRootDir.TrimEnd($(_Sep)));$(PythonIncludes);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <Optimization Condition="$(Configuration) == 'Debug'">Disabled</Optimization>
+      <PreprocessorDefinitions Condition="$(PythonAbi) == 'cp313t' or $(PythonAbi) == 'cp314t'">Py_GIL_DISABLED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary Condition="$(DynamicLibcppLinkage) == 'true' and $(StaticLibcppLinkage) != 'true'">MultiThreadedDLL</RuntimeLibrary>
       <RuntimeLibrary Condition="$(DynamicLibcppLinkage) != 'true' or $(StaticLibcppLinkage) == 'true'">MultiThreaded</RuntimeLibrary>
     </ClCompile>

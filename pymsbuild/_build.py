@@ -99,6 +99,7 @@ class BuildState:
         self.targets = Path(__file__).absolute().parent / "targets"
         self.wheel_tag = None
         self.abi_tag = None
+        self.abi_only = None
         self.ext_suffix = None
         self.platform = None
         self.build_number = None
@@ -173,6 +174,7 @@ class BuildState:
 
         self._set_best("ext_suffix", "ExtSuffix", "PYMSBUILD_EXT_SUFFIX", None, getenv)
         self._set_best("abi_tag", "AbiTag", "PYMSBUILD_ABI_TAG", None, getenv)
+        self._set_best("abi_only", "Abi", "PYMSBUILD_ABI", None, getenv)
         self._set_best("wheel_tag", "WheelTag", "PYMSBUILD_WHEEL_TAG", None, getenv)
         self._set_best("platform", None, "PYMSBUILD_PLATFORM", None, getenv)
         self._set_best("configuration", None, "PYMSBUILD_CONFIGURATION", "Release", getenv)
@@ -188,11 +190,13 @@ class BuildState:
         tags = _tags.choose_best_tags(
             ext_suffix = self.ext_suffix,
             abi_tag = self.abi_tag,
+            abi_only = self.abi_only,
             wheel_tag = self.wheel_tag,
             platform_tag = self.platform,
         )
         self.ext_suffix = tags.ext_suffix
         self.abi_tag = tags.abi_tag
+        self.abi_only = tags.abi_only
         self.wheel_tag = tags.wheel_tag
         self.platform = tags.platform_tag
 
@@ -309,6 +313,7 @@ class BuildState:
         properties.setdefault("PyMsbuildTargets", self.targets)
         properties.setdefault("_ProjectBuildTarget", self.target)
         properties.setdefault("SourceRootDir", self.source_dir)
+        properties.setdefault("PythonAbi", self.abi_only)
         properties.setdefault("OutDir", self.build_dir)
         properties.setdefault("IntDir", self.temp_dir)
         properties.setdefault("LayoutDir", self.layout_dir)
