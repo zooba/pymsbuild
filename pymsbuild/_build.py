@@ -91,6 +91,8 @@ class BuildState:
         self._perform_layout = None
         self.layout_dir = None
         self.layout_extra_files = []
+        self.layout_files = []
+        self.layout_metadata = {}
         self.metadata_dir = None
         self.pkginfo = None
         self.source_dir = Path.cwd()
@@ -531,13 +533,20 @@ class BuildState:
         return outdir.name
 
     def _write_state(self, cmd):
+        # Deprecated - use the public API
+        return self.write_state(cmd)
+
+    def write_state(self, cmd):
+        skip = {*dir(type(self)), "layout_dir", "layout_metadata"}
         with self.state_file.open("w", encoding="utf-8") as f:
             print("pack-command=", cmd, sep="", file=f)
             for k in dir(self):
-                if not k.startswith("_") and not hasattr(type(self), k) and k not in {"layout_dir"}:
+                if not k.startswith("_") and k not in skip:
                     v = getattr(self, k)
                     if isinstance(v, (str, PurePath)):
                         print(k, "=", getattr(self, k), sep="", file=f)
+            for k, v in self.layout_metadata.items():
+                print(k, "=", v, sep="", file=f)
             print("# BEGIN FILES", file=f)
             for n, rn in _relative_to_layout(None, self.layout_dir):
                 print(rn, file=f)
@@ -554,10 +563,12 @@ class BuildState:
                     break
                 if k == "pack-command":
                     cmd = v
+                elif k in {"layout_metadata"}:
+                    continue
                 elif not k.startswith("_") and hasattr(self, k) and not hasattr(type(self), k):
                     setattr(self, k, v)
                 else:
-                    self.log("Property", k, "from layout directory is ignored")
+                    self.layout_metadata[k] = v
             for k in ["layout_dir", "output_dir", "build_dir", "temp_dir", "metadata_dir"]:
                 v = getattr(self, k, None)
                 if v:
@@ -575,7 +586,12 @@ class BuildState:
                     extra.extend(f)
             elif i:
                 files.append(self.layout_dir / i)
+        self.layout_files.extend(files)
         if not cmd or cmd not in {'pack_sdist', 'pack_wheel'}:
+            from . import _get_extension_commands
+            fn = dict(_get_extension_commands(self.log)).get(cmd)
+            if fn:
+                return fn[0](self)
             self.write("Layout appears to be corrupted. Please rerun the first stage again.")
             return
         return getattr(self, cmd)(files)

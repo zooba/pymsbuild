@@ -69,10 +69,15 @@ BEGIN
   VALUE "Translation", %(_PydVersionInfo.LangId), %(_PydVersionInfo.CharsetId)
  END
 END]]></_PydVersionInfoLines>
+
+      <_OldPydVersionInfoLines Condition="Exists(%(_PydVersionInfo.RC))">
+        $([System.IO.File]::ReadAllText(%(_PydVersionInfo.RC)))
+      </_OldPydVersionInfoLines>
     </PropertyGroup>
     <WriteLinesToFile File="%(_PydVersionInfo.RC)"
                       Lines="$(_PydVersionInfoLines.Trim())"
                       Encoding="%(_PydVersionInfo.Encoding)"
+                      Condition="$(_OldPydVersionInfoLines.Trim()) != $(_PydVersionInfoLines.Trim())"
                       Overwrite="true" />
     <Message Text="Generated version info" />
     <ItemGroup>

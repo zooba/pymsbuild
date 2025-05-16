@@ -4,6 +4,7 @@ import sys
 
 from os import getenv
 from pathlib import PurePath, Path
+from pymsbuild import _get_extension_commands
 from pymsbuild._build import BuildState
 from pymsbuild._init import run as run_init
 
@@ -121,43 +122,9 @@ COMMANDS = {
 }
 
 
-def _get_extension_commands():
-    try:
-        import entrypoints
-    except ImportError:
-        # No way to resolve entrypoints, which must mean no extensions exist
-        # If you're an extension, declare this dependency yourself.
-        return
-
-    def _get_extension_doc(k, f):
-        try:
-            return f.__doc__.partition("\n")[0].strip()
-        except (AttributeError, ValueError):
-            return f"Invokes {k}"
-
-    for k, v in entrypoints.get_group_named("pymsbuild.command"):
-        try:
-            cmd = v.load()
-        except Exception as ex:
-            print("Failed to load extension command", v.name)
-            print(ex)
-        else:
-            yield k, (cmd, _get_extension_doc(k, cmd))
-    # Can also test a single command by setting this environment variable.
-    # Syntax is name=module:func
-    spec = getenv("PYMSBUILD_EXTENSION_COMMAND")
-    if spec:
-        try:
-            k, _, v = spec.partition("=")
-            cmd = entrypoints.EntryPoint.from_string(v, k).load()
-            yield k, (cmd, _get_extension_doc(k, cmd))
-        except Exception as ex:
-            print("Failed to load extension command from environment:", spec)
-            print(ex)
-
-
 for k, v in _get_extension_commands():
-    COMMANDS.setdefault(k, v)
+    if k[:1].isalpha():
+        COMMANDS.setdefault(k, v)
 
 
 ns = parse_args(COMMANDS)
@@ -203,6 +170,8 @@ try:
     f(bs)
 except Exception as ex:
     print("ERROR", ex, file=sys.stderr)
+    if bs.verbose:
+        raise
     if getattr(ex, "winerror", 0):
         sys.exit(ex.winerror)
     if getattr(ex, "errno", 0):
