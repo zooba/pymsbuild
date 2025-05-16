@@ -129,6 +129,12 @@ def _get_extension_commands():
         # If you're an extension, declare this dependency yourself.
         return
 
+    def _get_extension_doc(k, f):
+        try:
+            return f.__doc__.partition("\n")[0].strip()
+        except AttributeError, ValueError:
+            return f"Invokes {k}"
+
     for k, v in entrypoints.get_group_named("pymsbuild.command"):
         try:
             cmd = v.load()
@@ -136,7 +142,7 @@ def _get_extension_commands():
             print("Failed to load extension command", v.name)
             print(ex)
         else:
-            yield k, (cmd, getattr(cmd, "__doc__", "Invokes " + v.module_name))
+            yield k, (cmd, _get_extension_doc(k, cmd))
     # Can also test a single command by setting this environment variable.
     # Syntax is name=module:func
     spec = getenv("PYMSBUILD_EXTENSION_COMMAND")
@@ -144,7 +150,7 @@ def _get_extension_commands():
         try:
             k, _, v = spec.partition("=")
             cmd = entrypoints.EntryPoint.from_string(v, k).load()
-            yield k, (cmd, getattr(cmd, "__doc__", "Invokes " + v))
+            yield k, (cmd, _get_extension_doc(k, cmd))
         except Exception as ex:
             print("Failed to load extension command from environment:", spec)
             print(ex)
