@@ -132,7 +132,7 @@ def _get_extension_commands():
     def _get_extension_doc(k, f):
         try:
             return f.__doc__.partition("\n")[0].strip()
-        except AttributeError, ValueError:
+        except (AttributeError, ValueError):
             return f"Invokes {k}"
 
     for k, v in entrypoints.get_group_named("pymsbuild.command"):
