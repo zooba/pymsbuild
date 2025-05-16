@@ -1118,6 +1118,11 @@ project.
 An example command can be found at
 [`pymsbuild-msix`](https://github.com/zooba/pymsbuild-msix).
 
+Commands whose name start with any non-alpha character will be hidden
+and cannot be invoked by the user, but may be invoked internally.
+Currently, this can only occur by providing the name to
+`BuildState.write_state` in preparation for a `pack` operation.
+
 Extensions should include `entrypoints` as a dependency. If that module
 is not present, `pymsbuild` will assume there are no extensions and
 will not search. While testing, you can use the
