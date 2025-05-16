@@ -41,3 +41,40 @@ def get_requires_for_build_sdist(config_settings=None):
 def get_requires_for_build_wheel(config_settings=None):
     bs = _BuildState()
     return bs.get_requires_for_build_wheel()
+
+
+def _get_extension_commands(log=print):
+    try:
+        import entrypoints
+    except ImportError:
+        # No way to resolve entrypoints, which must mean no extensions exist
+        # If you're an extension, declare this dependency yourself.
+        return
+
+    def _get_extension_doc(k, f):
+        try:
+            return f.__doc__.partition("\n")[0].strip()
+        except (AttributeError, ValueError):
+            return f"Invokes {k}"
+
+    for k, v in entrypoints.get_group_named("pymsbuild.command"):
+        try:
+            cmd = v.load()
+        except Exception as ex:
+            log("Failed to load extension command", v.name)
+            log(ex)
+        else:
+            yield k, (cmd, _get_extension_doc(k, cmd))
+
+    # Can also test a single command by setting this environment variable.
+    # Syntax is name=module:func
+    import os
+    spec = os.getenv("PYMSBUILD_EXTENSION_COMMAND")
+    if spec:
+        try:
+            k, _, v = spec.partition("=")
+            cmd = entrypoints.EntryPoint.from_string(v, k).load()
+            yield k, (cmd, _get_extension_doc(k, cmd))
+        except Exception as ex:
+            log("Failed to load extension command from environment:", spec)
+            log(ex)

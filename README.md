@@ -1097,3 +1097,35 @@ Use `SearchPath` items to specify directories to search for Python
 modules at runtime. These are the only directories that will be
 searched, as Python will be loaded in isolated mode. They are relative
 to the entrypoint and will be resolved when executing.
+
+## Extension commands
+
+**Experimental.**
+
+To define a plugin module that provides a top-level command, add a
+`pymsbuild.command` entrypoint to expose your main command function.
+The name given to your entrypoint will be the command, and the first
+line of the `__doc__` of the function will be shown as the summary.
+When called, the build command will be passed the entire `BuildState`
+object as its only parameter (see `pymsbuild._build.BuildState`).
+
+Note that extensions can simply provide alternate types to use in a
+package definitions and do not need to provide a command. See the
+`pymsbuild.cython` and `pymsbuild.dllpack` modules for examples, or
+the [`pymsbuild-rust`](https://github.com/zooba/pymsbuild-rust)
+project.
+
+An example command can be found at
+[`pymsbuild-msix`](https://github.com/zooba/pymsbuild-msix).
+
+Commands whose name start with any non-alpha character will be hidden
+and cannot be invoked by the user, but may be invoked internally.
+Currently, this can only occur by providing the name to
+`BuildState.write_state` in preparation for a `pack` operation.
+
+Extensions should include `entrypoints` as a dependency. If that module
+is not present, `pymsbuild` will assume there are no extensions and
+will not search. While testing, you can use the
+`PYMSBUILD_EXTENSION_COMMAND` environment variable to define a single
+entrypoint (as `name=module:function`) to avoid having to install. The
+`entrypoints` module is still required.

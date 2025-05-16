@@ -4,6 +4,7 @@ import sys
 
 from os import getenv
 from pathlib import PurePath, Path
+from pymsbuild import _get_extension_commands
 from pymsbuild._build import BuildState
 from pymsbuild._init import run as run_init
 
@@ -121,6 +122,11 @@ COMMANDS = {
 }
 
 
+for k, v in _get_extension_commands():
+    if k[:1].isalpha():
+        COMMANDS.setdefault(k, v)
+
+
 ns = parse_args(COMMANDS)
 
 
@@ -164,6 +170,8 @@ try:
     f(bs)
 except Exception as ex:
     print("ERROR", ex, file=sys.stderr)
+    if bs.verbose:
+        raise
     if getattr(ex, "winerror", 0):
         sys.exit(ex.winerror)
     if getattr(ex, "errno", 0):
