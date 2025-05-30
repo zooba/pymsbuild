@@ -1064,6 +1064,7 @@ PACKAGE = Package(
         "app",  # import app
         "main", # app.main()
         Icon("app.ico"),
+        VersionInfo(),
 
         # Search paths for the entry point to use
         SearchPath("."),
