@@ -74,6 +74,7 @@
     <ItemGroup>
       <_Outputs Include="%(_DistFiles.Destination)" />
     </ItemGroup>
+    <MakeDir Directories="$(LayoutDir)" />
     <MakeDir Directories="%(_Outputs.RootDir)%(_Outputs.Directory)" />
   </Target>
 
