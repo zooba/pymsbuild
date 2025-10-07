@@ -164,9 +164,10 @@ def test_build_wheel_layout(build_state):
     assert not states
 
 
-@pytest.mark.parametrize("proj", ["testcython", "testproject1", "testpurepy"])
+@pytest.mark.parametrize("proj", ["testcython", "testproject1", "testpurepy", "testempty"])
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
-def test_build_test_project(build_state, testdata, proj, configuration):
+@pytest.mark.parametrize("target", ["build", "build_sdist", "build_wheel"])
+def test_build_test_project(build_state, testdata, proj, configuration, target):
     bs = build_state
     bs.source_dir = testdata / proj
     bs.package = None
@@ -174,7 +175,7 @@ def test_build_test_project(build_state, testdata, proj, configuration):
     bs.finalize()
     bs.generate()
     bs.configuration = configuration
-    bs.build()
+    getattr(bs, target)()
 
 
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
