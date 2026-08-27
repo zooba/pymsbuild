@@ -93,10 +93,8 @@ def choose_best_tags(
         sys_wheel_tag = next(iter(parse_tag(sys_wheel_tag)), None)
 
     if wheel_tag and not isinstance(wheel_tag, Tag):
-        # Ensure we can correctly parse the tag, but then just split
-        # We don't want to expand out compressed fields
-        if next(iter(parse_tag(wheel_tag)), None):
-            wheel_tag = Tag(*wheel_tag.split('-', 3))
+        # We don't want to expand out compressed fields, so just split
+        wheel_tag = Tag(*wheel_tag.split('-', 3))
 
     # Extract the ABI portion from an explicit ABI tag or wheel tag
     if abi_only in (None, "", "*"):
