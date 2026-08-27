@@ -2,9 +2,27 @@
 
 This is a PEP 517 backend for building packages via MSBuild or `dotnet build`.
 
-# Configuration file
+* **New to pymsbuild?** Start with [configuration files](#configuration-files),
+  then see the basic [build commands](#usage).
+* **Looking for syntax?** See the [CLI options](#cli-options) and
+  [API quick reference](#api-quick-reference).
+* **Configuring a non-trivial build?** [Advanced topics](#advanced-topics)
+  include wildcards, Cython, Windows cross-compilation, DLL packing, and
+  two-step builds.
+* **Using optional or specialized features?** See
+  [experimental features](#experimental-features) for custom launch executables
+  and extension commands.
 
-The file is named `_msbuild.py`, and is executed by running `python -m pymsbuild`.
+Also see [pymsbuild-rust](https://pypi.org/project/pymsbuild-rust) for Rust
+support, or as an [example](https://github.com/zooba/pymsbuild-rust) for
+extending pymsbuild.
+
+## Configuration files
+
+### `_msbuild.py` file
+
+The main file you will need is named `_msbuild.py`, and is executed by running
+`python -m pymsbuild`.
 
 The package definition specifies all the files that end up in the released packages.
 
@@ -45,11 +63,20 @@ Note that subpackages _must_ be specified as a `Package` element, as the
 nesting of `Package` elements determines the destination path. Otherwise you
 will find all of your files flattened. Recursive wildcards are supported, however,
 be aware that it is not always intuitive how the paths are going to be remapped.
+See [Wildcard handling](#wildcard-handling) for more details.
 
-Also note that without a `source=` named argument, all source paths are
-relative to the configuration file.
+If the `source=` named argument is omitted, all source paths are relative to the
+configuration file. See [Source offsets](#source-offsets) for more details.
 
-# pyproject.toml file
+You can have alternative `_msbuild.py` files with different names, and use the
+`--config`/`-c` option to select one.
+
+As this is a Python script file, you can dynamically construct the `METADATA`
+and `PACKAGE` variables however you like. There are hooks described later for
+doing dynamic changes at the correct stage of your build. See
+[Dynamic hooks](#dynamic-hooks) for more details.
+
+### `pyproject.toml` file
 
 You will need this file in order for `pip` to build your sdist, but otherwise it's
 generally easier and faster to use `pymsbuild` directly.
@@ -73,44 +100,29 @@ them as `BuildSdistRequires` or `BuildWheelRequires` values in `METADATA`. They
 will be parsed after `init_METADATA` and/or `init_PACKAGE` have been called, so
 may be modified by these functions.
 
-## [project] table support
-
-There is no support for the
+There is limited support for the
 [`[project]`](https://packaging.python.org/en/latest/specifications/pyproject-toml/#declaring-project-metadata-the-project-table)
-table at this time. All metadata that is written into the final distribution
-files comes from your `_msbuild.py` file.
+table. The source of truth for your project's metadata that is written into the
+final distribution files always comes from your `_msbuild.py` file, however, it
+is possible to import standard metadata from a referenced `pyproject.toml` at
+build time, or export canonical metadata into a generated `pyproject.toml` for
+your sdist. See the later section on sdist metadata for more information.
 
-However, the `pyproject.toml` included in sdists is a direct copy of the one
-from the root of your project. Other than the project table, sdists have no
-predictable metadata for analysis tools to use, so if you want your project to
-provide that metadata, feel free to list it in the `pyproject.toml` as well as
-in your `_msbuild.py` (remembering to mark as
-[dynamic](https://packaging.python.org/en/latest/specifications/pyproject-toml/#dynamic)
-anything that is updated by your build process).
+## Usage
 
-A future release may automatically use `_msbuild.py` metadata to fill out
-missing fields in a `pyproject.toml` project table, and `pymsbuild init` may use
-the project table to initialise the configuration file. However, at this point,
-both files are totally independent and the configuration file is the canonical
-source of metadata.
-
-# Usage
-
-## Rebuild the current project in-place.
+### Rebuild the current project in-place.
 
 ```
 python -m pymsbuild
 ```
 
-## Interactively generate the `_msbuild.py` file with project spec.
-
-(Or at least, it will, once implemented.)
+### Generate an `_msbuild.py` file with project spec based on existing sources
 
 ```
 python -m pymsbuild init
 ```
 
-## Build the project and output an sdist
+### Build the project and output an sdist
 
 ```
 python -m pymsbuild sdist
@@ -119,7 +131,7 @@ python -m pymsbuild sdist
 Output is put into `dist` by default, but can be overridden with `--dist-dir`
 (`-d`).
 
-## Build the project and output a wheel
+### Build the project and output a wheel
 
 ```
 python -m pymsbuild wheel
@@ -128,15 +140,90 @@ python -m pymsbuild wheel
 Output is put into `dist` by default, but can be overridden with `--dist-dir`
 (`-d`).
 
-## Clean any recent builds
+### Clean any recent builds
 
 ```
 python -m pymsbuild clean
 ```
 
-# Advanced Examples
+### CLI options
 
-## Dynamic METADATA
+This is a summary of the supported options and environment variables:
+
+* `-c`, `--config`, `%PYMSBUILD_CONFIG%`: specify an alternative configuration file (default: `_msbuild.py`)
+* `-s`, `--source-dir`, `%PYMSBUILD_SOURCE_DIR%`: specify the source directory (default: `.`)
+* `-d`, `--dist-dir`, `%PYMSBUILD_DIST_DIR%`: specify the packaged-output directory (default: `dist`)
+* `-t`, `--temp-dir`, `%PYMSBUILD_TEMP_DIR%`: specify the temporary build root (default: `build`)
+* `-g`, `--debug`, `%PYMSBUILD_DEBUG%`: build using debug configuration
+* `-f`, `--force`, `%PYMSBUILD_FORCE%`: force a full rebuild
+* `-v`, `--verbose`, `%PYMSBUILD_VERBOSE%`: enable additional output
+* `-q`, `--quiet`, `%PYMSBUILD_QUIET%`: reduced output
+* `--layout-dir`, `%PYMSBUILD_LAYOUT_DIR%`: specify the layout directory and
+  enable two-step building (the command will not complete until you run a second
+  `pack` step)
+* `--add <file> [<file> ...]`: add files to the package during the `pack` step
+  of a two-step build; accepts multiple paths
+* `--add @<filelist>`: during the `pack` step, add non-empty paths listed one
+  per line in a UTF-8 text file; paths are relative to the layout directory, and
+  may recursively use `@<filelist>` syntax
+
+Environment variables for booleans (e.g. `%PYMSBUILD_DEBUG%`) are considered as
+false if unset, empty, `false`, `no` or `0`, and true for any other value.
+
+These overrides should be very rarely used, but are available if needed:
+
+* `%PYMSBUILD_STATE_FILE%`: override the two-step-build state file (default: `<layout-dir>\__state.txt`)
+* `%PYMSBUILD_EXT_SUFFIX%`: override the native extension-module suffix
+* `%PYMSBUILD_TARGET%`: override the MSBuild target (default depends on build mode and `--force`)
+* `%PYMSBUILD_SDIST_NAME%`: override the generated sdist filename (default: `<name>-<version>.tar.gz`)
+* `%PYMSBUILD_WHEEL_NAME%`: override the generated wheel filename (default: `<name>-<version>-<wheel-tag>.whl`)
+* `%PYMSBUILD_DISTINFO_NAME%`: override the dist-info directory name (default: `<name>-<version>.dist-info`)
+* `%PYMSBUILD_PYTHON_INCLUDES%`: specify Python include directories
+* `%PYMSBUILD_PYTHON_LIBS%`: specify Python library directories
+* `%PYMSBUILD_NUGET_FEED%`: override the NuGet service-index URL
+* `%PYMSBUILD_PYC_OPTIMIZE%`: set DLL-packed bytecode optimization (default: `0`) 
+* `%PYMSBUILD_SHOW_TRACEBACKS%`: propagate exceptions and show tracebacks (no CLI equivalent)
+
+Other environment variables will also be available in the generated MSBuild
+projects, which may allow further customization.
+
+## API quick reference
+
+### Package structure
+
+* `Package(name, *members, source="", project_file=None, **properties)`:
+  defines a directory in the installed package.
+* `PyFile(source, name=None, **metadata)`: includes Python source files.
+* `File(source, name=None, **metadata)`: includes general package data.
+* `PydFile(name, *members, source="", project_file=None, **properties)`:
+  builds a native Python extension.
+* `CSourceFile(source, name=None, **metadata)`: adds C or C++ compilation units.
+* `IncludeFile(source, name=None, **metadata)`: adds header dependencies.
+
+File sources may contain `*` and `**`. Use `source=` to change the source
+root and `name=` to change the installed name.
+
+### Build settings
+
+* `Property(name, value)`: sets an MSBuild property at its position.
+* `ItemDefinition(kind, **metadata)`: applies metadata to subsequent items.
+* `ConditionalValue(value, condition=None, if_empty=False, prepend=False,
+  append=False)`: conditionally sets or combines a value.
+* `Prepend(value)`: shorthand for `ConditionalValue(value, prepend=True)`.
+* `LiteralXML(xml)`: inserts raw XML into the generated project.
+
+Unknown keyword arguments are passed through as MSBuild properties or item
+metadata; their names must match the selected MSBuild toolset.
+
+### Dynamic hooks
+
+* `init_METADATA()`: update or return `METADATA` before build metadata is finalized.
+* `init_PACKAGE(tag=None)`: update or return `PACKAGE`; `tag` is the wheel tag,
+  or `None` while building an sdist.
+
+## Advanced topics
+
+### Dynamic METADATA
 
 Metadata may be dynamically generated, either on import or with the
 `init_METADATA` function. This function is called and must either
@@ -175,7 +262,7 @@ Also see the earlier section regarding the `pyproject.toml` project table (and
 the fact that it is not used by `pymsbuild`, but will be added to your sdist
 without modification).
 
-## Sdist metadata (PEP 621)
+### Sdist metadata (PEP 621)
 
 The `[project]` table in your
 [`pyproject.toml`](https://packaging.python.org/en/latest/specifications/pyproject-toml/)
@@ -274,7 +361,7 @@ way to modify metadata during wheel builds. However, if you have found a way to
 do it, then you should specify those fields manually. Fields that update during
 `init_METADATA` do not need to be listed as dynamic.
 
-## Separate packages
+### Refactoring packages
 
 Packages are just Python objects, so they may be kept in variables and
 used later. They also expose a `members` attribute, which is a list, so
@@ -299,7 +386,7 @@ PACKAGE = Package("my_package", P1)
 PACKAGE.members.append(P2)
 ```
 
-## Anonymous packages
+### Anonymous packages
 
 To install files directly into the target location (often ``site-packages``),
 use a top-level package with empty name. Other packages may be nested within
@@ -313,7 +400,7 @@ PACKAGE = Package(
 )
 ```
 
-## Custom dist-info files
+### Custom dist-info files
 
 To install files into the generated `.dist-info` directory, specify the
 ``IncludeInDistinfo=True`` option. This will move the file in the built wheel,
@@ -327,7 +414,7 @@ PACKAGE = Package(
 )
 ```
 
-## Wildcard handling
+### Wildcard handling
 
 Files can be added recursively using wildcard operators. These are
 evaluated at generation time by `pymsbuild` and not by MSBuild/
@@ -406,7 +493,7 @@ PACKAGE = Package(
 For more complex transforms on filename, we recommend using the
 `init_PACKAGE` function described below.
 
-## Dynamic packages
+### Dynamic packages
 
 After metadata processing, if an `init_PACKAGE(tag=None)` function
 exists it will be called with the intended platform tag. It must modify
@@ -508,7 +595,7 @@ class MyPydFile(PydFile):
         )
 ```
 
-## Source offsets
+### Source offsets
 
 If you keep your source in a `src` folder (recommended), provide the
 `source=` argument to `Package` in order to properly offset filenames.
@@ -533,7 +620,7 @@ PACKAGE = Package(
 )
 ```
 
-## Project file override
+### Project file override
 
 Both `Package` and `PydFile` types generate MSBuild project files and
 execute them as part of build, including sdists. For highly customised
@@ -559,7 +646,7 @@ PACKAGE = Package(
 )
 ```
 
-## Compiler/linker arguments
+### Compiler/linker arguments
 
 Rather than overriding the entire project file, there are a number of
 ways to inject arbitrary values into a project. These require
@@ -653,17 +740,17 @@ def init_PACKAGE(tag):
     VER.value = METADATA["Version"]
 ```
 
-As a last resort, the `LiteralXml` element inserts plain text directly
+As a last resort, the `LiteralXML` element inserts plain text directly
 into the generated file. It will be inserted as a child of the
 top-level `Project` element.
 
 ```python
     ...
-    LiteralXml("<Import Project='my_props.props' />"),
+    LiteralXML("<Import Project='my_props.props' />"),
     ...
 ```
 
-## Version info for DLLs/PYDs
+### Version info for DLLs/PYDs
 
 **Platform: Windows**
 
@@ -695,7 +782,7 @@ def init_METADATA():
 `from_metadata` will fill in any empty fields from the set of metadata that is
 passed in.
 
-## Alternate config file
+### Alternate config file
 
 To use a configuration file other than `_msbuild.py`, specify the
 `--config` (`-c`) argument or the `PYMSBUILD_CONFIG` environment
@@ -719,7 +806,7 @@ Note that this is different from the `PYMSBUILD_CONFIGURATION`
 variable, which is used to select debug/release settings for compiled
 modules.
 
-## Cross-compiling wheels
+### Cross-compiling wheels
 
 Cross compilation may be used by overriding the wheel tag, ABI tag,
 or build platform, as well as the source for Python's includes and
@@ -744,7 +831,7 @@ from the current system (or a specific ABI tag).
 The platform is used to determine the MSBuild target platform. It
 cannot yet automatically select the correct Python libraries, and so
 you will need to set `PYTHON_INCLUDES` and `PYTHON_LIBS` (or with a
-`PYMSBULID_` prefix) environment variables as well to locate the
+`PYMSBUILD_` prefix) environment variables as well to locate the
 correct files.
 
 You can override the platform toolset with the `'PlatformToolset'`
@@ -782,7 +869,7 @@ $env:PYTHON_LIBS = "$pyarm64\libs"
 $env:PLATFORMTOOLSET = "Intel C++ Compiler 19.1"
 ```
 
-## Cython
+### Cython
 
 Cython support is available from the `pymsbuild.cython` module.
 
@@ -807,7 +894,7 @@ headers (`*.pxd`). You may also need to specify
 `ClCompile.AdditionalIncludeDirectories` for any C/C++ headers.
 
 
-## Two-Step Builds
+### Two-step builds
 
 By default, the `sdist` and `wheel` commands will perform the entire
 process in a single invocation. However, sometimes there are build steps
@@ -838,11 +925,9 @@ python -m pymsbuild pack --layout-dir tmp --add tmp/EXTRA.txt
 python -m pymsbuild pack --layout-dir tmp --add @build/TO_ADD.txt
 ```
 
-# Experimental Features
+### DLL Packing
 
-## DLL Packing
-
-**Experimental. (POSIX is _very_ experimental)**
+**POSIX support is still experimental.**
 
 DLL Packing is a way to compile a complete Python package (`.py` source
 and resource files) into an extension module. It is basically equivalent
@@ -914,7 +999,7 @@ PACKAGE = DllPackage(
 )
 ```
 
-### Packed module names
+#### Packed module names
 
 By default, the packed DLL contents are presumed to be nested within
 the overall structure. This is important because full module names must
@@ -953,7 +1038,7 @@ If this is overridden with a named argument, it will replace the full
 name used within the packed DLL. If overridden with a `Property`
 element, it will replace the name but retain the parent's namespace.
 
-### Nested extension modules
+#### Nested extension modules
 
 To allow referencing other extension modules that would normally be
 nested within the module, add a `PydRedirect` element and reference the
@@ -993,7 +1078,7 @@ PACKAGE = DllPackage(
 )
 ```
 
-### Encryption
+#### Encryption
 
 To encrypt your content using symmetric AES encryption, provide the
 name of the environment variable holding your key as the
@@ -1026,7 +1111,9 @@ ImportError: Module cannot be decrypted
 
 Redirected or nested extension modules are not encrypted.
 
-## Cross-platform builds
+## Experimental features
+
+### POSIX builds with `dotnet build`
 
 **Experimental.**
 
@@ -1046,7 +1133,7 @@ needed to determine compilation options. By default, only the location
 adjacent to the running interpreter is checked. This may be overridden
 by setting the `PYTHON_CONFIG` variable to the preferred command.
 
-## Custom entry point
+### Custom entry point
 
 **Experimental.**
 
@@ -1099,7 +1186,7 @@ modules at runtime. These are the only directories that will be
 searched, as Python will be loaded in isolated mode. They are relative
 to the entrypoint and will be resolved when executing.
 
-## Extension commands
+### Extension commands
 
 **Experimental.**
 

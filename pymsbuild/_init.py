@@ -64,7 +64,7 @@ def _generate_module(root, offset=None, build_requires=None, _indent="    ", _ro
                 yield from (f'{_indent}    {i}' for i in C_PREPROC_BLURB)
                 yield f'{_indent}    PyxFile({_p(d.name)!r}),'
                 if any(root.glob("*.pxi")):
-                    yield f'{_indent}    CythonHeaderFile({_p("*.pxi")!r}),'
+                    yield f'{_indent}    CythonIncludeFile({_p("*.pxi")!r}),'
                 yield f'{_indent}),'
             elif d.match("*.c") or d.match("*.cpp"):
                 yield f''
@@ -74,9 +74,9 @@ def _generate_module(root, offset=None, build_requires=None, _indent="    ", _ro
                 yield from (f'{_indent}    {i}' for i in C_PREPROC_BLURB)
                 yield f'{_indent}    CSourceFile({_p(d.name)!r}),'
                 if any(root.glob("*.h")):
-                    yield f'{_indent}    HeaderFile({_p("*.h")!r}),'
+                    yield f'{_indent}    IncludeFile({_p("*.h")!r}),'
                 if any(root.glob("*.hpp")):
-                    yield f'{_indent}    HeaderFile({_p("*.hpp")!r}),'
+                    yield f'{_indent}    IncludeFile({_p("*.hpp")!r}),'
                 yield f'{_indent}),'
             elif d.match("*.pyi"):
                 any_pyi = True
