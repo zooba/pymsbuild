@@ -44,7 +44,7 @@ def _add_and_record(zipfile, path, relpath, hashalg="sha256"):
     return "{},,".format(relpath)
 
 
-def _relative_to_layout(files, root):
+def _relative_to_layout(files, root, write_log=print):
     if not files:
         files = root.rglob("**/*")
     for n in files:
@@ -52,7 +52,7 @@ def _relative_to_layout(files, root):
         try:
             rn = n.relative_to(root)
         except ValueError:
-            self.write("Not including", n, "from outside of layout directory")
+            write_log("Not including", n, "from outside of layout directory")
             continue
         if n.is_file():
             yield n, rn
@@ -228,15 +228,11 @@ class BuildState:
 
         if self.package is None:
             type(self).current = self
+            pack = None
             if hasattr(self.config, "init_PACKAGE"):
                 self.log("Dynamically initialising PACKAGE")
-                if sdist:
-                    pack = self.config.init_PACKAGE(None)
-                else:
-                    pack = self.config.init_PACKAGE(str(self.wheel_tag))
-                if pack:
-                    self.config.PACKAGE = self.package
-            self.package = self.config.PACKAGE
+                pack = self.config.init_PACKAGE(None if sdist else str(self.wheel_tag))
+            self.package = pack or self.config.PACKAGE
             type(self).current = None
 
     def _set_best(self, key, metakey, envkey, default, getenv):
@@ -421,7 +417,7 @@ class BuildState:
         else:
             tar_name = self.sdist_name + ".tar"
 
-        rel_files = _relative_to_layout(files, self.layout_dir)
+        rel_files = _relative_to_layout(files, self.layout_dir, self.write)
         import gzip, tarfile
         with gzip.open(sdist, "w") as f_gz:
             with tarfile.TarFile.open(tar_name, "w", fileobj=f_gz, format=tarfile.PAX_FORMAT) as f:
@@ -461,7 +457,7 @@ class BuildState:
         # Copy metadata_dir into layout_dir
         if self.metadata_dir != self.layout_dir:
             metadata = (self.metadata_dir / self.distinfo_name).glob("*")
-            for n, rn in _relative_to_layout(metadata, self.metadata_dir):
+            for n, rn in _relative_to_layout(metadata, self.metadata_dir, self.write):
                 n2 = self.layout_dir / rn
                 n2.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy(n, n2)
@@ -491,7 +487,7 @@ class BuildState:
         wheel = self.output_dir / self.wheel_name
         record = []
         record_files = []
-        rel_files = _relative_to_layout(files, self.layout_dir)
+        rel_files = _relative_to_layout(files, self.layout_dir, self.write)
 
         import zipfile
         with zipfile.ZipFile(wheel, "w", compression=zipfile.ZIP_DEFLATED) as f:
@@ -548,7 +544,7 @@ class BuildState:
             for k, v in self.layout_metadata.items():
                 print(k, "=", v, sep="", file=f)
             print("# BEGIN FILES", file=f)
-            for n, rn in _relative_to_layout(None, self.layout_dir):
+            for n, rn in _relative_to_layout(None, self.layout_dir, self.write):
                 print(rn, file=f)
 
     def pack(self):
