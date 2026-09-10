@@ -108,10 +108,8 @@
           DependsOnTargets="_GetDllPackSourceFiles;_CalculateDllPackResponseFile"
           Inputs="@(_DllPackRsp);@(_DllPackMainPy);@(_DllPackSourceFiles)"
           Outputs="@(_DllPackHeader);@(_DllPackRc)">
-    <Message Text="WARNING: DLL packing is experimental and may change. Send feedback at https://github.com/zooba/pymsbuild"
-             Importance="high" />
     <PropertyGroup>
-      <_GenCommand>"$(HostPython)" "$(PyMsbuildTargets)\dllpack-generate.py" "$(_DllPack_Module)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
+      <_GenCommand>"$(HostPython)" "$(PyMsbuildTargets)/dllpack-generate.py" "$(_DllPack_Module)" "@(_DllPackRsp)" "$(PyMsbuildTargets)"</_GenCommand>
     </PropertyGroup>
     <Message Text="Generating pack for the following files:%0A@(_DllPackRspLines,'%0A')" Importance="$(_Low)" />
     <Exec Command="$(_GenCommand)" WorkingDirectory="$(IntDir)" />

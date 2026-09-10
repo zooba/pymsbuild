@@ -40,5 +40,7 @@
   </Target>
 
   <Target Name="DllPack_GccRC" DependsOnTargets="_DllPack_GccRc_Calculate;_DllPack_GccRc_Build">
+    <Message Text="WARNING: DLL packing with GCC is experimental and may change. Send feedback at https://github.com/zooba/pymsbuild"
+             Importance="high" />
   </Target>
 </Project>
