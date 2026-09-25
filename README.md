@@ -722,7 +722,7 @@ ARM64_LIBRARY = CProject(
 ```
 
 This overrides the wheel-wide target platform for this `CProject` only. The
-supported names for generated projects are `Win32`, `x64`, `ARM` and `ARM64`.
+supported names for generated projects are `Win32`, `x64` and `ARM64`.
 
 ### Project file override
 
