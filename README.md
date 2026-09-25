@@ -426,9 +426,10 @@ PACKAGE = Package(
 Files can be added recursively using wildcard operators. These are
 evaluated at generation time by `pymsbuild` and not by MSBuild/
 `dotnet build`, as it allows greater control over target names.
-Pass wildcard patterns directly to file elements rather than expanding them
-with `glob`, `pathlib` or similar helpers. This lets `pymsbuild` preserve the
-right source and destination names and include the matched files in sdists.
+It is usually better to pass wildcard patterns directly to file elements than
+to expand them with `glob`, `pathlib` or similar helpers. This lets `pymsbuild`
+preserve the right source and destination names and include the matched files
+in sdists.
 
 ```python
 PACKAGE = Package(
