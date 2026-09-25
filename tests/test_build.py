@@ -24,6 +24,8 @@ if not os.getenv("MSBUILD"):
 
 @pytest.fixture
 def build_state(tmp_path, testdata):
+    generated = tmp_path / "generated.h"
+    generated.write_text("/* generated */", encoding="utf-8")
     bs = BuildState()
     bs.verbose = True
     bs.source_dir = testdata / "testdata"
@@ -34,6 +36,7 @@ def build_state(tmp_path, testdata):
     bs.temp_dir = tmp_path / "temp"
     bs.package = T.Package("package",
         T.PyFile(testdata / "testdata/empty.py", "__init__.py"),
+        T.SourceFile(generated),
         T.PydFile("mod",
             T.CSourceFile(testdata / "testdata/mod.c"),
             T.VersionInfo(
@@ -100,7 +103,14 @@ def test_build_sdist(build_state, configuration):
     bs.build_sdist()
 
     files = {p.relative_to(bs.layout_dir / "package-1.0") for p in bs.layout_dir.rglob("**/*") if p.is_file()}
-    assert files == {Path(p) for p in {"PKG-INFO", "empty.py", "mod.c", "pyproject.toml", "_msbuild.py"}}
+    assert files == {Path(p) for p in {
+        "PKG-INFO",
+        "empty.py",
+        "package/generated.h",
+        "mod.c",
+        "pyproject.toml",
+        "_msbuild.py",
+    }}
     files = {p.relative_to(bs.output_dir) for p in bs.output_dir.rglob("**/*") if p.is_file()}
     assert len(files) == 1
     f = next(iter(files))

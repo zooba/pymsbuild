@@ -647,8 +647,14 @@ PACKAGE = Package(
 )
 ```
 
-Within each package or project, keep file sources relative to its `source`
-directory. Full paths are only needed for files outside the project tree.
+It is best to specify files as simple paths relative to the package or project's
+`source` directory, or to the project root when no `source` is specified. This
+keeps the configuration portable and makes each file's source clear.
+
+Files outside the project tree should normally only be generated files. They
+are copied into an sdist using their package-relative name, so the extracted
+sdist contains the file at a portable path rather than referring back to its
+original full path.
 
 ### Native libraries with `CProject`
 
