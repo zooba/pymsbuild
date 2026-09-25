@@ -156,6 +156,7 @@ def test_native_project_generation_and_sdist(tmp_path, testdata):
         Path("_msbuild.py"),
         Path("module1.c"),
         Path("module2.c"),
+        Path("pyproject.toml"),
         Path("shared.c"),
         Path("shared/generated.h"),
     }
