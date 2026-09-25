@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import pymsbuild
 import pymsbuild._generate as G
 import pymsbuild._types as T
+from pymsbuild._build import BuildState
 
 FILE_TYPES = [
     ("Content", T.File),
@@ -112,22 +113,53 @@ def test_package_project_reference(tmp_path):
     assert "package" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetDir").text
 
 
-def test_shared_project_reference(tmp_path):
-    shared = T.CProject("shared", ConfigurationType="StaticLibrary")
-    p = T.Package(
-        "package",
-        T.CProject("first", shared),
-        T.CProject("second", shared),
-    )
-    pf = ProjectFileChecker(G.generate(p, tmp_path, tmp_path))
+def test_native_project_generation_and_sdist(tmp_path, testdata):
+    bs = BuildState()
+    bs.source_dir = testdata / "testnative"
+    bs.output_dir = tmp_path / "out"
+    bs.build_dir = tmp_path / "build"
+    bs.layout_dir = tmp_path / "layout"
+    bs.temp_dir = tmp_path / "temp"
+    bs.finalize(sdist=True)
+    project = bs.generate()
 
-    assert len(pf.getall("./x:ItemGroup/x:Project[@Include='shared.proj']")) == 1
+    root = ProjectFileChecker(project)
+    references = list(root.getall("./x:ItemGroup/x:Project", "Include"))
+    assert references.count("shared.proj") == 1
+    assert set(references) == {"module1.proj", "module2.proj", "shared.proj"}
+    assert all((bs.temp_dir / reference).is_file() for reference in references)
 
-    first = ProjectFileChecker(tmp_path / "first.proj")
-    assert len(first.getall("./x:ItemGroup/x:Project[@Include='shared.proj']")) == 1
+    module1 = ProjectFileChecker(bs.temp_dir / "module1.proj")
+    assert list(module1.getall("./x:ItemGroup/x:Project", "Include")) == ["shared.proj"]
 
-    second = ProjectFileChecker(tmp_path / "second.proj")
-    assert len(second.getall("./x:ItemGroup/x:Project[@Include='shared.proj']")) == 1
+    module2 = ProjectFileChecker(bs.temp_dir / "module2.proj")
+    assert list(module2.getall("./x:ItemGroup/x:Project", "Include")) == ["shared.proj"]
+
+    shared = ProjectFileChecker(bs.temp_dir / "shared.proj")
+    generated = shared.get("./x:ItemGroup/x:ClInclude[@Include]")
+    generated_path = Path(generated.get("Include"))
+    assert generated_path == bs.temp_dir / "generated.h"
+    assert generated_path.is_absolute()
+    assert not generated_path.is_relative_to(bs.source_dir)
+    generated_name = generated.find("./x:Name", namespaces=shared.ns).text
+    assert generated_name.replace("\\", "/") == "shared/generated.h"
+
+    bs.layout_sdist()
+    sdist_root = bs.layout_dir / "testnative-1.0.0"
+    files = {
+        p.relative_to(sdist_root)
+        for p in sdist_root.rglob("*")
+        if p.is_file()
+    }
+    assert files == {
+        Path("PKG-INFO"),
+        Path("_msbuild.py"),
+        Path("module1.c"),
+        Path("module2.c"),
+        Path("shared.c"),
+        Path("shared/generated.h"),
+    }
+    assert all(".." not in p.parts and not p.is_absolute() for p in files)
 
 
 def test_pkginfo_gen_readback(tmp_path):
