@@ -683,7 +683,9 @@ PACKAGE = Package(
 ```
 
 To link one generated project into another, include the referenced `CProject`
-as a member of the project that uses it:
+as a member of the project that uses it. The same instance may be included in
+multiple projects; it is generated once and each containing project references
+it:
 
 ```python
 NATIVE_HELPERS = CProject(
@@ -695,9 +697,14 @@ NATIVE_HELPERS = CProject(
 PACKAGE = Package(
     "my_package",
     CProject(
-        "native_library",
+        "first_library",
         NATIVE_HELPERS,
-        CSourceFile("library.c"),
+        CSourceFile("first.c"),
+    ),
+    CProject(
+        "second_library",
+        NATIVE_HELPERS,
+        CSourceFile("second.c"),
     ),
     source="src/native",
 )

@@ -112,6 +112,24 @@ def test_package_project_reference(tmp_path):
     assert "package" == pf.get("./x:ItemGroup/x:Project[@Include='module.proj']/x:TargetDir").text
 
 
+def test_shared_project_reference(tmp_path):
+    shared = T.CProject("shared", ConfigurationType="StaticLibrary")
+    p = T.Package(
+        "package",
+        T.CProject("first", shared),
+        T.CProject("second", shared),
+    )
+    pf = ProjectFileChecker(G.generate(p, tmp_path, tmp_path))
+
+    assert len(pf.getall("./x:ItemGroup/x:Project[@Include='shared.proj']")) == 1
+
+    first = ProjectFileChecker(tmp_path / "first.proj")
+    assert len(first.getall("./x:ItemGroup/x:Project[@Include='shared.proj']")) == 1
+
+    second = ProjectFileChecker(tmp_path / "second.proj")
+    assert len(second.getall("./x:ItemGroup/x:Project[@Include='shared.proj']")) == 1
+
+
 def test_pkginfo_gen_readback(tmp_path):
     with open(tmp_path / "txt.txt", "w", encoding="utf-8") as f:
         f.write("Test Data")
