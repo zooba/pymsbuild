@@ -66,7 +66,11 @@ be aware that it is not always intuitive how the paths are going to be remapped.
 See [Wildcard handling](#wildcard-handling) for more details.
 
 If the `source=` named argument is omitted, all source paths are relative to the
-configuration file. See [Source offsets](#source-offsets) for more details.
+configuration file. Prefer simple relative strings for file sources, and use
+`source=` on a package or project when its files share a different source root.
+This keeps the same configuration usable for sdists, in-place builds and
+cross-platform wheels without calculating full paths. See
+[Source offsets](#source-offsets) for more details.
 
 You can have alternative `_msbuild.py` files with different names, and use the
 `--config`/`-c` option to select one.
@@ -197,6 +201,9 @@ projects, which may allow further customization.
 * `File(source, name=None, **metadata)`: includes general package data.
 * `PydFile(name, *members, source="", project_file=None, **properties)`:
   builds a native Python extension.
+* `CProject(name, *members, source="", project_file=None, **properties)`:
+  builds a native dynamic library by default, or another native output selected
+  by `ConfigurationType`.
 * `CSourceFile(source, name=None, **metadata)`: adds C or C++ compilation units.
 * `IncludeFile(source, name=None, **metadata)`: adds header dependencies.
 
@@ -419,6 +426,10 @@ PACKAGE = Package(
 Files can be added recursively using wildcard operators. These are
 evaluated at generation time by `pymsbuild` and not by MSBuild/
 `dotnet build`, as it allows greater control over target names.
+It is usually better to pass wildcard patterns directly to file elements than
+to expand them with `glob`, `pathlib` or similar helpers. This lets `pymsbuild`
+preserve the right source and destination names and include the matched files
+in sdists.
 
 ```python
 PACKAGE = Package(
@@ -457,10 +468,11 @@ these rules:
 * if the pattern filename contains no wildcards, it is preserved in the
   final name. Otherwise, it is replaced by matched files
 
-These rules ensure consistency across many forms of paths, making it
-reliable to use calculated absolute paths with wildcards (for example,
-a package extending the build system to add its own files). To create
-a directory in the destination, use a new `Package` element:
+These rules ensure consistency across many forms of paths. Calculated absolute
+paths remain available when needed, for example when a package extends the build
+system to add its own files, while ordinary project files can stay relative to
+their source roots. To create a directory in the destination, use a new
+`Package` element:
 
 ```
 # Installs as 'A/__init__.py'
@@ -502,23 +514,39 @@ wheel generation, however, for sdists (and any scenario that should not
 generate binaries), `tag` will be `None`. Otherwise, it will be a
 string like `cp38-cp38-win32`.
 
+Use this `tag` to make target-platform changes to `PACKAGE`. It describes the
+wheel being built, while values such as `sys.platform` describe the machine
+running the build and may be different during cross-compilation.
+
 ```python
+WINDOWS_ACCELERATOR = PydFile(
+    "_accelerator",
+    CSourceFile(r"win32\*.c"),
+)
+
 PACKAGE = Package(
     "my_package",
     PyFile(r"my_package\*.py"),
+    WINDOWS_ACCELERATOR,
 )
 
 def init_PACKAGE(tag=None):
-    if tag and tag.endswith("-win_amd64"):
-        data_file = generate_data_amd64()
-        PACKAGE.members.append(File(data_file))
+    if tag is not None and not tag.endswith("-win_amd64"):
+        PACKAGE.members.remove(WINDOWS_ACCELERATOR)
 ```
 
-Note that all files to be included in an sdist must be referenced when
-`tag` is `None`. Conditional compilation is best performed using conditions
-in the package elements, rather than using `init_PACKAGE`. However, if you
-are going to use `init_PACKAGE`, you should _remove_ elements rather than
-adding them if they should be included in your sdist.
+Define `PACKAGE` with every project and source file that may be used by any
+target. When `tag` is `None`, leave them all in place so sdist generation can
+discover and include every source file. For a wheel or in-place build, remove
+the projects that do not apply to that non-`None` tag. Adding target-specific
+projects or existing source files only when `tag` is non-`None` can produce an
+sdist that is missing the sources needed to build that target. Files generated
+during `init_PACKAGE` may be added at that point, as they do not exist to be
+included in the sdist.
+
+Conditional compilation is best performed using conditions in the package
+elements rather than using `init_PACKAGE`. When `init_PACKAGE` is needed,
+prefer this define-everything-then-remove pattern.
 
 Files added as part of a wildcard can be removed by adding a `RemoveFile`
 element. These may be added dynamically during `init_PACKAGE`, and must
@@ -620,12 +648,89 @@ PACKAGE = Package(
 )
 ```
 
+It is best to specify files as simple paths relative to the package or project's
+`source` directory, or to the project root when no `source` is specified. This
+keeps the configuration portable and makes each file's source clear.
+
+Files outside the project tree should normally only be generated files. They
+are copied into an sdist using their package-relative name, so the extracted
+sdist contains the file at a portable path rather than referring back to its
+original full path.
+
+### Native libraries with `CProject`
+
+Use `CProject` for native outputs that are not Python extension modules. It
+builds a dynamic library (a DLL on Windows) by default; set
+`ConfigurationType="StaticLibrary"` for a static library. The toolset selects
+the platform-appropriate filename extension.
+
+This example builds and packages a static library and a simple non-Python
+dynamic library from files under `src/native`:
+
+```python
+PACKAGE = Package(
+    "my_package",
+    CProject(
+        "native_helpers",
+        CSourceFile("helpers.c"),
+        ConfigurationType="StaticLibrary",
+    ),
+    CProject(
+        "native_library",
+        CSourceFile("library.c"),
+    ),
+    source="src/native",
+)
+```
+
+To link one generated project into another, include the referenced `CProject`
+as a member of the project that uses it. The same instance may be included in
+multiple projects; it is generated once and each containing project references
+it:
+
+```python
+NATIVE_HELPERS = CProject(
+    "native_helpers",
+    CSourceFile("helpers.c"),
+    ConfigurationType="StaticLibrary",
+)
+
+PACKAGE = Package(
+    "my_package",
+    CProject(
+        "first_library",
+        NATIVE_HELPERS,
+        CSourceFile("first.c"),
+    ),
+    CProject(
+        "second_library",
+        NATIVE_HELPERS,
+        CSourceFile("second.c"),
+    ),
+    source="src/native",
+)
+```
+
+To override the target platform for one native project, pass the MSBuild
+platform name as its `Platform` property:
+
+```python
+ARM64_LIBRARY = CProject(
+    "native_library",
+    CSourceFile("library.c"),
+    Platform="ARM64",
+)
+```
+
+This overrides the wheel-wide target platform for this `CProject` only. The
+supported names for generated projects are `Win32`, `x64` and `ARM64`.
+
 ### Project file override
 
-Both `Package` and `PydFile` types generate MSBuild project files and
-execute them as part of build, including sdists. For highly customised
-builds, this generation may be overridden completely by specifying the
-`project_file` named argument. All members are then ignored.
+Both `Package` and `CProject` types (including `PydFile`) generate MSBuild
+project files and execute them as part of build, including sdists. For highly
+customised builds, this generation may be overridden completely by specifying
+the `project_file` named argument. All members are then ignored.
 
 By doing this, you take full responsibility for a valid build,
 including providing a number of undocumented and unsupported targets.
