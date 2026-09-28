@@ -219,6 +219,11 @@ root and `name=` to change the installed name.
 * `Prepend(value)`: shorthand for `ConditionalValue(value, prepend=True)`.
 * `LiteralXML(xml)`: inserts raw XML into the generated project.
 
+Set `IncludeDebugSymbols="true"` on a `CProject` or `PydFile` to generate native
+debug symbols without changing the selected optimization level and include them
+in the final package. Windows builds include the separate symbol file, while
+POSIX builds retain the platform's embedded debug information.
+
 Unknown keyword arguments are passed through as MSBuild properties or item
 metadata; their names must match the selected MSBuild toolset.
 
