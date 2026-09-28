@@ -2,7 +2,7 @@
   <Target Name="_GetPdbPackageFiles">
     <ItemGroup>
       <_PdbFile Include="$([System.IO.Path]::ChangeExtension($(TargetPath), '.pdb'))"
-                Condition="'$(Configuration)' == 'Debug' or '$(IncludeDebugSymbols)' == 'true'" />
+                Condition="'$(IncludeDebugSymbols)' == 'true'" />
       <AllSourceFiles Include="@(_PdbFile)">
         <TargetDir></TargetDir>
         <TargetName>%(Filename)</TargetName>

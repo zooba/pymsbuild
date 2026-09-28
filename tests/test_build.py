@@ -81,6 +81,8 @@ def test_build(build_state, configuration):
     files = {p.relative_to(bs.source_dir) for p in bs.source_dir.rglob("**/*") if p.is_file()}
     assert files
     assert files >= {Path(p) for p in {"package/__init__.py", "package/mod.pyd"}}
+    if sys.platform == "win32":
+        assert (Path("package/mod.pdb") in files) == (configuration == "Debug")
 
     bs.target = "Clean"
     bs.build()

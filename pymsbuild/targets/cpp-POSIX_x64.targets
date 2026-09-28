@@ -16,7 +16,7 @@
         <ObjectFile Condition="%(ClCompile.ObjectFile) == ''">$([msbuild]::MakeRelative($(SourceRootDir), %(FullPath))).o</ObjectFile>
         <Optimization Condition="%(ClCompile.Optimization) == ''">$(_DefaultOptimization)</Optimization>
         <_OptOption>-Og</_OptOption>
-        <_DebugSymbolsOption Condition="'$(Configuration)' == 'Debug' or '$(IncludeDebugSymbols)' == 'true'">-g</_DebugSymbolsOption>
+        <_DebugSymbolsOption Condition="'$(IncludeDebugSymbols)' == 'true'">-g</_DebugSymbolsOption>
       </ClCompile>
       <ClCompile>
         <_ResolvedOutput>$([System.IO.Path]::Combine($(IntDir), %(ObjectFile)))</_ResolvedOutput>
@@ -101,7 +101,7 @@
       <_LibSpec Include="%(_LinkerInputs.AdditionalLibraryDirectories)" />
     </ItemGroup>
     <PropertyGroup>
-      <_DebugSymbolsOption Condition="'$(Configuration)' == 'Debug' or '$(IncludeDebugSymbols)' == 'true'">-g</_DebugSymbolsOption>
+      <_DebugSymbolsOption Condition="'$(IncludeDebugSymbols)' == 'true'">-g</_DebugSymbolsOption>
       <!-- Base command -->
       <_Cmd>$(Link_Cmd)</_Cmd>
       <!-- Output file -->
