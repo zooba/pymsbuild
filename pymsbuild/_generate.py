@@ -228,12 +228,16 @@ def _generate_reference_metadata(relname, project, source_dir):
 
 
 def _write_project_references(f, project, build_dir, source_dir):
+    seen = set()
     with f.group("ItemGroup", Label="ProjectReferences"):
         for n, p in _all_members(
             project,
             return_if=lambda m: m is not project and isinstance(m, CProject),
             make_prefix=lambda prefix, item: "{}{}/".format(prefix, item.name) if not isinstance(item, CProject) else prefix,
         ):
+            if id(p) in seen:
+                continue
+            seen.add(id(p))
             fn = PurePath(n)
             pdir = _generate_c_project(p, build_dir, source_dir)
             try:

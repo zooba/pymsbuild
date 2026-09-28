@@ -140,6 +140,9 @@
       <_WithMetadata Condition="'%(IncludeInSdist)' == true">
         <RelativeSource Condition="%(_WithMetadata.RelativeSource) == ''">$([msbuild]::MakeRelative($(SourceRootDir.TrimEnd($(_Sep))), %(FullPath)))</RelativeSource>
       </_WithMetadata>
+      <_WithMetadata Condition="'%(IncludeInSdist)' == true">
+        <RelativeSource Condition="$([System.String]::Copy('%(_WithMetadata.RelativeSource)').StartsWith('..')) Or $([System.IO.Path]::IsPathRooted('%(_WithMetadata.RelativeSource)'))">%(_WithMetadata.Name)</RelativeSource>
+      </_WithMetadata>
       <PyMSBuild_SdistFiles Include="@(_WithMetadata)" Condition="'%(IncludeInSdist)' == true" />
     </ItemGroup>
   </Target>
