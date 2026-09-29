@@ -16,6 +16,7 @@
         <ObjectFile Condition="%(ClCompile.ObjectFile) == ''">$([msbuild]::MakeRelative($(SourceRootDir), %(FullPath))).o</ObjectFile>
         <Optimization Condition="%(ClCompile.Optimization) == ''">$(_DefaultOptimization)</Optimization>
         <_OptOption>-Og</_OptOption>
+        <_DebugSymbolsOption Condition="'$(IncludeDebugSymbols)' == 'true'">-g</_DebugSymbolsOption>
       </ClCompile>
       <ClCompile>
         <_ResolvedOutput>$([System.IO.Path]::Combine($(IntDir), %(ObjectFile)))</_ResolvedOutput>
@@ -70,6 +71,8 @@
       <_Cmd>$(_Cmd) -o %(ClCompile._ResolvedOutput)</_Cmd>
       <!-- Optimization -->
       <_Cmd>$(_Cmd) %(ClCompile._OptOption)</_Cmd>
+      <!-- Debug symbols -->
+      <_Cmd>$(_Cmd) %(ClCompile._DebugSymbolsOption)</_Cmd>
       <!-- Source file -->
       <_Cmd>$(_Cmd) %(ClCompile.Identity)</_Cmd>
       <!-- Include directories -->
@@ -98,6 +101,7 @@
       <_LibSpec Include="%(_LinkerInputs.AdditionalLibraryDirectories)" />
     </ItemGroup>
     <PropertyGroup>
+      <_DebugSymbolsOption Condition="'$(IncludeDebugSymbols)' == 'true'">-g</_DebugSymbolsOption>
       <!-- Base command -->
       <_Cmd>$(Link_Cmd)</_Cmd>
       <!-- Output file -->
@@ -109,6 +113,8 @@
       <_Cmd>$(_Cmd) @(_LinkerInputs, ' ')</_Cmd>
       <!-- Python flags -->
       <_Cmd>$(_Cmd) $(PythonLDFlags)</_Cmd>
+      <!-- Debug symbols -->
+      <_Cmd>$(_Cmd) $(_DebugSymbolsOption)</_Cmd>
     </PropertyGroup>
     <Message Importance="Normal" Text="Executing $(_Cmd)" />
     <Exec Command="$(_Cmd)" />

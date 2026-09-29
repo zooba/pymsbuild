@@ -1,7 +1,8 @@
 <Project>
   <Target Name="_GetPdbPackageFiles">
     <ItemGroup>
-      <_PdbFile Include="$([System.IO.Path]::ChangeExtension($(TargetPath), '.pdb'))" Condition="$(Configuration) == 'Debug'" />
+      <_PdbFile Include="$([System.IO.Path]::ChangeExtension($(TargetPath), '.pdb'))"
+                Condition="'$(IncludeDebugSymbols)' == 'true'" />
       <AllSourceFiles Include="@(_PdbFile)">
         <TargetDir></TargetDir>
         <TargetName>%(Filename)</TargetName>
@@ -15,6 +16,15 @@
   <PropertyGroup>
     <GetPackageFilesTargets>_GetPdbPackageFiles;$(GetPackageFilesTargets)</GetPackageFilesTargets>
   </PropertyGroup>
+
+  <ItemDefinitionGroup Condition="'$(IncludeDebugSymbols)' == 'true'">
+    <ClCompile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" Condition="$(VCTargetsPath) != ''" />
 </Project>

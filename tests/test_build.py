@@ -81,6 +81,8 @@ def test_build(build_state, configuration):
     files = {p.relative_to(bs.source_dir) for p in bs.source_dir.rglob("**/*") if p.is_file()}
     assert files
     assert files >= {Path(p) for p in {"package/__init__.py", "package/mod.pyd"}}
+    if sys.platform == "win32":
+        assert (Path("package/mod.pdb") in files) == (configuration == "Debug")
 
     bs.target = "Clean"
     bs.build()
@@ -134,6 +136,13 @@ def test_build_sdist_layout(build_state):
 def test_build_wheel_layout(build_state):
     bs = build_state
     bs.verbose = True
+    bs.package = T.Package("package",
+        T.PydFile("mod",
+            T.CSourceFile("mod.c"),
+            TargetExt=".pyd",
+            IncludeDebugSymbols="true",
+        ),
+    )
     bs.finalize()
     bs.generate()
     bs.layout_wheel()
@@ -157,6 +166,10 @@ def test_build_wheel_layout(build_state):
 
     with zipfile.ZipFile(Path(bs2.output_dir) / f, 'r') as zf:
         files = set(zf.namelist())
+        if sys.platform == "win32":
+            assert "package/mod.pdb" in files
+        else:
+            assert b".debug_info" in zf.read("package/mod.pyd")
     print("Wheel contents:", *files, sep="\n")
     records = [p for p in files if Path(p).match("*.dist-info/RECORD")]
     assert len(records) == 1

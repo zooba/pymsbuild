@@ -16,5 +16,8 @@
     <BuildSdistDependsOn>$(BuildSdistDependsOn);BuildDependencies</BuildSdistDependsOn>
     <GetPackageFilesTargets>$(GetPackageFilesTargets);_GetPackageFilesFromProjects</GetPackageFilesTargets>
     <GetSdistFilesTargets>$(GetSdistFilesTargets);_GetSdistFilesFromProjects</GetSdistFilesTargets>
+
+    <IncludeDebugSymbols Condition="'$(IncludeDebugSymbols)' == '' and '$(Configuration)' == 'Debug'">true</IncludeDebugSymbols>
+    <IncludeDebugSymbols Condition="'$(IncludeDebugSymbols)' == ''">false</IncludeDebugSymbols>
   </PropertyGroup>
 </Project>
