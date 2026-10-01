@@ -137,6 +137,10 @@ class BuildState:
         if self.config is None:
             import importlib.util
             file = self.source_dir / (self.config_file or "_msbuild.py")
+            if not file.exists():
+                raise FileNotFoundError(f"Configuration file {file} does not exist (check PYMSBUILD_CONFIG)")
+            if not file.is_file():
+                raise ValueError(f"Configuration path {file} is not a file (check PYMSBUILD_CONFIG)")
             spec = importlib.util.spec_from_file_location("_msbuild", file)
             self.config = mod = importlib.util.module_from_spec(spec)
             mod.__loader__.exec_module(mod)
