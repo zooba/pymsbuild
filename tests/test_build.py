@@ -56,6 +56,31 @@ def dump_layout_dir(bs):
     print(*[f"- {f.relative_to(bs.layout_dir)}" for f in bs.layout_dir.rglob("*")], sep="\n")
 
 
+@pytest.mark.parametrize("kind, error, message", [
+    ("missing", FileNotFoundError, "does not exist"),
+    ("directory", ValueError, "is not a file"),
+])
+def test_invalid_config_path(tmp_path, kind, error, message):
+    config = tmp_path / "config"
+    if kind == "directory":
+        config.mkdir()
+    bs = BuildState()
+    bs.source_dir = tmp_path
+    with pytest.raises(error, match=message) as exc:
+        bs.finalize_metadata(getenv=lambda key: str(config) if key == "PYMSBUILD_CONFIG" else None)
+    assert str(config) in str(exc.value)
+    assert "PYMSBUILD_CONFIG" in str(exc.value)
+
+
+def test_config_import_error(tmp_path):
+    config = tmp_path / "config.py"
+    config.write_text("raise RuntimeError('config failure')\n")
+    bs = BuildState()
+    bs.source_dir = tmp_path
+    with pytest.raises(RuntimeError, match="config failure"):
+        bs.finalize_metadata(getenv=lambda key: str(config) if key == "PYMSBUILD_CONFIG" else None)
+
+
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
 def test_build(build_state, configuration):
     os.environ["BUILD_BUILDNUMBER"] = "1"
