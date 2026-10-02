@@ -91,7 +91,7 @@ def test_target_tag_properties(build_state):
     assert bs.python_tag == "cp27"
     assert bs.wheel_abi_tag == "cp27m"
     assert bs.platform_tag == "win32"
-    assert bs.cross_compile == (sys.version_info[:2] != (2, 7))
+    assert bs.is_cross_compile == (sys.version_info[:2] != (2, 7))
 
 
 def test_invalid_target_tag_does_not_prevent_build_setup(build_state, monkeypatch):
@@ -108,7 +108,7 @@ def test_invalid_target_tag_does_not_prevent_build_setup(build_state, monkeypatc
     assert bs.python_tag == "cp27"
     assert bs.wheel_abi_tag == "cp27m"
     assert bs.platform_tag == "win32"
-    assert bs.cross_compile
+    assert bs.is_cross_compile
 
 
 def test_cross_compile_detects_foreign_platform(build_state):
@@ -121,7 +121,7 @@ def test_cross_compile_detects_foreign_platform(build_state):
     ))
 
     assert bs.target_python_version == "{}.{}".format(*sys.version_info[:2])
-    assert bs.cross_compile
+    assert bs.is_cross_compile
 
 
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])

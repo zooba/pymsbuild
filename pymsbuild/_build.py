@@ -111,7 +111,7 @@ class BuildState:
         self.wheel_abi_tag = None
         self.platform_tag = None
         self.target_python_version = None
-        self.cross_compile = None
+        self.is_cross_compile = None
         self.abi_tag = None
         self.abi_only = None
         self.ext_suffix = None
@@ -219,19 +219,21 @@ class BuildState:
         self.platform = tags.platform_tag
         try:
             target_tags = packaging.tags.parse_tag(str(self.wheel_tag))
-            target_tag = min(target_tags, key=str)
+            target_tag = next(iter(target_tags), None)
         except ValueError:
             target_tags = set()
-            tag_parts = str(self.wheel_tag).split("-", 2)
-            tag_parts.extend([""] * (3 - len(tag_parts)))
-            self.python_tag, self.wheel_abi_tag, self.platform_tag = tag_parts
-        else:
+            target_tag = None
+        if target_tag:
             self.python_tag = target_tag.interpreter
             self.wheel_abi_tag = target_tag.abi
             self.platform_tag = target_tag.platform
+        else:
+            self.python_tag, self.wheel_abi_tag, self.platform_tag, *_ = (
+                str(self.wheel_tag).split("-", 2) + ["", "", ""]
+            )
         self.target_python_version = _python_version_from_tag(self.python_tag)
         host_tags = set(packaging.tags.sys_tags())
-        self.cross_compile = (
+        self.is_cross_compile = (
             self.target_python_version != "{}.{}".format(*sys.version_info[:2])
             or not target_tags.intersection(host_tags)
         )
@@ -350,7 +352,7 @@ class BuildState:
         properties.setdefault("PythonTag", self.python_tag)
         properties.setdefault("AbiTag", self.wheel_abi_tag)
         properties.setdefault("PlatformTag", self.platform_tag)
-        properties.setdefault("CrossCompile", str(self.cross_compile).lower())
+        properties.setdefault("CrossCompile", self.is_cross_compile)
         properties.setdefault("OutDir", self.build_dir)
         properties.setdefault("IntDir", self.temp_dir)
         properties.setdefault("LayoutDir", self.layout_dir)

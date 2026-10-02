@@ -8,4 +8,4 @@ assert version == f"{sys.version_info.major}.{sys.version_info.minor}"
 assert python_tag
 assert abi_tag
 assert platform_tag
-assert cross_compile == "false"
+assert cross_compile == "False"
