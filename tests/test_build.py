@@ -245,6 +245,21 @@ def test_build_wheel_layout(build_state):
     assert not states
 
 
+def test_layout_file_without_hardlink(build_state):
+    bs = build_state
+    bs.package = T.Package("package",
+        T.File("empty.py", "config.py", UseHardLinksIfPossible=False),
+    )
+    bs.finalize()
+    bs.generate()
+    bs.layout_wheel()
+
+    source = bs.source_dir / "empty.py"
+    layout_file = bs.layout_dir / "package" / "config.py"
+    assert layout_file.is_file()
+    assert not os.path.samefile(source, layout_file)
+
+
 @pytest.mark.parametrize("proj", ["testcython", "testproject1", "testpurepy", "testempty"])
 @pytest.mark.parametrize("configuration", ["Debug", "Release"])
 @pytest.mark.parametrize("target", ["build", "build_sdist", "build_wheel"])
