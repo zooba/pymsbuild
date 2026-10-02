@@ -217,9 +217,19 @@ class BuildState:
         self.abi_only = tags.abi_only
         self.wheel_tag = tags.wheel_tag
         self.platform = tags.platform_tag
-        self.python_tag, self.wheel_abi_tag, self.platform_tag = str(self.wheel_tag).split("-", 2)
+        try:
+            target_tags = packaging.tags.parse_tag(str(self.wheel_tag))
+            target_tag = min(target_tags, key=str)
+        except ValueError:
+            target_tags = set()
+            tag_parts = str(self.wheel_tag).split("-", 2)
+            tag_parts.extend([""] * (3 - len(tag_parts)))
+            self.python_tag, self.wheel_abi_tag, self.platform_tag = tag_parts
+        else:
+            self.python_tag = target_tag.interpreter
+            self.wheel_abi_tag = target_tag.abi
+            self.platform_tag = target_tag.platform
         self.target_python_version = _python_version_from_tag(self.python_tag)
-        target_tags = packaging.tags.parse_tag(str(self.wheel_tag))
         host_tags = set(packaging.tags.sys_tags())
         self.cross_compile = (
             self.target_python_version != "{}.{}".format(*sys.version_info[:2])

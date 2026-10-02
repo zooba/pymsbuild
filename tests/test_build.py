@@ -94,6 +94,23 @@ def test_target_tag_properties(build_state):
     assert bs.cross_compile == (sys.version_info[:2] != (2, 7))
 
 
+def test_invalid_target_tag_does_not_prevent_build_setup(build_state, monkeypatch):
+    bs = build_state
+
+    def parse_tag_failure(tag):
+        raise ValueError("invalid tag")
+
+    monkeypatch.setattr("packaging.tags.parse_tag", parse_tag_failure)
+    bs.finalize_metadata(getenv=lambda key: (
+        "cp27-cp27m-win32" if key == "PYMSBUILD_WHEEL_TAG" else os.getenv(key)
+    ))
+
+    assert bs.python_tag == "cp27"
+    assert bs.wheel_abi_tag == "cp27m"
+    assert bs.platform_tag == "win32"
+    assert bs.cross_compile
+
+
 def test_cross_compile_detects_foreign_platform(build_state):
     platform_tag = "linux_x86_64" if sys.platform == "win32" else "win_amd64"
     python_version = "{}{}".format(*sys.version_info[:2])
