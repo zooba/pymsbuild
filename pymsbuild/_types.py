@@ -599,6 +599,9 @@ class File:
 When added to `Package`, the file will be copied into the resulting
 package directory.
 
+Set `UseHardLinksIfPossible=False` to ensure the file is copied when
+creating a layout.
+
 When added to another project, behaviour will depend on how that
 project treats "Content" elements.
 """
