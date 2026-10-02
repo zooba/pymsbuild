@@ -1,3 +1,0 @@
-/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile/build/temp/_native/native.c.o
-/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile/build/bin/cross_compile_sample/_native.cpython-312-x86_64-linux-gnu.so
-/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile/build/temp/_native/_native.writes.txt
