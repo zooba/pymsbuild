@@ -945,6 +945,8 @@ you will need to set `PYTHON_INCLUDES` and `PYTHON_LIBS` (or with a
 `PYMSBUILD_` prefix) environment variables as well to locate the
 correct files.
 
+MSBuild exposes `TargetPythonVersion`, `PythonTag`, `AbiTag`, `PlatformTag`, and `CrossCompile` during project builds.
+
 You can override the platform toolset with the `'PlatformToolset'`
 metadata value, for scenarios where this information ought to be
 included in an sdist.

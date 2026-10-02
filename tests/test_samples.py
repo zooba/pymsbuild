@@ -28,6 +28,7 @@ ENV = {
 
 WIN32_SAMPLES = {
     "azure-pack",
+    "cross-compile",
     # Skipping azure-cli test due to circular imports
     #"azure-cli",
     "pybind11",
@@ -37,6 +38,7 @@ WIN32_SAMPLES = {
 POSIX_SAMPLES = {
     # Skipping azure-cli test due to circular imports
     #"azure-cli",
+    "cross-compile",
     "pybind11",
 } or set()
 
