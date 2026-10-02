@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="Current" TreatAsLocalProperty="Platform" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="Globals">
+    <Configuration Condition="$(Configuration) == ''">Release</Configuration>
+    <Platform Condition="$(Platform) == ''">x64</Platform>
+    <ProjectGuid>33d7c43c-7c4e-3ab0-a37a-60d33d4ede6b</ProjectGuid>
+    <RootNamespace>cross_compile_sample</RootNamespace>
+    <TargetName>cross_compile_sample</TargetName>
+    <PyMsbuildTargets Condition="$(PyMsbuildTargets) == ''">/tmp/build-env-63m7i8w8/lib/python3.12/site-packages/pymsbuild/targets</PyMsbuildTargets>
+  </PropertyGroup>
+  <PropertyGroup>
+    <SourceDir Condition="$(SourceDir) == ''">/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile</SourceDir>
+    <SourceRootDir Condition="$(SourceRootDir) == ''">/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile</SourceRootDir>
+    <IncludePyprojectToml Condition="$(IncludePyprojectToml) == ''">true</IncludePyprojectToml>
+  </PropertyGroup>
+  <Import Project="$(PyMsbuildTargets)/common.props" />
+  <Import Project="$(PyMsbuildTargets)/package.props" />
+  <ItemGroup Label="ProjectReferences">
+    <Project Include="_native.proj">
+      <Name>cross_compile_sample/_native</Name>
+      <TargetDir>cross_compile_sample</TargetDir>
+      <IntDir>$(IntDir)_native</IntDir>
+      <ParentNamespace>cross_compile_sample</ParentNamespace>
+      <ConfigurationType>ExtensionModule</ConfigurationType>
+      <DynamicLibcppLinkage>false</DynamicLibcppLinkage>
+      <LinkCompiled>true</LinkCompiled>
+      <OutputType>library</OutputType>
+      <SourceDir>/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile</SourceDir>
+    </Project>
+  </ItemGroup>
+  <ItemGroup Label="Sdist metadata">
+    <Sdist Include="/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile/build/temp/PKG-INFO">
+      <RelativeSource>PKG-INFO</RelativeSource>
+    </Sdist>
+    <Sdist Include="/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile/_msbuild.py">
+      <RelativeSource>_msbuild.py</RelativeSource>
+    </Sdist>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile/empty.py">
+      <SourceDir>/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile</SourceDir>
+      <GeneratePyc>True</GeneratePyc>
+      <IncludeInSdist>True</IncludeInSdist>
+      <IncludeInLayout>True</IncludeInLayout>
+      <IncludeInWheel>True</IncludeInWheel>
+      <Name>cross_compile_sample/__init__.py</Name>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(PyMsbuildTargets)/common.targets" />
+  <Import Project="$(PyMsbuildTargets)/package.targets" />
+</Project>

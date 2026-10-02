@@ -64,6 +64,13 @@ def _quote(s, start='"', end='"'):
     return start + s + end
 
 
+def _python_version_from_tag(python_tag):
+    match = re.match(r"(?:cp|py|pp)(\d)(\d+)", python_tag)
+    if match:
+        return "{}.{}".format(*match.groups())
+    return "{}.{}".format(*sys.version_info[:2])
+
+
 class BuildState:
     # Updated around init_METADATA and init_PACKAGE calls
     current = None
@@ -100,6 +107,11 @@ class BuildState:
         self.state_file = None
         self.targets = Path(__file__).absolute().parent / "targets"
         self.wheel_tag = None
+        self.python_tag = None
+        self.wheel_abi_tag = None
+        self.platform_tag = None
+        self.target_python_version = None
+        self.cross_compile = None
         self.abi_tag = None
         self.abi_only = None
         self.ext_suffix = None
@@ -205,6 +217,14 @@ class BuildState:
         self.abi_only = tags.abi_only
         self.wheel_tag = tags.wheel_tag
         self.platform = tags.platform_tag
+        self.python_tag, self.wheel_abi_tag, self.platform_tag = str(self.wheel_tag).split("-", 2)
+        self.target_python_version = _python_version_from_tag(self.python_tag)
+        target_tags = packaging.tags.parse_tag(str(self.wheel_tag))
+        host_tags = set(packaging.tags.sys_tags())
+        self.cross_compile = (
+            self.target_python_version != "{}.{}".format(*sys.version_info[:2])
+            or not target_tags.intersection(host_tags)
+        )
 
         name, version = self.metadata["Name"], self.metadata["Version"]
         name = re.sub(r"[^\w\d.]+", "_", name, flags=re.UNICODE)
@@ -316,6 +336,11 @@ class BuildState:
         properties.setdefault("_ProjectBuildTarget", self.target)
         properties.setdefault("SourceRootDir", self.source_dir)
         properties.setdefault("PythonAbi", self.abi_only)
+        properties.setdefault("TargetPythonVersion", self.target_python_version)
+        properties.setdefault("PythonTag", self.python_tag)
+        properties.setdefault("AbiTag", self.wheel_abi_tag)
+        properties.setdefault("PlatformTag", self.platform_tag)
+        properties.setdefault("CrossCompile", str(self.cross_compile).lower())
         properties.setdefault("OutDir", self.build_dir)
         properties.setdefault("IntDir", self.temp_dir)
         properties.setdefault("LayoutDir", self.layout_dir)

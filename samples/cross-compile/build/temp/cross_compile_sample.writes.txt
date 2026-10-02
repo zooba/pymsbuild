@@ -1,0 +1,6 @@
+/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile/build/bin/layout/pymsbuild_cross_compile_sample-1.0/native.c
+/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile/build/bin/layout/pymsbuild_cross_compile_sample-1.0/PKG-INFO
+/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile/build/bin/layout/pymsbuild_cross_compile_sample-1.0/_msbuild.py
+/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile/build/bin/layout/pymsbuild_cross_compile_sample-1.0/pyproject.toml
+/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile/build/bin/layout/pymsbuild_cross_compile_sample-1.0/empty.py
+/home/runner/work/pymsbuild/pymsbuild/samples/cross-compile/build/temp/cross_compile_sample.writes.txt
