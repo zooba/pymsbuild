@@ -81,10 +81,13 @@
   <Target Name="_Layout_Copy" Inputs="@(_DistFiles)" Outputs="%(_DistFiles.Destination)">
     <ItemGroup>
       <FileWrites Include="%(_DistFiles.Destination)" />
+      <_DistFiles>
+        <UseHardLinksIfPossible Condition="'%(_DistFiles.UseHardLinksIfPossible)' == ''">true</UseHardLinksIfPossible>
+      </_DistFiles>
     </ItemGroup>
     <Copy SourceFiles="%(_DistFiles.FullPath)"
           DestinationFiles="%(_DistFiles.Destination)"
-          UseHardLinksIfPossible="true">
+          UseHardLinksIfPossible="%(_DistFiles.UseHardLinksIfPossible)">
       <Output TaskParameter="CopiedFiles" ItemName="_CopiedDistFiles" />
     </Copy>
   </Target>
