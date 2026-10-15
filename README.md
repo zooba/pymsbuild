@@ -168,8 +168,10 @@ to install your wheel build dependencies.
 Use `--list-sdist` to list source paths relative to the project root, including
 the configuration file and `pyproject.toml` if it exists. Use `--list-wheel`
 to list where files would be installed according to your package definition.
-You can use both options together. Each list shows a path only once and leaves
-out generated distribution metadata. Wildcards and MSBuild properties are left
+You can use both options together. Lists start with `# Sdist files` or
+`# Wheel files`, with a blank line between them when both are requested.
+Each list shows a path only once and leaves out generated distribution metadata.
+Wildcards and MSBuild properties are left
 as written; conditions and removal rules are ignored. The command does not
 check whether source files exist or whether the project will compile.
 

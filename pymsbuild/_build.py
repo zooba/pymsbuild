@@ -296,6 +296,9 @@ class BuildState:
                 else:
                     paths = list(state.package.iter_wheel(PurePath()))
                 if (sdist and list_sdist) or (not sdist and list_wheel):
+                    if not sdist and list_sdist:
+                        print()
+                    print("# Sdist files" if sdist else "# Wheel files")
                     for path in dict.fromkeys(paths):
                         print(path)
             finally:

@@ -69,25 +69,30 @@ def test_check_silent(project, tmp_path, monkeypatch, capsys):
 
 
 @pytest.mark.parametrize("args, expected", [
-    ((), set()),
-    (("--list-sdist",), {"_msbuild.py", "empty.py", "native.c", "pyproject.toml"}),
-    (("--list-wheel",), {
+    ((), []),
+    (("--list-sdist",), [
+        "# Sdist files", "_msbuild.py", "empty.py", "native.c", "pyproject.toml",
+    ]),
+    (("--list-wheel",), [
+        "# Wheel files",
         "cross_compile_sample/__init__.py",
         "cross_compile_sample/_native$(DefaultExtSuffix)",
-    }),
-    (("--list-sdist", "--list-wheel"), {
-        "_msbuild.py", "empty.py", "native.c", "pyproject.toml",
+    ]),
+    (("--list-sdist", "--list-wheel"), [
+        "# Sdist files", "_msbuild.py", "empty.py", "native.c", "pyproject.toml",
+        "", "# Wheel files",
         "cross_compile_sample/__init__.py",
         "cross_compile_sample/_native$(DefaultExtSuffix)",
-    }),
+    ]),
 ])
 def test_check_cli(sample, args, expected):
     result = run_check(sample, *args)
     assert result.returncode == 0, result.stderr
     assert result.stderr == ""
-    assert {PurePath(p) for p in result.stdout.splitlines()} == {
-        PurePath(p) for p in expected
-    }
+    assert result.stdout == "".join(
+        (str(PurePath(p)) if p and not p.startswith("#") else p) + "\n"
+        for p in expected
+    )
     assert not (sample / "build").exists()
     assert not list(sample.rglob("*.proj"))
 
@@ -138,7 +143,9 @@ def test_check_paths_and_hooks(sample, capsys):
     state.check(list_sdist=True, list_wheel=True)
     out, err = capsys.readouterr()
     assert err == ""
-    assert {PurePath(p) for p in out.splitlines()} == {
+    assert out.startswith("# Sdist files\n")
+    assert "\n\n# Wheel files\n" in out
+    assert {PurePath(p) for p in out.splitlines() if p and not p.startswith("#")} == {
         PurePath(p) for p in {
             "_msbuild.py", "pyproject.toml", "src/**/*.py", "src/native.c",
             "src/original.py", "src/custom.input", "package/**/*.py",
