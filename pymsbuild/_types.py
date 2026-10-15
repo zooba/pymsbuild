@@ -39,6 +39,18 @@ def _recursive_iter(it):
             yield from it
 
 
+def _iter_paths(members, method, prefix):
+    for member in members:
+        get_paths = getattr(member, method, None)
+        if get_paths is not None:
+            yield from get_paths(prefix)
+
+
+def _include_path(options, key, default=True):
+    value = options.get(key, default)
+    return str(value).lower() not in {"false", "0", ""}
+
+
 class _Project:
     r"""Base class of compilable projects. Do not use directly."""
     options = {}
@@ -52,6 +64,24 @@ class _Project:
 
     def __iter__(self):
         return _recursive_iter(self.members)
+
+    def iter_sdist(self, source_dir):
+        """Yield source paths for 'check', relative to the project root.
+
+Members may implement iter_sdist(source_dir) and iter_wheel(prefix) to
+override predictions. Arguments and yielded paths are PurePath objects.
+Each method owns recursion into its members. Members without a method
+are ignored. Wildcards, properties and conditions are not evaluated.
+"""
+        source_dir = source_dir / self.source
+        if self.project_file:
+            yield source_dir / self.project_file
+        else:
+            yield from _iter_paths(self.members, "iter_sdist", source_dir)
+
+    def iter_wheel(self, prefix):
+        """Yield predicted installed paths, including this package's name."""
+        yield from _iter_paths(self.members, "iter_wheel", prefix / self.name)
 
     @staticmethod
     def _match_item(o, key):
@@ -255,6 +285,7 @@ Other options will be added to the project as properties.
         "ConfigurationType": "DynamicLibrary",
         "DynamicLibcppLinkage": "false",
     }
+    _check_suffix = "$(TargetExt)"
 
     def __init__(self, name, *members, **options):
         super().__init__(name, *members, **options)
@@ -268,6 +299,14 @@ Other options will be added to the project as properties.
             *self.members,
             self.ToolsetTargets(),
         ]
+
+    def iter_wheel(self, prefix):
+        name = self.options.get("TargetName") or self.name
+        suffix = self.options.get("TargetExt", self._check_suffix)
+        yield prefix / f"{name}{suffix}"
+        for member in self.members:
+            path = prefix if isinstance(member, CProject) else prefix / self.name
+            yield from _iter_paths((member,), "iter_wheel", path)
 
 
     class DefaultToolsetProps(ImportGroup):
@@ -382,6 +421,7 @@ Other options will be added to the project as properties.
         "LinkCompiled": "true",
         "OutputType": "library",
     }
+    _check_suffix = "$(DefaultExtSuffix)"
 
 
 class VersionInfo:
@@ -635,6 +675,38 @@ project treats "Content" elements.
         self.condition = condition
         return self
 
+    def iter_sdist(self, source_dir):
+        if _include_path(self.options, "IncludeInSdist"):
+            yield source_dir / self.source
+
+    def iter_wheel(self, prefix):
+        if not _include_path(self.options, "IncludeInWheel"):
+            return
+        name = prefix / self.name
+        parts = self.source.parts
+        for i, part in enumerate(parts):
+            if "*" in part or "?" in part:
+                filename = self.source.name if "*" in self.source.name or "?" in self.source.name else name.name
+                name = name.parent / PurePath(*parts[i:-1]) / filename
+                break
+        if isinstance(self.options.get("Name"), str):
+            name = name.with_name(self.options["Name"])
+        flatten = self.options.get("flatten")
+        if flatten is True:
+            name = PurePath(name.name)
+        elif isinstance(flatten, str):
+            name = PurePath(flatten.join(name.parts))
+        target_dir = self.options.get("TargetDir")
+        if target_dir:
+            name = PurePath(target_dir) / name.name
+        target_name = self.options.get("TargetName")
+        target_ext = self.options.get("TargetExt")
+        if target_name or target_ext:
+            name = name.with_name(f"{target_name or name.stem}{target_ext or name.suffix}")
+        if _include_path(self.options, "IncludeInDistinfo", False):
+            name = PurePath("$(DistinfoDir)") / name
+        yield name
+
 
 class PyFile(File):
     r"""Add a Python source file to a package.
@@ -736,6 +808,12 @@ a string or the type object, but is not used.
             Kind=getattr(kind, "_ITEMNAME", None) or str(kind),
         )
 
+    def iter_sdist(self, source_dir):
+        return iter(())
+
+    def iter_wheel(self, prefix):
+        return iter(())
+
 class Midl(File):
     r"""Add an interface definition language source.
 
@@ -789,6 +867,10 @@ generated pyproject.toml, or include the original using a SourceFile.
         self.source = source
         self.options = options
         self._content = content
+
+    def iter_sdist(self, source_dir):
+        if self.source:
+            yield source_dir / self.source
 
     @classmethod
     def _email_format(cls, a):

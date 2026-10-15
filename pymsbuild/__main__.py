@@ -2,6 +2,7 @@ import argparse
 import pymsbuild
 import sys
 
+from functools import partial
 from os import getenv
 from pathlib import PurePath, Path
 from pymsbuild import _get_extension_commands
@@ -87,6 +88,14 @@ def parse_args(commands):
         nargs="*",
         help="Specify additional file(s) to package when using the 'pack' command."
     )
+    parser.add_argument(
+        "--list-sdist", action="store_true",
+        help="With 'check', list predicted sdist source paths relative to the project root.",
+    )
+    parser.add_argument(
+        "--list-wheel", action="store_true",
+        help="With 'check', list predicted wheel paths from the package definition.",
+    )
     cmd_help_1 = ", ".join(f"'{k}'" for k, (f, doc) in commands.items() if doc)
     cmd_help_2 = "\n".join(f"{k}: {doc}" for k, (f, doc) in commands.items() if doc)
     parser.add_argument(
@@ -112,6 +121,7 @@ def parse_args(commands):
 
 COMMANDS = {
     "init": (run_init, "Initialise a new _msbuild.py file."),
+    "check": (BuildState.check, "Check the configuration without generating or building."),
     "generate": (BuildState.generate, "Generate the build files without building."),
     "sdist": (BuildState.build_sdist, "Build an sdist."),
     "wheel": (BuildState.build_wheel, "Build a wheel."),
@@ -128,6 +138,9 @@ for k, v in _get_extension_commands():
 
 
 ns = parse_args(COMMANDS)
+if ns.command == "check":
+    f, doc = COMMANDS["check"]
+    COMMANDS["check"] = (partial(f, list_sdist=ns.list_sdist, list_wheel=ns.list_wheel), doc)
 
 
 if ns.verbose:
@@ -172,6 +185,8 @@ except Exception as ex:
     print("ERROR", ex, file=sys.stderr)
     if bs.verbose:
         raise
+    if ns.command == "check":
+        sys.exit(1)
     if getattr(ex, "winerror", 0):
         sys.exit(ex.winerror)
     if getattr(ex, "errno", 0):

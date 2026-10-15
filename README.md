@@ -150,6 +150,29 @@ Output is put into `dist` by default, but can be overridden with `--dist-dir`
 python -m pymsbuild clean
 ```
 
+### Check the configuration without building
+
+```
+python -m pymsbuild check
+python -m pymsbuild check --list-sdist
+python -m pymsbuild check --list-wheel
+```
+
+`check` loads your metadata and package definition, but does not look for
+MSBuild, generate project files, or build anything. If it succeeds, it prints
+nothing and exits with code 0. If it fails, it prints the error and exits with
+code 1. Your configuration code and dynamic hooks still run, as they would for
+an sdist build. With `--list-wheel`, hooks run in wheel mode, so you may need
+to install your wheel build dependencies.
+
+Use `--list-sdist` to list source paths relative to the project root, including
+the configuration file and `pyproject.toml` if it exists. Use `--list-wheel`
+to list where files would be installed according to your package definition.
+You can use both options together. Each list shows a path only once and leaves
+out generated distribution metadata. Wildcards and MSBuild properties are left
+as written; conditions and removal rules are ignored. The command does not
+check whether source files exist or whether the project will compile.
+
 ### CLI options
 
 This is a summary of the supported options and environment variables:
@@ -162,6 +185,8 @@ This is a summary of the supported options and environment variables:
 * `-f`, `--force`, `%PYMSBUILD_FORCE%`: force a full rebuild
 * `-v`, `--verbose`, `%PYMSBUILD_VERBOSE%`: enable additional output
 * `-q`, `--quiet`, `%PYMSBUILD_QUIET%`: reduced output
+* `--list-sdist`: with `check`, print predicted sdist source paths
+* `--list-wheel`: with `check`, print predicted installed wheel paths
 * `--layout-dir`, `%PYMSBUILD_LAYOUT_DIR%`: specify the layout directory and
   enable two-step building (the command will not complete until you run a second
   `pack` step)

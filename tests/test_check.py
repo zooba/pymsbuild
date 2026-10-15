@@ -1,0 +1,161 @@
+import os
+import shutil
+import subprocess
+import sys
+
+from pathlib import Path, PurePath
+from types import SimpleNamespace
+
+import pytest
+
+from pymsbuild._build import BuildState
+from pymsbuild._types import File, Package, PydFile, PyFile, SourceFile
+from pymsbuild.dllpack import DllPackage
+
+
+ROOT = Path(__file__).absolute().parent.parent
+
+
+def run_check(source, *args):
+    return subprocess.run(
+        [sys.executable, "-m", "pymsbuild", "check", "-s", str(source), *args],
+        cwd=source,
+        env={
+            **os.environ,
+            "PYTHONPATH": str(ROOT),
+            "PYMSBUILD_VERBOSE": "0",
+            "PYMSBUILD_SHOW_TRACEBACKS": "0",
+            "PYMSBUILD_CONFIG": "",
+            "MSBUILD": "must-not-run-msbuild",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+
+@pytest.fixture
+def sample(tmp_path):
+    source = tmp_path / "sample"
+    shutil.copytree(ROOT / "samples" / "cross-compile", source)
+    return source
+
+
+@pytest.mark.parametrize("project", [
+    "samples/cross-compile", "samples/pybind11", "samples/azure-pack",
+    pytest.param("samples/azure-cli", marks=pytest.mark.skipif(
+        sys.platform not in {"win32", "linux"}, reason="no sample requirements for this platform",
+    )),
+    "tests/testproject1", "tests/testempty",
+])
+def test_check_silent(project, tmp_path, monkeypatch, capsys):
+    source = tmp_path / "sample"
+    shutil.copytree(ROOT / project, source)
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("check must not locate, generate, or execute MSBuild")
+
+    monkeypatch.setattr("pymsbuild._build.locate_msbuild", unexpected)
+    monkeypatch.setattr("pymsbuild._generate.generate", unexpected)
+    monkeypatch.setattr(BuildState, "build", unexpected)
+    monkeypatch.delenv("MSBUILD", raising=False)
+    monkeypatch.chdir(source)
+    state = BuildState()
+    state.source_dir = source
+    state.check()
+    assert capsys.readouterr() == ("", "")
+    assert not (source / "build").exists()
+    assert not list(source.rglob("*.proj"))
+    assert BuildState.current is None
+
+
+@pytest.mark.parametrize("args, expected", [
+    ((), set()),
+    (("--list-sdist",), {"_msbuild.py", "empty.py", "native.c", "pyproject.toml"}),
+    (("--list-wheel",), {
+        "cross_compile_sample/__init__.py",
+        "cross_compile_sample/_native$(DefaultExtSuffix)",
+    }),
+    (("--list-sdist", "--list-wheel"), {
+        "_msbuild.py", "empty.py", "native.c", "pyproject.toml",
+        "cross_compile_sample/__init__.py",
+        "cross_compile_sample/_native$(DefaultExtSuffix)",
+    }),
+])
+def test_check_cli(sample, args, expected):
+    result = run_check(sample, *args)
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    assert {PurePath(p) for p in result.stdout.splitlines()} == {
+        PurePath(p) for p in expected
+    }
+    assert not (sample / "build").exists()
+    assert not list(sample.rglob("*.proj"))
+
+
+@pytest.mark.parametrize("config, message", [
+    ("missing.py", "does not exist"),
+    ("_msbuild.py", "config failure"),
+])
+def test_check_failure(sample, config, message):
+    if config == "_msbuild.py":
+        (sample / config).write_text("raise RuntimeError('config failure')\n")
+    result = run_check(sample, "--config", config)
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert message in result.stderr
+    assert not (sample / "build").exists()
+
+
+def test_check_paths_and_hooks(sample, capsys):
+    class CustomMember:
+        def iter_sdist(self, source_dir):
+            yield source_dir / "custom.input"
+
+        def iter_wheel(self, prefix):
+            yield prefix / "custom.output"
+
+    tags = []
+
+    def init_package(tag):
+        tags.append(tag)
+        return Package(
+            "package",
+            PyFile("**/*.py"),
+            SourceFile("native.c"),
+            File("$(Generated)/data.bin", IncludeInSdist=False),
+            Package("sub", PyFile("original.py", "__init__.py")),
+            PydFile("_native", TargetExt=".pyd"),
+            CustomMember(),
+            source="src",
+        )
+
+    state = BuildState()
+    state.source_dir = sample
+    state.config = SimpleNamespace(
+        METADATA={"Name": "sample", "Version": "1.0"},
+        init_PACKAGE=init_package,
+    )
+    state.check(list_sdist=True, list_wheel=True)
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert {PurePath(p) for p in out.splitlines()} == {
+        PurePath(p) for p in {
+            "_msbuild.py", "pyproject.toml", "src/**/*.py", "src/native.c",
+            "src/original.py", "src/custom.input", "package/**/*.py",
+            "package/data.bin", "package/sub/__init__.py",
+            "package/_native.pyd", "package/custom.output",
+        }
+    }
+    assert tags[0] is None
+    assert tags[1]
+
+
+def test_dllpackage_wheel_paths():
+    package = DllPackage(
+        "packed", PyFile("module.py"), File("data.txt"),
+        Package("sub", PyFile("module.py")),
+        PydFile("_native", TargetExt=".pyd"),
+    )
+    assert list(package.iter_wheel(PurePath())) == [
+        PurePath("packed$(DefaultExtSuffix)"), PurePath("_native.pyd"),
+    ]
