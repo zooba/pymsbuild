@@ -134,7 +134,8 @@ def test_check_expands_wildcards_and_properties(tmp_path, capsys):
 def test_check_member_hook_expands_with_build_state(tmp_path, capsys):
     class CustomMember:
         def iter_check_wheel(self, state, prefix):
-            yield state.expand_check_path(prefix / "custom$(DefaultExtSuffix)")
+            suffix = state.ext_suffix if state.check_expand else "$(DefaultExtSuffix)"
+            yield prefix / f"custom{suffix}"
 
     state = BuildState()
     state.source_dir = tmp_path

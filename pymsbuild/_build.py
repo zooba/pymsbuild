@@ -71,53 +71,6 @@ def _python_version_from_tag(python_tag):
     return "{}.{}".format(*sys.version_info[:2])
 
 
-def _check_path_matches(path, pattern):
-    regex = ["^"]
-    i = 0
-    while i < len(pattern):
-        if pattern.startswith("**/", i):
-            regex.append("(?:.*/)?")
-            i += 3
-        elif pattern.startswith("**", i):
-            regex.append(".*")
-            i += 2
-        elif pattern[i] == "*":
-            regex.append("[^/]*")
-            i += 1
-        elif pattern[i] == "?":
-            regex.append("[^/]")
-            i += 1
-        else:
-            regex.append(re.escape(pattern[i]))
-            i += 1
-    regex.append("$")
-    return re.match("".join(regex), path) is not None
-
-
-def _expand_check_paths(paths, source_dir, source_paths=()):
-    for path in paths:
-        path = PurePath(path)
-        path_str = str(path)
-        if path.is_absolute() or "$(" in path_str or not any(c in path_str for c in "*?"):
-            yield path
-            continue
-        matches = sorted(source_dir.glob(path_str))
-        yield from (PurePath(p.relative_to(source_dir)) for p in matches if not p.is_dir())
-        match_path = path.as_posix()
-        wildcard = min((match_path.find(c) for c in "*?" if c in match_path), default=-1)
-        static_end = match_path.rfind("/", 0, wildcard) + 1
-        static, pattern = match_path[:static_end], match_path[static_end:]
-        for source_path in source_paths:
-            parts = PurePath(source_path).parts
-            for i in range(len(parts)):
-                suffix = PurePath(*parts[i:]).as_posix()
-                if suffix.startswith(static):
-                    remainder = suffix[len(static):]
-                    if _check_path_matches(remainder, pattern):
-                        yield PurePath(static + remainder)
-                        break
-
-
 class BuildState:
     # Updated around init_METADATA and init_PACKAGE calls
     current = None
@@ -343,20 +296,6 @@ class BuildState:
                     ]
                 else:
                     paths = list(state.package.iter_check_wheel(state, PurePath()))
-                if expand:
-                    source_paths = ()
-                    if not sdist:
-                        source_paths = list(state.package.iter_check_sdist(state, PurePath()))
-                        source_paths = [
-                            PurePath(os.path.relpath(p, state.source_dir)) if p.is_absolute() else p
-                            for p in source_paths
-                        ]
-                        source_paths = list(_expand_check_paths(
-                            source_paths, state.source_dir,
-                        ))
-                    paths = list(_expand_check_paths(
-                        paths, state.source_dir, source_paths,
-                    ))
                 if (sdist and list_sdist) or (not sdist and list_wheel):
                     if not sdist and list_sdist:
                         print()
@@ -371,8 +310,6 @@ class BuildState:
         if not getattr(self, "check_expand", False):
             return path
         properties = {
-            "DefaultExtSuffix": self.ext_suffix,
-            "TargetExt": self.ext_suffix,
             "PythonTag": self.python_tag,
             "AbiTag": self.wheel_abi_tag,
             "PlatformTag": self.platform_tag,

@@ -39,11 +39,23 @@ def _recursive_iter(it):
             yield from it
 
 
-def _iter_check_paths(members, method, state, prefix):
+def _iter_check_paths(members, method, state, prefix, source_dir):
     for member in members:
         get_paths = getattr(member, method, None)
         if get_paths is not None:
-            yield from get_paths(state, prefix)
+            previous_source_dir = getattr(state, "_check_source_dir", PurePath())
+            state._check_source_dir = source_dir
+            try:
+                yield from get_paths(state, prefix)
+            finally:
+                state._check_source_dir = previous_source_dir
+
+
+def _iter_check_sdist_paths(members, state, source_dir):
+    for member in members:
+        get_paths = getattr(member, "iter_check_sdist", None)
+        if get_paths is not None:
+            yield from get_paths(state, source_dir)
 
 
 def _include_path(options, key, default=True):
@@ -80,12 +92,13 @@ state.expand_check_path(path) to substitute known properties when
         if self.project_file:
             yield state.expand_check_path(source_dir / self.project_file)
         else:
-            yield from _iter_check_paths(self.members, "iter_check_sdist", state, source_dir)
+            yield from _iter_check_sdist_paths(self.members, state, source_dir)
 
     def iter_check_wheel(self, state, prefix):
         """Yield predicted installed paths, including this package's name."""
+        source_dir = getattr(state, "_check_source_dir", PurePath()) / self.source
         yield from _iter_check_paths(
-            self.members, "iter_check_wheel", state, prefix / self.name,
+            self.members, "iter_check_wheel", state, prefix / self.name, source_dir,
         )
 
     @staticmethod
@@ -290,8 +303,6 @@ Other options will be added to the project as properties.
         "ConfigurationType": "DynamicLibrary",
         "DynamicLibcppLinkage": "false",
     }
-    _check_suffix = "$(TargetExt)"
-
     def __init__(self, name, *members, **options):
         super().__init__(name, *members, **options)
         self.members = [
@@ -307,11 +318,14 @@ Other options will be added to the project as properties.
 
     def iter_check_wheel(self, state, prefix):
         name = self.options.get("TargetName") or self.name
-        suffix = self.options.get("TargetExt", self._check_suffix)
+        suffix = self.options.get("TargetExt", "$(TargetExt)")
         yield state.expand_check_path(prefix / f"{name}{suffix}")
+        source_dir = getattr(state, "_check_source_dir", PurePath()) / self.source
         for member in self.members:
             path = prefix if isinstance(member, CProject) else prefix / self.name
-            yield from _iter_check_paths((member,), "iter_check_wheel", state, path)
+            yield from _iter_check_paths(
+                (member,), "iter_check_wheel", state, path, source_dir,
+            )
 
 
     class DefaultToolsetProps(ImportGroup):
@@ -426,7 +440,27 @@ Other options will be added to the project as properties.
         "LinkCompiled": "true",
         "OutputType": "library",
     }
-    _check_suffix = "$(DefaultExtSuffix)"
+    def iter_check_wheel(self, state, prefix):
+        name = self.options.get("TargetName") or self.name
+        suffix = self.options.get("TargetExt")
+        if suffix is None:
+            suffix = (
+                state.ext_suffix
+                if getattr(state, "check_expand", False)
+                else "$(DefaultExtSuffix)"
+            )
+        elif (
+            getattr(state, "check_expand", False)
+            and suffix in {"$(TargetExt)", "$(DefaultExtSuffix)"}
+        ):
+            suffix = state.ext_suffix
+        yield state.expand_check_path(prefix / f"{name}{suffix}")
+        source_dir = getattr(state, "_check_source_dir", PurePath()) / self.source
+        for member in self.members:
+            path = prefix if isinstance(member, CProject) else prefix / self.name
+            yield from _iter_check_paths(
+                (member,), "iter_check_wheel", state, path, source_dir,
+            )
 
 
 class VersionInfo:
@@ -682,35 +716,57 @@ project treats "Content" elements.
 
     def iter_check_sdist(self, state, source_dir):
         if _include_path(self.options, "IncludeInSdist"):
-            yield state.expand_check_path(source_dir / self.source)
+            path = source_dir / self.source
+            if getattr(state, "check_expand", False) and "$(" not in str(path):
+                from ._generate import _iter_file_paths
+                yield from (
+                    p for _, p in _iter_file_paths(
+                        source_dir / self.name, state.source_dir / source_dir, self,
+                        include_condition=False,
+                    )
+                )
+            else:
+                yield state.expand_check_path(path)
 
     def iter_check_wheel(self, state, prefix):
         if not _include_path(self.options, "IncludeInWheel"):
             return
-        name = prefix / self.name
-        parts = self.source.parts
-        for i, part in enumerate(parts):
-            if "*" in part or "?" in part:
-                filename = self.source.name if "*" in self.source.name or "?" in self.source.name else name.name
-                name = name.parent / PurePath(*parts[i:-1]) / filename
-                break
-        if isinstance(self.options.get("Name"), str):
-            name = name.with_name(self.options["Name"])
-        flatten = self.options.get("flatten")
-        if flatten is True:
-            name = PurePath(name.name)
-        elif isinstance(flatten, str):
-            name = PurePath(flatten.join(name.parts))
-        target_dir = self.options.get("TargetDir")
-        if target_dir:
-            name = PurePath(target_dir) / name.name
-        target_name = self.options.get("TargetName")
-        target_ext = self.options.get("TargetExt")
-        if target_name or target_ext:
-            name = name.with_name(f"{target_name or name.stem}{target_ext or name.suffix}")
-        if _include_path(self.options, "IncludeInDistinfo", False):
-            name = PurePath("$(DistinfoDir)") / name
-        yield state.expand_check_path(name)
+        source_dir = state.source_dir / getattr(state, "_check_source_dir", PurePath())
+        if getattr(state, "check_expand", False) and "$(" not in str(self.source):
+            from ._generate import _iter_file_paths
+            paths = _iter_file_paths(prefix / self.name, source_dir, self)
+        else:
+            name = prefix / self.name
+            parts = self.source.parts
+            for i, part in enumerate(parts):
+                if "*" in part or "?" in part:
+                    filename = (
+                        self.source.name
+                        if "*" in self.source.name or "?" in self.source.name
+                        else name.name
+                    )
+                    name = name.parent / PurePath(*parts[i:-1]) / filename
+                    break
+            new_name = self.options.get("Name")
+            if isinstance(new_name, str):
+                name = name.with_name(new_name)
+            flatten = self.options.get("flatten")
+            if flatten is True:
+                name = PurePath(name.name)
+            elif isinstance(flatten, str):
+                name = PurePath(flatten.join(name.parts))
+            paths = ((name, None),)
+        for name, _ in paths:
+            target_dir = self.options.get("TargetDir")
+            if target_dir:
+                name = PurePath(target_dir) / name.name
+            target_name = self.options.get("TargetName")
+            target_ext = self.options.get("TargetExt")
+            if target_name or target_ext:
+                name = name.with_name(f"{target_name or name.stem}{target_ext or name.suffix}")
+            if _include_path(self.options, "IncludeInDistinfo", False):
+                name = PurePath("$(DistinfoDir)") / name
+            yield state.expand_check_path(name)
 
 
 class PyFile(File):
