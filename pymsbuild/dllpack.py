@@ -1,4 +1,8 @@
+from pathlib import PurePath
+
 from pymsbuild._types import *
+from pymsbuild._types import _iter_check_paths
+
 
 class DllPackage(PydFile):
     r"""Represents a DLL-packed package.
@@ -24,6 +28,43 @@ Add `Function` elements to link """
             project_file=project_file,
             **options
         )
+
+    def iter_check_wheel(self, state, prefix):
+        name = self.options.get("TargetName") or self.name
+        suffix = self.options.get("TargetExt")
+        if suffix is None:
+            suffix = (
+                state.ext_suffix
+                if getattr(state, "check_expand", False)
+                else "$(DefaultExtSuffix)"
+            )
+        elif (
+            getattr(state, "check_expand", False)
+            and suffix in {"$(TargetExt)", "$(DefaultExtSuffix)"}
+        ):
+            suffix = state.ext_suffix
+        yield state.expand_check_path(prefix / f"{name}{suffix}")
+        source_dir = getattr(state, "_check_source_dir", PurePath()) / self.source
+        yield from self._iter_redirects(
+            state, self.members, prefix, prefix / self.name, source_dir,
+        )
+
+    @classmethod
+    def _iter_redirects(cls, state, members, prefix, content_prefix, source_dir):
+        for member in members:
+            if isinstance(member, CProject):
+                yield from _iter_check_paths(
+                    (member,), "iter_check_wheel", state, prefix, source_dir,
+                )
+            elif isinstance(member, PydRedirect):
+                yield from _iter_check_paths(
+                    (member,), "iter_check_wheel", state, content_prefix, source_dir,
+                )
+            elif isinstance(member, Package):
+                yield from cls._iter_redirects(
+                    state, member.members, prefix / member.name, content_prefix / member.name,
+                    source_dir / member.source,
+                )
 
 
 class CFunction:

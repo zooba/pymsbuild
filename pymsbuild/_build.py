@@ -125,7 +125,7 @@ class BuildState:
         self.python_includes = None
         self.python_libs = None
 
-    def finalize_metadata(self, getenv=os.getenv, sdist=False, in_place=False):
+    def finalize_metadata(self, getenv=os.getenv, sdist=False, in_place=False, *, require_msbuild=True):
         if self._finalized:
             return
         self._finalized = True
@@ -179,7 +179,7 @@ class BuildState:
             raise RuntimeError("failed to locate METADATA")
 
         self._set_best("msbuild_exe", None, "MSBUILD", None, getenv)
-        if self.msbuild_exe is None:
+        if self.msbuild_exe is None and require_msbuild:
             self.msbuild_exe = locate_msbuild()
         if isinstance(self.msbuild_exe, str):
             if Path(self.msbuild_exe).is_file():
@@ -259,8 +259,8 @@ class BuildState:
 
         type(self).current = None
 
-    def finalize(self, getenv=os.getenv, sdist=False, in_place=False):
-        self.finalize_metadata(getenv, sdist, in_place)
+    def finalize(self, getenv=os.getenv, sdist=False, in_place=False, *, require_msbuild=True):
+        self.finalize_metadata(getenv, sdist, in_place, require_msbuild=require_msbuild)
 
         if self.package is None:
             type(self).current = self
@@ -270,6 +270,57 @@ class BuildState:
                 pack = self.config.init_PACKAGE(None if sdist else str(self.wheel_tag))
             self.package = pack or self.config.PACKAGE
             type(self).current = None
+
+    def check(self, *, list_sdist=False, list_wheel=False, expand=False):
+        from copy import copy
+        from ._types import _Project
+
+        # Separate states let each package hook see the appropriate distribution tag.
+        states = [(copy(self), True)] if list_sdist or not list_wheel else []
+        if list_wheel:
+            states.append((copy(self), False))
+        for state, sdist in states:
+            try:
+                state.check_expand = expand
+                state.finalize(sdist=sdist, require_msbuild=False)
+                if not isinstance(state.package, _Project):
+                    raise TypeError("PACKAGE must be a Package or CProject")
+                if sdist:
+                    paths = list(state.package.iter_check_sdist(state, PurePath()))
+                    paths.insert(0, PurePath(state.config_file))
+                    if (state.source_dir / "pyproject.toml").is_file():
+                        paths.append(PurePath("pyproject.toml"))
+                    paths = [
+                        PurePath(os.path.relpath(p, state.source_dir)) if p.is_absolute() else p
+                        for p in paths
+                    ]
+                else:
+                    paths = list(state.package.iter_check_wheel(state, PurePath()))
+                if (sdist and list_sdist) or (not sdist and list_wheel):
+                    if not sdist and list_sdist:
+                        print()
+                    print("# Sdist files" if sdist else "# Wheel files")
+                    for path in dict.fromkeys(paths):
+                        print(path)
+            finally:
+                type(self).current = None
+
+    def expand_check_path(self, path):
+        path = PurePath(path)
+        if not getattr(self, "check_expand", False):
+            return path
+        properties = {
+            "PythonTag": self.python_tag,
+            "AbiTag": self.wheel_abi_tag,
+            "PlatformTag": self.platform_tag,
+            "TargetPythonVersion": self.target_python_version,
+            "PythonAbi": self.abi_only,
+        }
+        path = str(path)
+        for name, value in properties.items():
+            if value is not None:
+                path = path.replace(f"$({name})", str(value))
+        return PurePath(path)
 
     def _set_best(self, key, metakey, envkey, default, getenv):
         if getattr(self, key, None):
