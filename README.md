@@ -153,27 +153,13 @@ python -m pymsbuild clean
 ### Check the configuration without building
 
 ```
-python -m pymsbuild check
-python -m pymsbuild check --list-sdist
-python -m pymsbuild check --list-wheel
+python -m pymsbuild check [--list-sdist] [--list-wheel]
 ```
 
-`check` loads your metadata and package definition, but does not look for
-MSBuild, generate project files, or build anything. If it succeeds, it prints
-nothing and exits with code 0. If it fails, it prints the error and exits with
-code 1. Your configuration code and dynamic hooks still run, as they would for
-an sdist build. With `--list-wheel`, hooks run in wheel mode, so you may need
-to install your wheel build dependencies.
-
-Use `--list-sdist` to list source paths relative to the project root, including
-the configuration file and `pyproject.toml` if it exists. Use `--list-wheel`
-to list where files would be installed according to your package definition.
-You can use both options together. Lists start with `# Sdist files` or
-`# Wheel files`, with a blank line between them when both are requested.
-Each list shows a path only once and leaves out generated distribution metadata.
-Wildcards and MSBuild properties are left
-as written; conditions and removal rules are ignored. The command does not
-check whether source files exist or whether the project will compile.
+Use `python -m pymsbuild check` to check that your configuration has no obvious
+errors. Add `--list-sdist` or `--list-wheel` to print predicted source or
+installed file paths; these listings do not expand wildcards or
+platform-specific MSBuild properties.
 
 ### CLI options
 
