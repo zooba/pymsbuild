@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import sys
 
+from importlib.machinery import EXTENSION_SUFFIXES
 from pathlib import Path, PurePath
 from types import SimpleNamespace
 
@@ -95,6 +96,39 @@ def test_check_cli(sample, args, expected):
     )
     assert not (sample / "build").exists()
     assert not list(sample.rglob("*.proj"))
+
+
+def test_check_expand_cli(sample):
+    result = run_check(sample, "--list-wheel", "--expand")
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    assert "$(DefaultExtSuffix)" not in result.stdout
+    assert "cross_compile_sample/_native" in result.stdout
+
+
+def test_check_expands_wildcards_and_properties(tmp_path, capsys):
+    source = tmp_path / "source"
+    (source / "src" / "pkg" / "sub").mkdir(parents=True)
+    (source / "_msbuild.py").write_text("")
+    (source / "src" / "pkg" / "a.py").write_text("")
+    (source / "src" / "pkg" / "sub" / "b.py").write_text("")
+    state = BuildState()
+    state.source_dir = source
+    state.config = SimpleNamespace(
+        METADATA={"Name": "sample", "Version": "1.0"},
+        PACKAGE=Package("pkg", PyFile("**/*.py"), PydFile("_native"), source="src/pkg"),
+    )
+
+    state.check(list_sdist=True, list_wheel=True, expand=True)
+    out, err = capsys.readouterr()
+    assert err == ""
+    paths = set(out.splitlines())
+    native = next(p for p in paths if p.startswith("pkg/_native"))
+    assert paths == {
+        "# Sdist files", "_msbuild.py", "src/pkg/a.py", "src/pkg/sub/b.py", "",
+        "# Wheel files", "pkg/a.py", "pkg/sub/b.py",
+    } | {native}
+    assert native.endswith(tuple(EXTENSION_SUFFIXES))
 
 
 @pytest.mark.parametrize("config, message", [

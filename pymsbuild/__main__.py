@@ -96,6 +96,10 @@ def parse_args(commands):
         "--list-wheel", action="store_true",
         help="With 'check', list predicted wheel paths from the package definition.",
     )
+    parser.add_argument(
+        "--expand", action="store_true",
+        help="With 'check', expand wildcards and known platform-specific properties.",
+    )
     cmd_help_1 = ", ".join(f"'{k}'" for k, (f, doc) in commands.items() if doc)
     cmd_help_2 = "\n".join(f"{k}: {doc}" for k, (f, doc) in commands.items() if doc)
     parser.add_argument(
@@ -140,7 +144,10 @@ for k, v in _get_extension_commands():
 ns = parse_args(COMMANDS)
 if ns.command == "check":
     f, doc = COMMANDS["check"]
-    COMMANDS["check"] = (partial(f, list_sdist=ns.list_sdist, list_wheel=ns.list_wheel), doc)
+    COMMANDS["check"] = (
+        partial(f, list_sdist=ns.list_sdist, list_wheel=ns.list_wheel, expand=ns.expand),
+        doc,
+    )
 
 
 if ns.verbose:

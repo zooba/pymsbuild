@@ -153,13 +153,14 @@ python -m pymsbuild clean
 ### Check the configuration without building
 
 ```
-python -m pymsbuild check [--list-sdist] [--list-wheel]
+python -m pymsbuild check [--list-sdist] [--list-wheel] [--expand]
 ```
 
 Use `python -m pymsbuild check` to check that your configuration has no obvious
 errors. Add `--list-sdist` or `--list-wheel` to print predicted source or
-installed file paths; these listings do not expand wildcards or
-platform-specific MSBuild properties.
+installed file paths. Add `--expand` to expand matching wildcards and estimate
+known platform-specific MSBuild properties, such as extension suffixes, for
+the current platform.
 
 ### CLI options
 
