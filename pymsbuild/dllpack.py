@@ -25,22 +25,22 @@ Add `Function` elements to link """
             **options
         )
 
-    def iter_wheel(self, prefix):
+    def iter_check_wheel(self, state, prefix):
         name = self.options.get("TargetName") or self.name
         suffix = self.options.get("TargetExt", self._check_suffix)
-        yield prefix / f"{name}{suffix}"
-        yield from self._iter_redirects(self.members, prefix, prefix / self.name)
+        yield state.expand_check_path(prefix / f"{name}{suffix}")
+        yield from self._iter_redirects(state, self.members, prefix, prefix / self.name)
 
     @classmethod
-    def _iter_redirects(cls, members, prefix, content_prefix):
+    def _iter_redirects(cls, state, members, prefix, content_prefix):
         for member in members:
             if isinstance(member, CProject):
-                yield from member.iter_wheel(prefix)
+                yield from member.iter_check_wheel(state, prefix)
             elif isinstance(member, PydRedirect):
-                yield from member.iter_wheel(content_prefix)
+                yield from member.iter_check_wheel(state, content_prefix)
             elif isinstance(member, Package):
                 yield from cls._iter_redirects(
-                    member.members, prefix / member.name, content_prefix / member.name,
+                    state, member.members, prefix / member.name, content_prefix / member.name,
                 )
 
 

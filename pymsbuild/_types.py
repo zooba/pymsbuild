@@ -39,11 +39,11 @@ def _recursive_iter(it):
             yield from it
 
 
-def _iter_paths(members, method, prefix):
+def _iter_check_paths(members, method, state, prefix):
     for member in members:
         get_paths = getattr(member, method, None)
         if get_paths is not None:
-            yield from get_paths(prefix)
+            yield from get_paths(state, prefix)
 
 
 def _include_path(options, key, default=True):
@@ -65,23 +65,28 @@ class _Project:
     def __iter__(self):
         return _recursive_iter(self.members)
 
-    def iter_sdist(self, source_dir):
+    def iter_check_sdist(self, state, source_dir):
         """Yield source paths for 'check', relative to the project root.
 
-Members may implement iter_sdist(source_dir) and iter_wheel(prefix) to
-override predictions. Arguments and yielded paths are PurePath objects.
+Members may implement iter_check_sdist(state, source_dir) and
+iter_check_wheel(state, prefix) to override predictions. Arguments and
+yielded paths are PurePath objects.
 Each method owns recursion into its members. Members without a method
-are ignored. Wildcards, properties and conditions are not evaluated.
+are ignored. Wildcards and conditions are not evaluated. Use
+state.expand_check_path(path) to substitute known properties when
+`check --expand` is enabled.
 """
         source_dir = source_dir / self.source
         if self.project_file:
-            yield source_dir / self.project_file
+            yield state.expand_check_path(source_dir / self.project_file)
         else:
-            yield from _iter_paths(self.members, "iter_sdist", source_dir)
+            yield from _iter_check_paths(self.members, "iter_check_sdist", state, source_dir)
 
-    def iter_wheel(self, prefix):
+    def iter_check_wheel(self, state, prefix):
         """Yield predicted installed paths, including this package's name."""
-        yield from _iter_paths(self.members, "iter_wheel", prefix / self.name)
+        yield from _iter_check_paths(
+            self.members, "iter_check_wheel", state, prefix / self.name,
+        )
 
     @staticmethod
     def _match_item(o, key):
@@ -300,13 +305,13 @@ Other options will be added to the project as properties.
             self.ToolsetTargets(),
         ]
 
-    def iter_wheel(self, prefix):
+    def iter_check_wheel(self, state, prefix):
         name = self.options.get("TargetName") or self.name
         suffix = self.options.get("TargetExt", self._check_suffix)
-        yield prefix / f"{name}{suffix}"
+        yield state.expand_check_path(prefix / f"{name}{suffix}")
         for member in self.members:
             path = prefix if isinstance(member, CProject) else prefix / self.name
-            yield from _iter_paths((member,), "iter_wheel", path)
+            yield from _iter_check_paths((member,), "iter_check_wheel", state, path)
 
 
     class DefaultToolsetProps(ImportGroup):
@@ -675,11 +680,11 @@ project treats "Content" elements.
         self.condition = condition
         return self
 
-    def iter_sdist(self, source_dir):
+    def iter_check_sdist(self, state, source_dir):
         if _include_path(self.options, "IncludeInSdist"):
-            yield source_dir / self.source
+            yield state.expand_check_path(source_dir / self.source)
 
-    def iter_wheel(self, prefix):
+    def iter_check_wheel(self, state, prefix):
         if not _include_path(self.options, "IncludeInWheel"):
             return
         name = prefix / self.name
@@ -705,7 +710,7 @@ project treats "Content" elements.
             name = name.with_name(f"{target_name or name.stem}{target_ext or name.suffix}")
         if _include_path(self.options, "IncludeInDistinfo", False):
             name = PurePath("$(DistinfoDir)") / name
-        yield name
+        yield state.expand_check_path(name)
 
 
 class PyFile(File):
@@ -808,10 +813,10 @@ a string or the type object, but is not used.
             Kind=getattr(kind, "_ITEMNAME", None) or str(kind),
         )
 
-    def iter_sdist(self, source_dir):
+    def iter_check_sdist(self, state, source_dir):
         return iter(())
 
-    def iter_wheel(self, prefix):
+    def iter_check_wheel(self, state, prefix):
         return iter(())
 
 class Midl(File):
@@ -868,9 +873,9 @@ generated pyproject.toml, or include the original using a SourceFile.
         self.options = options
         self._content = content
 
-    def iter_sdist(self, source_dir):
+    def iter_check_sdist(self, state, source_dir):
         if self.source:
-            yield source_dir / self.source
+            yield state.expand_check_path(source_dir / self.source)
 
     @classmethod
     def _email_format(cls, a):

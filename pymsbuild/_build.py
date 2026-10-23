@@ -94,15 +94,9 @@ def _check_path_matches(path, pattern):
     return re.match("".join(regex), path) is not None
 
 
-def _expand_check_paths(paths, source_dir, ext_suffix, source_paths=()):
+def _expand_check_paths(paths, source_dir, source_paths=()):
     for path in paths:
         path = PurePath(path)
-        if ext_suffix:
-            path = PurePath(
-                str(path)
-                .replace("$(DefaultExtSuffix)", str(ext_suffix))
-                .replace("$(TargetExt)", str(ext_suffix))
-            )
         path_str = str(path)
         if path.is_absolute() or "$(" in path_str or not any(c in path_str for c in "*?"):
             yield path
@@ -334,11 +328,12 @@ class BuildState:
             states.append((copy(self), False))
         for state, sdist in states:
             try:
+                state.check_expand = expand
                 state.finalize(sdist=sdist, require_msbuild=False)
                 if not isinstance(state.package, _Project):
                     raise TypeError("PACKAGE must be a Package or CProject")
                 if sdist:
-                    paths = list(state.package.iter_sdist(PurePath()))
+                    paths = list(state.package.iter_check_sdist(state, PurePath()))
                     paths.insert(0, PurePath(state.config_file))
                     if (state.source_dir / "pyproject.toml").is_file():
                         paths.append(PurePath("pyproject.toml"))
@@ -347,20 +342,20 @@ class BuildState:
                         for p in paths
                     ]
                 else:
-                    paths = list(state.package.iter_wheel(PurePath()))
+                    paths = list(state.package.iter_check_wheel(state, PurePath()))
                 if expand:
                     source_paths = ()
                     if not sdist:
-                        source_paths = list(state.package.iter_sdist(PurePath()))
+                        source_paths = list(state.package.iter_check_sdist(state, PurePath()))
                         source_paths = [
                             PurePath(os.path.relpath(p, state.source_dir)) if p.is_absolute() else p
                             for p in source_paths
                         ]
                         source_paths = list(_expand_check_paths(
-                            source_paths, state.source_dir, state.ext_suffix,
+                            source_paths, state.source_dir,
                         ))
                     paths = list(_expand_check_paths(
-                        paths, state.source_dir, state.ext_suffix, source_paths,
+                        paths, state.source_dir, source_paths,
                     ))
                 if (sdist and list_sdist) or (not sdist and list_wheel):
                     if not sdist and list_sdist:
@@ -370,6 +365,25 @@ class BuildState:
                         print(path)
             finally:
                 type(self).current = None
+
+    def expand_check_path(self, path):
+        path = PurePath(path)
+        if not getattr(self, "check_expand", False):
+            return path
+        properties = {
+            "DefaultExtSuffix": self.ext_suffix,
+            "TargetExt": self.ext_suffix,
+            "PythonTag": self.python_tag,
+            "AbiTag": self.wheel_abi_tag,
+            "PlatformTag": self.platform_tag,
+            "TargetPythonVersion": self.target_python_version,
+            "PythonAbi": self.abi_only,
+        }
+        path = str(path)
+        for name, value in properties.items():
+            if value is not None:
+                path = path.replace(f"$({name})", str(value))
+        return PurePath(path)
 
     def _set_best(self, key, metakey, envkey, default, getenv):
         if getattr(self, key, None):

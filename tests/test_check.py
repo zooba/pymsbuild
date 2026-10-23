@@ -131,6 +131,24 @@ def test_check_expands_wildcards_and_properties(tmp_path, capsys):
     assert native.endswith(tuple(EXTENSION_SUFFIXES))
 
 
+def test_check_member_hook_expands_with_build_state(tmp_path, capsys):
+    class CustomMember:
+        def iter_check_wheel(self, state, prefix):
+            yield state.expand_check_path(prefix / "custom$(DefaultExtSuffix)")
+
+    state = BuildState()
+    state.source_dir = tmp_path
+    state.config = SimpleNamespace(
+        METADATA={"Name": "sample", "Version": "1.0"},
+        PACKAGE=Package("pkg", CustomMember()),
+    )
+    state.check(list_wheel=True, expand=True)
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert out.startswith("# Wheel files\npkg/custom")
+    assert out.splitlines()[1].endswith(tuple(EXTENSION_SUFFIXES))
+
+
 @pytest.mark.parametrize("config, message", [
     ("missing.py", "does not exist"),
     ("_msbuild.py", "config failure"),
@@ -147,10 +165,12 @@ def test_check_failure(sample, config, message):
 
 def test_check_paths_and_hooks(sample, capsys):
     class CustomMember:
-        def iter_sdist(self, source_dir):
+        def iter_check_sdist(self, state, source_dir):
+            assert isinstance(state, BuildState)
             yield source_dir / "custom.input"
 
-        def iter_wheel(self, prefix):
+        def iter_check_wheel(self, state, prefix):
+            assert isinstance(state, BuildState)
             yield prefix / "custom.output"
 
     tags = []
@@ -197,6 +217,7 @@ def test_dllpackage_wheel_paths():
         Package("sub", PyFile("module.py")),
         PydFile("_native", TargetExt=".pyd"),
     )
-    assert list(package.iter_wheel(PurePath())) == [
+    state = BuildState()
+    assert list(package.iter_check_wheel(state, PurePath())) == [
         PurePath("packed$(DefaultExtSuffix)"), PurePath("_native.pyd"),
     ]
