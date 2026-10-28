@@ -102,8 +102,9 @@ def test_check_expand_cli(sample):
     result = run_check(sample, "--list-wheel", "--expand")
     assert result.returncode == 0, result.stderr
     assert result.stderr == ""
-    assert "$(DefaultExtSuffix)" not in result.stdout
-    assert "cross_compile_sample/_native" in result.stdout
+    stdout = result.stdout.replace("\\", "/")
+    assert "$(DefaultExtSuffix)" not in stdout
+    assert "cross_compile_sample/_native" in stdout
 
 
 def test_check_expands_wildcards_and_properties(tmp_path, capsys):
@@ -122,6 +123,7 @@ def test_check_expands_wildcards_and_properties(tmp_path, capsys):
     state.check(list_sdist=True, list_wheel=True, expand=True)
     out, err = capsys.readouterr()
     assert err == ""
+    out = out.replace("\\", "/")
     paths = set(out.splitlines())
     native = next(p for p in paths if p.startswith("pkg/_native"))
     assert paths == {
@@ -146,6 +148,7 @@ def test_check_member_hook_expands_with_build_state(tmp_path, capsys):
     state.check(list_wheel=True, expand=True)
     out, err = capsys.readouterr()
     assert err == ""
+    out = out.replace("\\", "/")
     assert out.startswith("# Wheel files\npkg/custom")
     assert out.splitlines()[1].endswith(tuple(EXTENSION_SUFFIXES))
 
