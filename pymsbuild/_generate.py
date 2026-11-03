@@ -122,14 +122,11 @@ def _all_members(item, recurse_if=None, return_if=None, *, prefix="", make_prefi
             )
 
 
-def _write_file_with_wildcards(f, source_dir, name, item):
-    wrote_any = bool(item.options.get("allow_none"))
+def _iter_file_paths(name, source_dir, item, *, include_condition=True):
     flat_char = item.options.get("flatten")
     new_name = item.options.get("Name")
     exclude = ()
-    condition = None
     if getattr(item, "has_condition", False):
-        condition = getattr(item, "condition", None)
         patterns = (getattr(item, "exclude", None) or "").split(os.pathsep)
         exclude = set()
         for pattern in patterns:
@@ -143,6 +140,19 @@ def _write_file_with_wildcards(f, source_dir, name, item):
             n2 = n2.parts[-1]
         elif isinstance(flat_char, str):
             n2 = flat_char.join(n2.parts)
+        if (
+            include_condition
+            and getattr(item, "has_condition", False)
+            and getattr(item, "condition", None)
+        ):
+            p2 = ConditionalValue(p2, condition=item.condition)
+        yield n2, p2
+
+
+def _write_file_with_wildcards(f, source_dir, name, item):
+    wrote_any = bool(item.options.get("allow_none"))
+    new_name = item.options.get("Name")
+    for n2, p2 in _iter_file_paths(name, source_dir, item):
         options = {
             "SourceDir": source_dir,
             **item.options,
@@ -152,8 +162,6 @@ def _write_file_with_wildcards(f, source_dir, name, item):
         }
         if new_name is not None and not isinstance(new_name, str):
             options["Name"] = new_name
-        if condition:
-            p2 = ConditionalValue(p2, condition=condition)
         f.add_item(item._ITEMNAME, p2, **options)
         wrote_any = True
     if not wrote_any:

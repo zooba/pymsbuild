@@ -150,6 +150,18 @@ Output is put into `dist` by default, but can be overridden with `--dist-dir`
 python -m pymsbuild clean
 ```
 
+### Check the configuration without building
+
+```
+python -m pymsbuild check [--list-sdist] [--list-wheel] [--expand]
+```
+
+Use `python -m pymsbuild check` to check that your configuration has no obvious
+errors. Add `--list-sdist` or `--list-wheel` to print predicted source or
+installed file paths. Add `--expand` to expand matching wildcards and estimate
+known platform-specific MSBuild properties, such as extension suffixes, for
+the current platform.
+
 ### CLI options
 
 This is a summary of the supported options and environment variables:
@@ -162,6 +174,8 @@ This is a summary of the supported options and environment variables:
 * `-f`, `--force`, `%PYMSBUILD_FORCE%`: force a full rebuild
 * `-v`, `--verbose`, `%PYMSBUILD_VERBOSE%`: enable additional output
 * `-q`, `--quiet`, `%PYMSBUILD_QUIET%`: reduced output
+* `--list-sdist`: with `check`, print predicted sdist source paths
+* `--list-wheel`: with `check`, print predicted installed wheel paths
 * `--layout-dir`, `%PYMSBUILD_LAYOUT_DIR%`: specify the layout directory and
   enable two-step building (the command will not complete until you run a second
   `pack` step)
